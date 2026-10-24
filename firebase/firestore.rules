@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Catalog reads for the field guide. No client writes.
+    match /species/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /translations/{lang}/species/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /headers/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /catalog/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /labels/{lang}/species/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /synonyms/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /search/{lang}/names/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /taxonomy/{lang}/taxa/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /meta/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

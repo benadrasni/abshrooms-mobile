@@ -1,0 +1,675 @@
+{
+  "Boletus edulis": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-22"
+  },
+  "Amanita muscaria": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "red",
+      "yellow"
+    ],
+    "added": "2026-10-22"
+  },
+  "Cantharellus cibarius": {
+    "hymenium": "ridges",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow"
+    ],
+    "added": "2026-10-22"
+  },
+  "Boletus reticulatus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-22"
+  },
+  "Macrolepiota procera": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "brown",
+      "white"
+    ],
+    "added": "2026-10-23"
+  },
+  "Amanita phalloides": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "green",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Amanita pantherina": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Morchella esculenta": {
+    "hymenium": "pits",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Pleurotus ostreatus": {
+    "hymenium": "gills",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-23"
+  },
+  "Laetiporus sulphureus": {
+    "hymenium": "tubes",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "yellow"
+    ],
+    "added": "2026-10-23"
+  },
+  "Imleria badia": {
+    "hymenium": "tubes",
+    "where": [
+      "ground",
+      "wood"
+    ],
+    "color": [
+      "brown",
+      "red"
+    ],
+    "added": "2026-10-23"
+  },
+  "Armillaria mellea": {
+    "hymenium": "gills",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Coprinus comatus": {
+    "hymenium": "gills",
+    "where": [
+      "grass"
+    ],
+    "color": [
+      "white",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Gyromitra esculenta": {
+    "hymenium": "smooth",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown",
+      "red"
+    ],
+    "added": "2026-10-23"
+  },
+  "Amanita rubescens": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "red",
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-23"
+  },
+  "Hypholoma fasciculare": {
+    "hymenium": "gills",
+    "where": [
+      "wood",
+      "grass"
+    ],
+    "color": [
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Agaricus campestris": {
+    "hymenium": "gills",
+    "where": [
+      "grass"
+    ],
+    "color": [
+      "white"
+    ],
+    "added": "2026-10-23"
+  },
+  "Leccinum scabrum": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-23"
+  },
+  "Suillus luteus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Lactarius deliciosus": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "red"
+    ],
+    "added": "2026-10-23"
+  },
+  "Amanita virosa": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white"
+    ],
+    "added": "2026-10-23"
+  },
+  "Rubroboletus satanas": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "green",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Cortinarius rubellus": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown",
+      "yellow"
+    ],
+    "added": "2026-10-23"
+  },
+  "Craterellus cornucopioides": {
+    "hymenium": "smooth",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "dark",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Fistulina hepatica": {
+    "hymenium": "tubes",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "red",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Neoboletus luridiformis": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Calocybe gambosa": {
+    "hymenium": "gills",
+    "where": [
+      "grass",
+      "ground"
+    ],
+    "color": [
+      "white",
+      "yellow"
+    ],
+    "added": "2026-10-23"
+  },
+  "Inosperma erubescens": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "white",
+      "red"
+    ],
+    "added": "2026-10-23"
+  },
+  "Hydnum repandum": {
+    "hymenium": "teeth",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "yellow"
+    ],
+    "added": "2026-10-23"
+  },
+  "Sarcodon imbricatus": {
+    "hymenium": "teeth",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Russula cyanoxantha": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "purple",
+      "green",
+      "dark",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Kuehneromyces mutabilis": {
+    "hymenium": "gills",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Galerina marginata": {
+    "hymenium": "gills",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Sparassis crispa": {
+    "hymenium": "smooth",
+    "where": [
+      "wood",
+      "ground"
+    ],
+    "color": [
+      "white",
+      "yellow"
+    ],
+    "added": "2026-10-23"
+  },
+  "Paxillus involutus": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass",
+      "wood"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Lepista nuda": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "purple",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Artomyces pyxidatus": {
+    "hymenium": "smooth",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-23"
+  },
+  "Polyporus umbellatus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground",
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-23"
+  },
+  "Leccinum albostipitatum": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "red"
+    ],
+    "added": "2026-10-23"
+  },
+  "Hygrophoropsis aurantiaca": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "wood"
+    ],
+    "color": [
+      "yellow"
+    ],
+    "added": "2026-10-24"
+  },
+  "Entoloma sinuatum": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Phallus impudicus": {
+    "hymenium": "gleba",
+    "where": [
+      "ground",
+      "wood",
+      "grass"
+    ],
+    "color": [
+      "white",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Fomes fomentarius": {
+    "hymenium": "tubes",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Auricularia auricula-judae": {
+    "hymenium": "smooth",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Tylopilus felleus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown"
+    ],
+    "added": "2026-10-24"
+  },
+  "Chlorophyllum rhacodes": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "brown",
+      "white"
+    ],
+    "added": "2026-10-24"
+  },
+  "Russula emetica": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "red"
+    ],
+    "added": "2026-10-24"
+  },
+  "Tricholoma equestre": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-24"
+  },
+  "Lycoperdon perlatum": {
+    "hymenium": "gleba",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "white",
+      "brown"
+    ],
+    "added": "2026-10-24"
+  },
+  "Leccinum aurantiacum": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "red"
+    ],
+    "added": "2026-10-24"
+  },
+  "Amanita citrina": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "white",
+      "green"
+    ],
+    "added": "2026-10-24"
+  },
+  "Tricholoma pardinum": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Calvatia gigantea": {
+    "hymenium": "gleba",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "white",
+      "brown"
+    ],
+    "added": "2026-10-24"
+  },
+  "Clitocybe nebularis": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "dark",
+      "brown",
+      "white"
+    ],
+    "added": "2026-10-24"
+  },
+  "Trametes versicolor": {
+    "hymenium": "tubes",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "red",
+      "brown",
+      "green",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Boletus pinophilus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown",
+      "red"
+    ],
+    "added": "2026-10-24"
+  },
+  "Caloboletus calopus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Xerocomus subtomentosus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "brown",
+      "red"
+    ],
+    "added": "2026-10-24"
+  },
+  "Leccinum versipelle": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "yellow",
+      "brown",
+      "red",
+      "white"
+    ],
+    "added": "2026-10-24"
+  }
+}
