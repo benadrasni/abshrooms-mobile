@@ -7,7 +7,10 @@ import 'package:whats_that_mushroom/find/strips.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/key_filter.dart';
 import 'package:whats_that_mushroom/key/key_pages.dart';
+import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/person_page.dart';
+import 'package:whats_that_mushroom/purchase/names.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/lists/curated_lists_notice.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -264,36 +267,7 @@ class _CameraCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          for (var i = 0; i < 5; i++) ...[
-                            if (i > 0) const SizedBox(width: 4),
-                            Container(
-                              width: 9,
-                              height: 9,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: onCard,
-                                border: Border.all(color: onCard, width: 1.5),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              copy.cameraFree,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: GuideType.sans,
-                                fontSize: 12,
-                                height: 1.2,
-                                color: onCard.withValues(alpha: 0.9),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      _NameMeter(copy: copy, onCard: onCard),
                     ],
                   ),
                 ),
@@ -318,6 +292,87 @@ class _CameraCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The same allowance as the camera. A guest shows one free name, a
+/// signed-in account shows the month, and Field Guide shows unlimited.
+class _NameMeter extends StatelessWidget {
+  final Copy copy;
+  final Color onCard;
+
+  const _NameMeter({required this.copy, required this.onCard});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        Names.revision,
+        Purchases.revision,
+        Auth.revision,
+      ]),
+      builder: (context, _) {
+        final allowance = Names.allowance(
+          fieldGuide: Purchases.hasFieldGuide(),
+          signedIn: photoAccountSignedIn(),
+        );
+        final style = TextStyle(
+          fontFamily: GuideType.sans,
+          fontSize: 12,
+          height: 1.2,
+          color: onCard.withValues(alpha: 0.9),
+        );
+        if (allowance.unlimited) {
+          return Text(
+            copy.cameraFieldGuide,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          );
+        }
+        if (nameNeedsSignIn(allowance)) {
+          return Text(
+            copy.signInCardTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          );
+        }
+        final freshMonth = !allowance.guest &&
+            allowance.extraUsed == 0 &&
+            allowance.namesLeft >= 5;
+        final label = allowance.guest
+            ? copy.cameraGuestFree
+            : freshMonth
+            ? copy.cameraFree
+            : copy.namesLeft(allowance.namesLeft);
+        return Row(
+          children: [
+            for (var i = 0; i < allowance.dotCount; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < allowance.filledDots ? onCard : Colors.transparent,
+                  border: Border.all(color: onCard, width: 1.5),
+                ),
+              ),
+            ],
+            if (allowance.dotCount > 0) const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

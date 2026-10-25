@@ -4,6 +4,15 @@ import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:image/image.dart' as img;
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/purchase/names.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
+
+/// `identifyMushroom` refused the photo before calling Plant.id.
+class NameRefused implements Exception {
+  final String reason;
+
+  const NameRefused(this.reason);
+}
 
 class NameGuess {
   final String scientificName;
@@ -68,25 +77,85 @@ String confidenceLabel(double probability, Copy copy) {
 }
 
 String cameraFailure(Object error, Copy copy) {
+  if (error is NameRefused) return copy.cameraNeedsAccount;
   if (error is FirebaseFunctionsException) {
     if (error.code == 'unauthenticated') return copy.cameraNeedsAccount;
     if (error.code == 'not-found' || error.code == 'unavailable') {
       return copy.cameraUnavailable;
     }
+    if (error.code == 'resource-exhausted') return copy.cameraNeedsAccount;
   }
   return copy.cameraFailed;
 }
 
-/// The app never holds the Plant.id key. `identifyMushroom` does, in us-central1.
+/// The app never holds the Plant.id key. `identifyMushroom` does, in
+/// us-central1, and it counts the name before Plant.id is called.
 Future<List<NameGuess>> identifyMushroom(
   Uint8List jpeg,
   String language,
 ) async {
   final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
-  final callable = functions.httpsCallable('identifyMushroom');
-  final result = await callable.call<Object?>({
-    'image': base64Encode(jpeg),
-    'language': language,
-  });
-  return guessesFrom(result.data);
+  final callable = functions.httpsCallable(
+    'identifyMushroom',
+    options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
+  );
+  try {
+    final result = await callable.call<Object?>({
+      'image': base64Encode(jpeg),
+      'language': language,
+      'fieldGuide': Purchases.hasFieldGuide(),
+    });
+    _applyQuota(result.data);
+    return guessesFrom(result.data);
+  } on FirebaseFunctionsException catch (error) {
+    if (error.code == 'resource-exhausted') {
+      _applyQuota(error.details);
+      final details = error.details;
+      final reason = details is Map
+          ? details['reason']?.toString() ?? error.message
+          : error.message;
+      throw NameRefused(reason ?? 'sign-in');
+    }
+    rethrow;
+  }
+}
+
+/// One more monthly name after the rewarded ad. False when the month is full
+/// or the account is a guest.
+Future<bool> grantPhotoName() async {
+  final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+  final callable = functions.httpsCallable('grantPhotoName');
+  final result = await callable.call<Object?>();
+  final data = result.data;
+  if (data is! Map) return false;
+  Names.applyServer(
+    signedIn: true,
+    charged: false,
+    anonymousFreeUsed: false,
+    namesUsed: _countOf(data['namesUsed']),
+    adGrants: _countOf(data['adGrants']),
+    fromPhoto: false,
+  );
+  return data['granted'] == true;
+}
+
+void _applyQuota(Object? data) {
+  if (data is! Map) return;
+  if (!data.containsKey('namesUsed') && !data.containsKey('anonymousFreeUsed')) {
+    return;
+  }
+  final guest = data['guest'] == true || !photoAccountSignedIn();
+  Names.applyServer(
+    signedIn: !guest,
+    charged: data['charged'] == true,
+    anonymousFreeUsed: data['anonymousFreeUsed'] == true,
+    namesUsed: _countOf(data['namesUsed']),
+    adGrants: _countOf(data['adGrants']),
+  );
+}
+
+int? _countOf(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return null;
 }

@@ -3,9 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:whats_that_mushroom/ads/ad_consent.dart';
+import 'package:whats_that_mushroom/ads/ad_units.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/field_guide/catalog.dart';
 import 'package:whats_that_mushroom/field_guide/field_guide_page.dart';
+import 'package:whats_that_mushroom/offline/offline_book.dart';
+import 'package:whats_that_mushroom/offline/offline_page.dart';
+import 'package:whats_that_mushroom/offline/offline_plan.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/person/account_deletion.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
@@ -37,6 +43,7 @@ class _PersonPageState extends State<PersonPage> {
   String? _versionName;
   String? _buildNumber;
   var _restoring = false;
+  var _adPrivacy = false;
 
   @override
   void initState() {
@@ -45,6 +52,9 @@ class _PersonPageState extends State<PersonPage> {
     _buildNumber = widget.buildNumber;
     Purchases.revision.addListener(_onPlan);
     Auth.revision.addListener(_onPlan);
+    OfflineBook.revision.addListener(_onPlan);
+    Ads.ready.addListener(_onAdsReady);
+    if (Ads.enabled) unawaited(_loadAdPrivacy());
     if (widget.versionName == null && widget.buildNumber == null) {
       unawaited(_loadVersion());
     }
@@ -54,7 +64,19 @@ class _PersonPageState extends State<PersonPage> {
   void dispose() {
     Purchases.revision.removeListener(_onPlan);
     Auth.revision.removeListener(_onPlan);
+    OfflineBook.revision.removeListener(_onPlan);
+    Ads.ready.removeListener(_onAdsReady);
     super.dispose();
+  }
+
+  void _onAdsReady() {
+    if (Ads.enabled) unawaited(_loadAdPrivacy());
+  }
+
+  Future<void> _loadAdPrivacy() async {
+    final show = await adPrivacyOptionsRequired();
+    if (!mounted || !show || _adPrivacy) return;
+    setState(() => _adPrivacy = true);
   }
 
   void _onPlan() {
@@ -87,9 +109,8 @@ class _PersonPageState extends State<PersonPage> {
     } catch (error) {
       debugPrint('restore: $error');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(copy.restoreFailed)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(copy.restoreFailed)));
     } finally {
       if (mounted) setState(() => _restoring = false);
     }
@@ -107,7 +128,9 @@ class _PersonPageState extends State<PersonPage> {
       version: _versionName ?? '',
       build: _buildNumber ?? '',
     );
-    final account = widget.accountOf == null ? readSignedInAccount() : widget.accountOf!();
+    final account = widget.accountOf == null
+        ? readSignedInAccount()
+        : widget.accountOf!();
     final guide = Purchases.hasFieldGuide();
     final lines = account == null
         ? null
@@ -138,12 +161,16 @@ class _PersonPageState extends State<PersonPage> {
                 note: guide ? copy.fieldGuidePerks : copy.signInFree,
                 onOpen: guide
                     ? () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(builder: (_) => const FieldGuidePage()),
+                        MaterialPageRoute<void>(
+                          builder: (_) => const FieldGuidePage(),
+                        ),
                       )
                     : null,
                 onSignIn: lines == null
                     ? () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(builder: (_) => const SignInPage()),
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SignInPage(),
+                        ),
                       )
                     : null,
               ),
@@ -155,7 +182,9 @@ class _PersonPageState extends State<PersonPage> {
                 title: copy.fieldGuide,
                 subtitle: copy.fieldGuideOffer,
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const FieldGuidePage()),
+                  MaterialPageRoute<void>(
+                    builder: (_) => const FieldGuidePage(),
+                  ),
                 ),
               ),
             _MenuRow(
@@ -175,6 +204,29 @@ class _PersonPageState extends State<PersonPage> {
               detail: _themeDetail(copy, settings.themeMode, platform),
               onChoose: settings.setTheme,
             ),
+            if (_adPrivacy)
+              _MenuRow(
+                icon: Icons.privacy_tip_outlined,
+                title: copy.adPrivacy,
+                subtitle: copy.adPrivacyNote,
+                onTap: () {
+                  unawaited(showAdPrivacyOptions());
+                },
+              ),
+            _MenuRow(
+              icon: Icons.cloud_outlined,
+              title: copy.offlineTitle,
+              subtitle: offlineMenuLine(
+                copy,
+                canDownload: guide,
+                stored: OfflineBook.stored,
+                species: scope.catalogData?.species.length,
+                updateSpecies: _offlineUpdates(scope.catalogData),
+              ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const OfflinePage()),
+              ),
+            ),
             _MenuRow(
               icon: Icons.star_outline,
               title: copy.rate,
@@ -189,7 +241,11 @@ class _PersonPageState extends State<PersonPage> {
                 title: copy.signOut,
                 subtitle: copy.signOutNote,
                 onTap: () {
-                  unawaited(widget.onSignOut == null ? Auth.signOut() : widget.onSignOut!());
+                  unawaited(
+                    widget.onSignOut == null
+                        ? Auth.signOut()
+                        : widget.onSignOut!(),
+                  );
                 },
               ),
               Padding(
@@ -217,18 +273,6 @@ class _PersonPageState extends State<PersonPage> {
                 },
               ),
             ],
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-              child: Text(
-                copy.noCustomLists,
-                style: TextStyle(
-                  fontFamily: GuideType.sans,
-                  fontSize: 13,
-                  height: 1.35,
-                  color: colors.ink3,
-                ),
-              ),
-            ),
             if (version.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
@@ -238,13 +282,15 @@ class _PersonPageState extends State<PersonPage> {
                     onPressed: () async {
                       await Clipboard.setData(ClipboardData(text: version));
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(version)),
-                      );
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(content: Text(version)));
                     },
                     style: TextButton.styleFrom(
                       foregroundColor: colors.ink3,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: const TextStyle(
@@ -290,8 +336,15 @@ class _AccountHeader extends StatelessWidget {
       child: Row(
         children: [
           DecoratedBox(
-            decoration: BoxDecoration(color: colors.gold, shape: BoxShape.circle),
-            child: SizedBox(width: 54, height: 54, child: Center(child: avatar)),
+            decoration: BoxDecoration(
+              color: colors.gold,
+              shape: BoxShape.circle,
+            ),
+            child: SizedBox(
+              width: 54,
+              height: 54,
+              child: Center(child: avatar),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -495,6 +548,15 @@ class _SignInButton extends StatelessWidget {
       ),
     );
   }
+}
+
+int _offlineUpdates(Catalog? catalog) {
+  if (catalog == null || !OfflineBook.stored) return 0;
+  return offlineMissingSpecies(
+    catalog.species,
+    saved: OfflineBook.saved,
+    skipped: OfflineBook.skipped,
+  );
 }
 
 String _themeDetail(Copy copy, ThemeMode mode, Brightness platform) {

@@ -25,34 +25,40 @@ void main() {
     expect(choice?.displayPrice, r'$24.99');
   });
 
-  test('yearly ownership locks the screen, monthly on this phone can change', () {
-    final yearly = fieldGuideCatalog(
-      ids: ids,
-      storeAvailable: true,
-      yearlyPrice: r'$24.99',
-      monthlyPrice: r'$2.99',
-      owned: {ids.yearly},
-    );
-    expect(
-      fieldGuideAccess(catalog: yearly, monthlyOnThisStore: false).locked,
-      isTrue,
-    );
+  test(
+    'yearly ownership locks the screen, monthly on this phone can change',
+    () {
+      final yearly = fieldGuideCatalog(
+        ids: ids,
+        storeAvailable: true,
+        yearlyPrice: r'$24.99',
+        monthlyPrice: r'$2.99',
+        owned: {ids.yearly},
+      );
+      expect(
+        fieldGuideAccess(catalog: yearly, monthlyOnThisStore: false).locked,
+        isTrue,
+      );
 
-    final monthly = fieldGuideCatalog(
-      ids: ids,
-      storeAvailable: true,
-      yearlyPrice: r'$24.99',
-      monthlyPrice: r'$2.99',
-      owned: {ids.monthly},
-    );
-    final access = fieldGuideAccess(catalog: monthly, monthlyOnThisStore: true);
-    expect(access.upgrade, isTrue);
-    expect(access.locked, isFalse);
-    expect(
-      fieldGuideReplaces(FieldGuidePlan.yearly, ids, {ids.monthly}),
-      ids.monthly,
-    );
-  });
+      final monthly = fieldGuideCatalog(
+        ids: ids,
+        storeAvailable: true,
+        yearlyPrice: r'$24.99',
+        monthlyPrice: r'$2.99',
+        owned: {ids.monthly},
+      );
+      final access = fieldGuideAccess(
+        catalog: monthly,
+        monthlyOnThisStore: true,
+      );
+      expect(access.upgrade, isTrue);
+      expect(access.locked, isFalse);
+      expect(
+        fieldGuideReplaces(FieldGuidePlan.yearly, ids, {ids.monthly}),
+        ids.monthly,
+      );
+    },
+  );
 
   test('the store row keeps the paid price and buys the free phase', () {
     final loaded = fieldGuideFromStore(
@@ -93,10 +99,7 @@ void main() {
   });
 
   test('a dismissed store sheet is not a failed purchase', () {
-    expect(
-      storePurchaseCanceled(_purchase(PurchaseStatus.canceled)),
-      isTrue,
-    );
+    expect(storePurchaseCanceled(_purchase(PurchaseStatus.canceled)), isTrue);
     expect(
       storePurchaseCanceled(
         _purchase(PurchaseStatus.error, code: 'user_canceled'),
@@ -104,7 +107,9 @@ void main() {
       isTrue,
     );
     expect(
-      storePurchaseCanceled(_purchase(PurchaseStatus.error, code: 'itemUnavailable')),
+      storePurchaseCanceled(
+        _purchase(PurchaseStatus.error, code: 'itemUnavailable'),
+      ),
       isFalse,
     );
   });
@@ -147,7 +152,7 @@ void main() {
     expect(find.text('Unlimited names from photos'), findsOneWidget);
     expect(find.text('No ads'), findsOneWidget);
     expect(find.text('Seen on all your devices, with photos'), findsOneWidget);
-    expect(find.text('The book offline, one region at a time'), findsOneWidget);
+    expect(find.text('The book offline'), findsOneWidget);
     expect(find.text(r'$24.99'), findsOneWidget);
     expect(find.text(r'$2.99'), findsOneWidget);
     expect(find.text('7 days free, then yearly'), findsOneWidget);
@@ -194,16 +199,19 @@ void main() {
 
 PurchaseDetails _purchase(PurchaseStatus status, {String code = ''}) {
   return PurchaseDetails(
-    purchaseID: '1',
-    productID: fieldGuideYearlyPlay,
-    verificationData: PurchaseVerificationData(
-      localVerificationData: '',
-      serverVerificationData: '',
-      source: 'test',
-    ),
-    transactionDate: null,
-    status: status,
-  )..error = code.isEmpty ? null : IAPError(source: 'test', code: code, message: code);
+      purchaseID: '1',
+      productID: fieldGuideYearlyPlay,
+      verificationData: PurchaseVerificationData(
+        localVerificationData: '',
+        serverVerificationData: '',
+        source: 'test',
+      ),
+      transactionDate: null,
+      status: status,
+    )
+    ..error = code.isEmpty
+        ? null
+        : IAPError(source: 'test', code: code, message: code);
 }
 
 Widget _host(Widget home) {

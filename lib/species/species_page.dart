@@ -1,12 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:whats_that_mushroom/ads/app_banner_ad.dart';
 import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
+import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
+import 'package:whats_that_mushroom/species/seen_photo.dart';
 
 void openSpecies(BuildContext context, String latin) {
   Navigator.of(context)
@@ -16,7 +22,10 @@ void openSpecies(BuildContext context, String latin) {
 class SpeciesPage extends StatefulWidget {
   final String latin;
 
-  const SpeciesPage({super.key, required this.latin});
+  /// Replaces the gallery picker in tests. Null is a cancelled pick.
+  final Future<SeenPhoto?> Function()? pickSeen;
+
+  const SpeciesPage({super.key, required this.latin, this.pickSeen});
 
   @override
   State<SpeciesPage> createState() => _SpeciesPageState();
@@ -26,6 +35,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
   var _photo = 0;
   var _namesOpen = false;
   var _ranksOpen = false;
+  var _saving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +64,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
     final spoken = title != species.name;
     final favorite = scope.notebook.isFavorite(species.name);
     final plates = _frames(species, copy);
+    final seen = _seenSummary(scope.notebook, species.name);
     final higher = [
       for (final rank in rankOrder)
         if (rank != 'order' &&
@@ -155,6 +166,19 @@ class _SpeciesPageState extends State<SpeciesPage> {
                     padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
                     child: Text(species.author, style: GuideType.muted(colors)),
                   ),
+                if (seen != null)
+                  _SeenByYou(
+                    seen: seen,
+                    copy: copy,
+                    colors: colors,
+                    onPressed: _openSeen,
+                  ),
+                _AddSeenButton(
+                  copy: copy,
+                  colors: colors,
+                  saving: _saving,
+                  onPressed: () => _addSeen(species.name),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                   child: Wrap(
@@ -215,9 +239,65 @@ class _SpeciesPageState extends State<SpeciesPage> {
               ],
             ),
           ),
+          if (Purchases.showsAds())
+            const SliverToBoxAdapter(child: AppBannerAd()),
         ],
       ),
     );
+  }
+
+  Future<void> _addSeen(String latin) async {
+    if (_saving) return;
+    final scope = GuideScope.of(context);
+    setState(() => _saving = true);
+    try {
+      final pick = widget.pickSeen ?? pickSeenPhoto;
+      final photo = await pick();
+      if (!mounted || photo == null) return;
+      final id = DateTime.now().microsecondsSinceEpoch.toString();
+      final saved = await scope.notebook.savePhoto(photo.bytes, id);
+      if (!mounted) return;
+      if (saved == null) {
+        _showFailure();
+        return;
+      }
+      await scope.notebook.addFind(
+        FindRecord(
+          id: id,
+          millis: photo.when.millisecondsSinceEpoch,
+          latin: latin,
+          photoPath: saved,
+          confirmed: true,
+          latitude: photo.latitude == 0 ? null : photo.latitude,
+          longitude: photo.longitude == 0 ? null : photo.longitude,
+        ),
+      );
+      if (!mounted) return;
+      final copy = scope.copy;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(photo.fromPhoto ? copy.addedSeenPhoto : copy.addedSeen),
+        ),
+      );
+    } catch (error) {
+      debugPrint('add seen ${widget.latin}: $error');
+      _showFailure();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _showFailure() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(GuideScope.of(context).copy.seenFailed)),
+    );
+  }
+
+  void _openSeen() {
+    final select = GuideScope.of(context).selectTab;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    select(2);
   }
 
   List<_Frame> _frames(Species species, Copy copy) {
@@ -424,6 +504,207 @@ class _Frame {
   final String label;
 
   const _Frame(this.url, this.label);
+}
+
+class _SpeciesSeen {
+  final int count;
+  final DateTime? last;
+  final String? photoPath;
+
+  const _SpeciesSeen({
+    required this.count,
+    required this.last,
+    required this.photoPath,
+  });
+}
+
+/// Finds of [latin], newest dated photo first. No finds is null.
+_SpeciesSeen? _seenSummary(Notebook notebook, String latin) {
+  var count = 0;
+  DateTime? last;
+  String? photo;
+  String? fallback;
+  for (final item in notebook.finds) {
+    if (item.latin != latin) continue;
+    count += 1;
+    final path = item.photoPath;
+    if (fallback == null && path != null && path.isNotEmpty) fallback = path;
+    if (item.millis <= 0) continue;
+    final when = DateTime.fromMillisecondsSinceEpoch(item.millis);
+    if (last == null || when.isAfter(last)) {
+      last = when;
+      if (path != null && path.isNotEmpty) photo = path;
+    }
+  }
+  if (count == 0) return null;
+  return _SpeciesSeen(count: count, last: last, photoPath: photo ?? fallback);
+}
+
+const _shortMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+String _seenDate(DateTime when, Copy copy, {DateTime? now}) {
+  final today = now ?? DateTime.now();
+  final year = when.year == today.year ? '' : ' ${when.year}';
+  if (copy.sk) {
+    final month = monthsSk[when.month - 1];
+    return '${when.day}. $month$year';
+  }
+  return '${_shortMonths[when.month - 1]} ${when.day}$year';
+}
+
+class _SeenByYou extends StatelessWidget {
+  final _SpeciesSeen seen;
+  final Copy copy;
+  final GuideColors colors;
+  final VoidCallback onPressed;
+
+  const _SeenByYou({
+    required this.seen,
+    required this.copy,
+    required this.colors,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final last = seen.last;
+    final when = last == null ? '' : _seenDate(last, copy);
+    final detail = last == null
+        ? ''
+        : seen.count == 1
+        ? copy.seenOnce(when)
+        : copy.seenTimes(seen.count, when);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Material(
+        color: colors.cream,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.rule),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: _thumb(seen.photoPath, colors),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        copy.seenByYou,
+                        style: TextStyle(
+                          fontFamily: GuideType.sans,
+                          fontSize: 14,
+                          height: 1.2,
+                          color: colors.moss,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (detail.isNotEmpty)
+                        Text(
+                          detail,
+                          style: TextStyle(
+                            fontFamily: GuideType.sans,
+                            fontSize: 14,
+                            height: 1.2,
+                            color: colors.ink,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Widget _thumb(String? path, GuideColors colors) {
+  if (path == null || path.isEmpty) return ColoredBox(color: colors.paper2);
+  final file = File(path);
+  if (!file.existsSync()) return ColoredBox(color: colors.paper2);
+  return Image.file(file, fit: BoxFit.cover);
+}
+
+class _AddSeenButton extends StatelessWidget {
+  final Copy copy;
+  final GuideColors colors;
+  final bool saving;
+  final VoidCallback onPressed;
+
+  const _AddSeenButton({
+    required this.copy,
+    required this.colors,
+    required this.saving,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Row(
+        children: [
+          OutlinedButton(
+            onPressed: saving ? null : onPressed,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.ink,
+              side: BorderSide(color: colors.rule),
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              textStyle: const TextStyle(
+                fontFamily: GuideType.sans,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            child: Text('+ ${copy.addSeen}'),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              copy.addSeenHint,
+              style: TextStyle(
+                fontFamily: GuideType.sans,
+                fontSize: 13,
+                color: colors.ink3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 String _kicker(Species species) {

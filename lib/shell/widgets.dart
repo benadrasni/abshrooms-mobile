@@ -4,6 +4,7 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/offline/offline_book.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
 class GuidePhoto extends StatelessWidget {
@@ -22,47 +23,61 @@ class GuidePhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = GuideColors.of(context);
-    return ColoredBox(
-      color: background ?? colors.plateWell,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (url.isEmpty)
-            const SizedBox.shrink()
-          else
-            CachedNetworkImage(
-              imageUrl: url,
-              fit: fit,
-              placeholder: (_, _) => const SizedBox.shrink(),
-              errorWidget: (_, _, _) =>
-                  Icon(Icons.hide_image_outlined, color: colors.ink2),
-            ),
-          if (label != null)
-            Align(
-              alignment: Alignment.bottomLeft,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.cream.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+    return ListenableBuilder(
+      listenable: OfflineBook.revision,
+      builder: (context, _) {
+        final colors = GuideColors.of(context);
+        final file = url.isEmpty ? null : OfflineBook.localFile(url);
+        return ColoredBox(
+          color: background ?? colors.plateWell,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (url.isEmpty)
+                const SizedBox.shrink()
+              else if (file != null)
+                Image.file(
+                  file,
+                  fit: fit,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) =>
+                      Icon(Icons.hide_image_outlined, color: colors.ink2),
+                )
+              else
+                CachedNetworkImage(
+                  imageUrl: url,
+                  fit: fit,
+                  placeholder: (_, _) => const SizedBox.shrink(),
+                  errorWidget: (_, _, _) =>
+                      Icon(Icons.hide_image_outlined, color: colors.ink2),
+                ),
+              if (label != null)
+                Align(
+                  alignment: Alignment.bottomLeft,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    child: Text(
-                      label!,
-                      style: GuideType.muted(colors, size: 12),
+                    padding: const EdgeInsets.all(12),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.cream.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          label!,
+                          style: GuideType.muted(colors, size: 12),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

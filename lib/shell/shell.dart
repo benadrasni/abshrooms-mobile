@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:whats_that_mushroom/ads/app_banner_ad.dart';
 import 'package:whats_that_mushroom/book/book_page.dart';
 import 'package:whats_that_mushroom/find/find_page.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/seen/seen_page.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -33,21 +35,28 @@ class GuideShell extends StatelessWidget {
             children: const [FindPage(), BookPage(), SeenPage()],
           ),
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: index,
-          onDestinationSelected: onSelect,
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.search),
-              label: copy.find,
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.menu_book_outlined),
-              label: copy.book,
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.photo_outlined),
-              label: copy.seen,
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if ((index == 0 || index == 1) && Purchases.showsAds())
+              const AppBannerAd(pinned: true),
+            NavigationBar(
+              selectedIndex: index,
+              onDestinationSelected: onSelect,
+              destinations: [
+                NavigationDestination(
+                  icon: const Icon(Icons.search),
+                  label: copy.find,
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: copy.book,
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.photo_outlined),
+                  label: copy.seen,
+                ),
+              ],
             ),
           ],
         ),

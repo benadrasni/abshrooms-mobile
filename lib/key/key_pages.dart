@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:whats_that_mushroom/ads/app_banner_ad.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/key_filter.dart';
 import 'package:whats_that_mushroom/data/models.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -137,16 +139,22 @@ class _KeyAxisPageState extends State<_KeyAxisPage> {
             ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: FilledButton(
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => widget.next(_selection))),
-            child: Text(copy.count(matched)),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (Purchases.showsAds()) const AppBannerAd(pinned: true),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => widget.next(_selection)),
+                ),
+                child: Text(copy.count(matched)),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -306,6 +314,7 @@ class _ResultsPageState extends State<ResultsPage> {
             for (final item in later) _row(context, catalog, item),
           ] else
             for (final item in rows) _row(context, catalog, item),
+          if (Purchases.showsAds()) const AppBannerAd(),
         ],
       ),
     );

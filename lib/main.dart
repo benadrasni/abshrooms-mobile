@@ -6,10 +6,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:whats_that_mushroom/ads/ad_consent.dart';
+import 'package:whats_that_mushroom/ads/ad_units.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/firebase_options.dart';
+import 'package:whats_that_mushroom/offline/offline_book.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -28,6 +32,11 @@ Future<void> main() async {
   await settings.restore();
   final notebook = Notebook();
   await notebook.load();
+  try {
+    await OfflineBook.restore();
+  } catch (error) {
+    debugPrint('offline: $error');
+  }
   runApp(
     GuideApp(
       settings: settings,
@@ -66,6 +75,22 @@ class _GuideAppState extends State<GuideApp> {
     widget.notebook.addListener(_onNotebook);
     _load();
     unawaited(_billing.start());
+    unawaited(_startAds());
+  }
+
+  Future<void> _startAds() async {
+    try {
+      await gatherAdConsent();
+    } catch (error) {
+      debugPrint('ads consent: $error');
+    }
+    try {
+      await MobileAds.instance.initialize();
+      Ads.markReady();
+      if (mounted) setState(() {});
+    } catch (error) {
+      debugPrint('ads: $error');
+    }
   }
 
   @override

@@ -47,6 +47,9 @@ class Purchases {
 
   static bool hasFieldGuide() => owned.any(FieldGuideIds.isFieldGuide);
 
+  /// Field Guide is the grant that hides ads. There is no separate no-ads product.
+  static bool showsAds() => !hasFieldGuide();
+
   static void remember(String id) {
     if (!FieldGuideIds.isFieldGuide(id) || !owned.add(id)) return;
     revision.value++;

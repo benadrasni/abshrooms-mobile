@@ -21,16 +21,24 @@ void main() {
 
     expect(find.text('Back'), findsOneWidget);
     expect(find.text('Sign in to name a photo'), findsOneWidget);
-    expect(find.text('The key and the book stay free without an account.'), findsOneWidget);
+    expect(
+      find.text('The key and the book stay free without an account.'),
+      findsOneWidget,
+    );
     expect(find.text('Sign in'), findsOneWidget);
     expect(find.text('Field Guide'), findsOneWidget);
-    expect(find.text('7 days free • Unlimited • No ads • Seen sync • Offline'), findsOneWidget);
+    expect(
+      find.text('7 days free • Unlimited • No ads • Seen sync • Offline'),
+      findsOneWidget,
+    );
     expect(find.text('Restore purchases'), findsOneWidget);
     expect(find.text('Rate this app'), findsOneWidget);
     expect(find.text('Language'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
     expect(find.text('Theme'), findsOneWidget);
     expect(find.text('Light, like the phone'), findsOneWidget);
+    expect(find.text('Offline'), findsOneWidget);
+    expect(find.text('With Field Guide'), findsOneWidget);
     expect(find.text('Person'), findsNothing);
 
     await tester.tap(find.text('Dark'));
@@ -55,9 +63,13 @@ void main() {
     expect(find.text('Prihlásiť sa'), findsOneWidget);
     expect(find.text('Obnoviť nákupy'), findsOneWidget);
     expect(find.text('Ohodnotiť aplikáciu'), findsOneWidget);
+    expect(find.text('Režim offline'), findsOneWidget);
+    expect(find.text('S Terénnym sprievodcom'), findsOneWidget);
   });
 
-  testWidgets('a signed-in person shows the account and sign out', (tester) async {
+  testWidgets('a signed-in person shows the account and sign out', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -131,7 +143,10 @@ class _HostState extends State<_Host> {
           DefaultMaterialLocalizations.delegate,
           DefaultWidgetsLocalizations.delegate,
         ],
-        home: PersonPage(accountOf: widget.accountOf, onSignOut: widget.onSignOut),
+        home: PersonPage(
+          accountOf: widget.accountOf,
+          onSignOut: widget.onSignOut,
+        ),
       ),
     );
   }

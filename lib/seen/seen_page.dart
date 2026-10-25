@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:whats_that_mushroom/camera/outside_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -46,6 +49,38 @@ class SeenPage extends StatelessWidget {
   }
 }
 
+Future<void> _open(
+  BuildContext context,
+  FindRecord find,
+  Species? species,
+) async {
+  if (species != null) {
+    openSpecies(context, species.name);
+    return;
+  }
+  final outside = find.outsideName?.trim() ?? '';
+  if (outside.isEmpty) return;
+  final result = await Navigator.of(context).push<OutsideResult>(
+    MaterialPageRoute(
+      builder: (_) => OutsidePage(
+        recordId: find.id,
+        onSearch: () {
+          Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const SearchPage()));
+        },
+      ),
+    ),
+  );
+  if (!context.mounted || result == null) return;
+  final message = result.message;
+  if (message != null && message.isNotEmpty) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+  final latin = result.species;
+  if (latin != null) openSpecies(context, latin);
+}
+
 Widget _tile(BuildContext context, FindRecord find) {
   final scope = GuideScope.of(context);
   final copy = scope.copy;
@@ -57,7 +92,7 @@ Widget _tile(BuildContext context, FindRecord find) {
       : catalog!.heading(species);
   final spoken = species != null && title != species.name;
   return InkWell(
-    onTap: species == null ? null : () => openSpecies(context, species.name),
+    onTap: () => _open(context, find, species),
     child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
       child: Row(
