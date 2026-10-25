@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/new_page.dart';
 import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/lists/curated_list_page.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -197,6 +199,7 @@ class ListStrip extends StatelessWidget {
   final Catalog catalog;
   final List<Species> favorites;
   final List<NewDay> fresh;
+  final List<CuratedListView> curated;
 
   const ListStrip({
     super.key,
@@ -204,6 +207,7 @@ class ListStrip extends StatelessWidget {
     required this.catalog,
     required this.favorites,
     required this.fresh,
+    this.curated = const [],
   });
 
   @override
@@ -237,6 +241,20 @@ class ListStrip extends StatelessWidget {
               Navigator.of(context)
                   .push(MaterialPageRoute(builder: (_) => const NewPage())),
         ),
+      for (final list in curated)
+        _cover(
+          context,
+          key: Key('curated-card-${list.id}'),
+          title: list.title,
+          subtitle: _curatedSubtitle(copy, list),
+          photo: list.coverPhotoUrl,
+          gold: false,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => CuratedListPage(list: list, backLabel: copy.find),
+            ),
+          ),
+        ),
     ];
     return SizedBox(
       height: 148,
@@ -252,6 +270,7 @@ class ListStrip extends StatelessWidget {
 
   Widget _cover(
     BuildContext context, {
+    Key? key,
     required String title,
     required String subtitle,
     required String photo,
@@ -260,6 +279,7 @@ class ListStrip extends StatelessWidget {
   }) {
     final colors = GuideColors.of(context);
     return SizedBox(
+      key: key,
       width: 150,
       child: Material(
         type: MaterialType.transparency,
@@ -375,6 +395,12 @@ class _SightPhoto extends StatelessWidget {
       ),
     );
   }
+}
+
+String _curatedSubtitle(Copy copy, CuratedListView list) {
+  final parameter = list.parameter?.trim() ?? '';
+  if (parameter.isNotEmpty) return parameter;
+  return copy.count(list.entries.length);
 }
 
 String _when(BuildContext context, int millis) {

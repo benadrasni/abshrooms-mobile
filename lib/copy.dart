@@ -230,6 +230,8 @@ class Copy {
       ? 'V atlase nie je nič pod týmto názvom. $searchTryPhoto alebo $searchKeyOut.'
       : 'Nothing in the book by that name. $searchTryPhoto or $searchKeyOut.';
   String get retry => sk ? 'Skúsiť znova' : 'Try again';
+  String get listsFailed =>
+      sk ? 'Zoznamy sa nepodarilo načítať.' : "Couldn't load lists.";
   String get catalogError => sk
       ? 'Katalóg sa nepodarilo načítať.'
       : 'The catalog could not be loaded.';
@@ -280,6 +282,10 @@ class Copy {
   String get today => sk ? 'Dnes' : 'Today';
   String get yesterday => sk ? 'Včera' : 'Yesterday';
   String get seenMark => sk ? '✓ Nájdené' : '✓ Seen';
+  String get thisYear => sk ? 'TENTO ROK' : 'THIS YEAR';
+  String get listsEmpty => sk
+      ? 'Žiadny z týchto druhov zatiaľ v atlase nie je.'
+      : 'None of these species are in the guide yet.';
 
   String latestLine(String countLine, String date) =>
       sk ? '$countLine · najnovšie $date' : '$countLine · latest $date';

@@ -193,6 +193,20 @@ int compareCuratedListViews(CuratedListView a, CuratedListView b) {
   return a.title.toLowerCase().compareTo(b.title.toLowerCase());
 }
 
+/// Lists for one language. A failed read presents nothing; the notice is separate.
+List<CuratedListView> presentCuratedLists(
+  CuratedListsSnapshot snapshot,
+  Catalog catalog,
+  String language, {
+  DateTime? now,
+}) {
+  if (snapshot.failed) return const [];
+  return [
+    for (final doc in selectCuratedLists(snapshot.documents, language))
+      presentCuratedList(doc, catalog, language, now: now),
+  ]..sort(compareCuratedListViews);
+}
+
 /// Drops species the catalog does not have. Year lists are newest first.
 /// Region lists are ordered by the state or region name.
 CuratedListView presentCuratedList(
@@ -324,18 +338,10 @@ String _cover(
 ) {
   final explicit = doc.coverUrl;
   if (explicit != null && explicit.isNotEmpty) return mediaUrl(explicit);
-  final named = doc.coverSpecies?.trim();
-  Species? cover;
-  if (named != null && named.isNotEmpty) cover = catalog.byName(named);
-  final coverId = doc.coverSpeciesId;
-  if (cover == null && coverId != null) {
-    for (final species in catalog.species) {
-      if (species.id == coverId) {
-        cover = species;
-        break;
-      }
-    }
-  }
+  final cover = _resolve(
+    catalog,
+    CuratedListEntry(name: doc.coverSpecies, speciesId: doc.coverSpeciesId),
+  );
   if (cover != null) {
     final photo = curatedImage(cover, plate: false);
     if (photo.isNotEmpty) return photo;

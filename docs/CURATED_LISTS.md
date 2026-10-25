@@ -39,7 +39,7 @@ Text uses the device language, then English, then any stored string.
 
 ## Which lists a language sees
 
-This follows the flower guide: a language reads its own set, and English is the fallback.
+English is the fallback when a language has no lists of its own. That is a choice for this app. The flower guide reads one language and shows nothing when that node is missing.
 
 - If any list is tagged with the device language, show those lists plus every `*` list. Do not also show lists that are only tagged `en`.
 - If the language has no tagged lists, show lists tagged `en` plus every `*` list.
@@ -62,7 +62,7 @@ Austria’s names are not in the current catalog, so that list opens on the empt
 
 ## Read rule to publish
 
-`firebase/firestore.rules` has no `curated_lists` match, so a client read is denied. Until the owner adds the match below, Find and Book show no list cards and do not show an error. Any other read error shows a retry.
+`firebase/firestore.rules` has no `curated_lists` match, so a client read is denied. The app reads the collection once, on `CatalogRepository`, and Find and Book share that snapshot. Until the owner adds the match below, the denied read is an empty snapshot, so both tabs show no list cards and do not show an error. Any other read error is the same snapshot with a retry, so one retry updates both tabs.
 
 Inside the existing `rules_version = '2'` `match /databases/{database}/documents` block:
 

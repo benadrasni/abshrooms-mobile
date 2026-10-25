@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 
 class CatalogRepository {
@@ -9,6 +10,17 @@ class CatalogRepository {
   Object? error;
   bool loading = false;
   String language = 'en';
+  CuratedListsSnapshot curatedLists = const CuratedListsSnapshot([]);
+  var _listsTicket = 0;
+
+  /// One read of `curated_lists`. An older in-flight read does not overwrite
+  /// a newer one. Permission-denied stays an empty snapshot.
+  Future<void> loadCuratedLists() async {
+    final ticket = ++_listsTicket;
+    final snapshot = await fetchCuratedLists();
+    if (ticket != _listsTicket) return;
+    curatedLists = snapshot;
+  }
 
   Future<void> load(String language) async {
     this.language = language;
