@@ -5,6 +5,7 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -130,7 +131,7 @@ class _OutsidePageState extends State<OutsidePage> {
       action(latin);
       return;
     }
-    openSpecies(context, latin);
+    openSpecies(context, latin, source: GuideMushroomSource.outside);
   }
 
   @override

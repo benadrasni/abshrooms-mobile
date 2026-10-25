@@ -96,6 +96,47 @@ bool photoAccountSignedIn() {
   return Auth.appUser != null;
 }
 
+/// The signed-in month on Person. Included names fill first, then ad grants.
+/// The bar is ten parts: five included and five from ads.
+class MonthNames {
+  final int includedUsed;
+  final int extraUsed;
+  final int adsLeft;
+  final DateTime resetsOn;
+
+  const MonthNames({
+    required this.includedUsed,
+    required this.extraUsed,
+    required this.adsLeft,
+    required this.resetsOn,
+  });
+
+  int get rest {
+    final value = 10 - includedUsed - extraUsed;
+    return value < 0 ? 0 : value;
+  }
+
+  /// [count] from another UTC month counts as a fresh month.
+  static MonthNames of(NameMonth count, DateTime now) {
+    final current = count.month == quotaMonth(now) ? count : const NameMonth();
+    final included = _clampCount(current.namesUsed, 5);
+    final extra = _clampCount(current.adGrants, 5);
+    final utc = now.toUtc();
+    return MonthNames(
+      includedUsed: included,
+      extraUsed: extra,
+      adsLeft: 5 - extra,
+      resetsOn: DateTime.utc(utc.year, utc.month + 1, 1),
+    );
+  }
+}
+
+int _clampCount(int value, int max) {
+  if (value < 0) return 0;
+  if (value > max) return max;
+  return value;
+}
+
 /// UTC `yyyy-mm`.
 String quotaMonth(DateTime now) {
   final utc = now.toUtc();

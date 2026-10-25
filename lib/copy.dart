@@ -259,6 +259,73 @@ class Copy {
   String get cameraFieldGuide =>
       sk ? 'Terénny sprievodca · neobmedzene' : 'Field Guide · unlimited';
 
+  String get namesThisMonth =>
+      sk ? 'Určenia tento mesiac' : 'Names this month';
+
+  String namesReset(DateTime day) {
+    final label = _shortMonthDay(day);
+    return sk ? 'Obnoví sa $label' : 'Resets $label';
+  }
+
+  /// [includedUsed] is at most five. [extraUsed] is ad grants already earned.
+  String namesMonthDetail({
+    required int includedUsed,
+    required int extraUsed,
+    required int adsLeft,
+  }) {
+    if (sk) {
+      if (extraUsed <= 0) {
+        return 'Použité $includedUsed z 5 zahrnutých. Až 5 ďalších z reklám.';
+      }
+      if (adsLeft <= 0) {
+        return 'Použité $includedUsed z 5 zahrnutých, $extraUsed z reklám.';
+      }
+      return 'Použité $includedUsed z 5 zahrnutých, $extraUsed z reklám. Až $adsLeft ďalších z reklám.';
+    }
+    if (extraUsed <= 0) {
+      return '$includedUsed of 5 included used. Up to 5 more from ads.';
+    }
+    if (adsLeft <= 0) {
+      return '$includedUsed of 5 included used, $extraUsed from ads.';
+    }
+    return '$includedUsed of 5 included used, $extraUsed from ads. Up to $adsLeft more from ads.';
+  }
+
+  String _shortMonthDay(DateTime day) {
+    const english = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const slovak = [
+      'jan.',
+      'feb.',
+      'mar.',
+      'apr.',
+      'máj',
+      'jún',
+      'júl',
+      'aug.',
+      'sep.',
+      'okt.',
+      'nov.',
+      'dec.',
+    ];
+    final names = sk ? slovak : english;
+    final month = day.month < 1 || day.month > 12 ? '' : names[day.month - 1];
+    if (sk) return '${day.day}. $month';
+    return '$month ${day.day}';
+  }
+
   String namesLeft(int count) {
     final n = count < 0 ? 0 : count;
     if (!sk) return n == 1 ? '1 name left' : '$n names left';
@@ -418,8 +485,91 @@ class Copy {
   }
 
   String get seenEmpty => sk
-      ? 'Nálezy sa objavia, keď pomenujete fotku.'
-      : 'Finds appear here after you name a photo.';
+      ? 'Nálezy, ktoré uložíš, sa objavia tu.'
+      : 'Finds you save will show up here.';
+  String seenFinds(int n) {
+    if (!sk) return n == 1 ? '1 find' : '$n finds';
+    if (n == 1) return '1 nález';
+    if (n >= 2 && n <= 4) return '$n nálezy';
+    return '$n nálezov';
+  }
+
+  /// The notebook stays on this phone. Signing in does not move it.
+  String get seenOnPhone => sk ? 'na tomto telefóne' : 'on this phone';
+  String seenSubtitle(int n) => '${seenFinds(n)} · $seenOnPhone';
+  String get seenAnother => sk ? 'Iný' : 'Another';
+  String get seenNotInBook => sk ? 'Nie je v atlase' : 'Not in the book';
+  String get seenDeleteBody =>
+      sk ? 'Zmizne z nálezov.' : 'It leaves your Seen.';
+  String get seenDeleteShared => sk
+      ? 'Zmizne z nálezov aj z pozorovaní.'
+      : 'It leaves your Seen and Sightings.';
+  String get seenDeleteSent => sk
+      ? 'Zmizne z nálezov. Odoslaná kópia tiež.'
+      : 'It leaves your Seen. The copy you sent goes too.';
+  String seenSubtitleHidden(int n, int hidden) =>
+      '${seenFinds(n)} · ${seenHiddenCount(hidden)} · $seenOnPhone';
+  String seenHiddenCount(int n) {
+    if (!sk) return n == 1 ? '1 shared hidden' : '$n shared hidden';
+    if (n == 1) return '1 zdieľaný skrytý';
+    if (n >= 2 && n <= 4) return '$n zdieľané skryté';
+    return '$n zdieľaných skrytých';
+  }
+
+  String seenHideShared(int n) =>
+      sk ? 'Skryť zdieľané · $n' : 'Hide shared · $n';
+  String seenSharedHidden(int n) =>
+      sk ? 'Zdieľané skryté · $n' : 'Shared hidden · $n';
+  String get seenOnlyShared => sk
+      ? 'V nálezoch už nič iné nie je. Zdieľané nálezy sú stále na stránkach druhov.'
+      : 'Nothing else in the notebook. Shared finds are still on the species pages.';
+  String get share => sk ? 'Zdieľať' : 'Share';
+  String get seenInReview => sk ? 'Na kontrole' : 'In review';
+  String get seenShared => sk ? 'Zdieľané' : 'Shared';
+  String get seenNotAccepted => sk ? 'Neprijaté' : 'Not accepted';
+  String seenShareTitle(String name) =>
+      sk ? 'Zdieľať $name' : 'Share $name';
+  String get seenShareReviewed => sk
+      ? 'Skôr než sa ukáže ako pozorovanie na stránke druhu, prejde kontrolou, tu aj na webe.'
+      : 'It’s reviewed before it appears as a Sighting on the species page, here and on the website.';
+  String get seenSharePlace => sk
+      ? 'Miesto sa ukáže ako krajina a mesiac, nie ako bod na mape.'
+      : 'The place is shown as country and month, not a pin.';
+  String get seenShareNote =>
+      sk ? 'Poznámka zostáva súkromná.' : 'Your note stays private.';
+  String get seenShareAnytime => sk
+      ? 'Kedykoľvek ho môžeš odvolať.'
+      : 'You can withdraw it at any time.';
+  String get seenShareConsent => sk
+      ? 'Túto fotografiu zverejňujem pod licenciou CC0 (voľné dielo).'
+      : 'I publish this photo under CC0 (public domain).';
+  String get seenShareSend => sk ? 'Poslať na kontrolu' : 'Send for review';
+  String get seenShareSent =>
+      sk ? 'Odoslané na kontrolu.' : 'Sent for review.';
+  String get seenShareFailed => sk
+      ? 'Tento nález sa nepodarilo zdieľať.'
+      : 'Couldn’t share this find.';
+  String seenIsSighting(String name) =>
+      sk ? '$name je pozorovanie' : '$name is a Sighting';
+  String get seenWithdrawBody => sk
+      ? 'Zdieľané pod CC0 a zobrazené na stránke druhu. Odvolaním zmizne z pozorovaní a zostane v nálezoch.'
+      : 'Shared under CC0 and shown on the species page. Withdrawing removes it from Sightings; it stays in your Seen.';
+  String get seenWithdrawReviewTitle =>
+      sk ? 'Odvolať tento nález?' : 'Withdraw this find?';
+  String get seenWithdrawReviewBody => sk
+      ? 'Čaká na kontrolu. Odvolaním sa odstráni. V nálezoch zostane.'
+      : 'It’s waiting for review. Withdrawing removes it. It stays in your Seen.';
+  String get seenWithdraw =>
+      sk ? 'Odvolať z pozorovaní' : 'Withdraw from Sightings';
+  String get seenWithdrawn =>
+      sk ? 'Odvolané z pozorovaní.' : 'Withdrawn from Sightings.';
+  String get seenConfirmed => sk ? 'Potvrdené.' : 'Confirmed.';
+  String get seenDeleteFailed =>
+      sk ? 'Tento nález sa nepodarilo zmazať.' : 'Couldn’t delete this find.';
+  String get seenUpsellTitle => sk ? 'Terénny sprievodca' : 'Field Guide';
+  String get seenUpsellBody => sk
+      ? 'Neobmedzené určenia z fotografií, žiadne reklamy a atlas offline.'
+      : 'Unlimited names from photos, no ads, and the book offline.';
   String get addSeen => sk ? 'Pridať do nálezov' : 'Add to Seen';
   String get addSeenHint =>
       sk ? 'Z tvojich fotografií. Zadarmo.' : 'From your photos. Free.';
@@ -435,7 +585,8 @@ class Copy {
   String get seenFailed =>
       sk ? 'Tento nález sa nepodarilo uložiť.' : 'Couldn’t save this find.';
   String get seenLately => sk ? 'Nedávne nálezy' : 'Seen lately';
-  String get allFinds => sk ? 'Všetky' : 'All';
+  String get allFinds => sk ? 'Všetky nálezy' : 'All finds';
+  String get allLists => sk ? 'Všetky zoznamy' : 'All lists';
   String get toConfirm => sk ? 'Na potvrdenie' : 'To confirm';
   String get listsTitle => sk ? 'Zoznam húb' : 'List of mushrooms';
   String get newInBook => sk ? 'Nové v atlase' : 'New in the book';
@@ -554,6 +705,13 @@ class Copy {
   String get fieldGuideDisclaimerAndroid => sk
       ? 'Platba sa zaúčtuje na tvoj účet Google Play. Predplatné sa automaticky obnovuje, pokiaľ ho nezrušíš aspoň 24 hodín pred koncom obdobia. Spravovať alebo zrušiť ho môžeš v Google Play.'
       : 'Payment is charged to your Google Play account. The subscription renews unless you cancel at least 24 hours before the period ends. Manage or cancel it in Google Play.';
+  String get termsOfUse => sk ? 'Podmienky používania' : 'Terms of use';
+  String get privacyPolicy =>
+      sk ? 'Zásady ochrany osobných údajov' : 'Privacy policy';
+  String signInLegal(String terms, String privacy) => sk
+      ? 'Pokračovaním súhlasíš s dokumentmi $terms a $privacy.'
+      : 'By continuing you agree to the $terms and the $privacy.';
+
   String get fieldGuideDisclaimerIos => sk
       ? 'Platba sa zaúčtuje na tvoje Apple ID. Predplatné sa automaticky obnovuje, pokiaľ ho nezrušíš aspoň 24 hodín pred koncom obdobia. Spravovať alebo zrušiť ho môžeš v App Store.'
       : 'Payment is charged to your Apple ID. The subscription renews unless you cancel at least 24 hours before the period ends. Manage or cancel it in the App Store.';

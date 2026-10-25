@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -16,34 +18,48 @@ import 'package:whats_that_mushroom/firebase_options.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/crash_reporting.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/shell.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-  );
-  await Auth.startGuest();
-  final settings = GuideSettings();
-  await settings.restore();
-  final notebook = Notebook();
-  await notebook.load();
-  try {
-    await OfflineBook.restore();
-  } catch (error) {
-    debugPrint('offline: $error');
-  }
-  runApp(
-    GuideApp(
-      settings: settings,
-      notebook: notebook,
-      catalog: CatalogRepository(),
-    ),
-  );
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await startCrashReporting();
+    await GuideAnalytics.start();
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+    );
+    await Auth.startGuest();
+    Auth.syncAnalytics();
+    final settings = GuideSettings();
+    await settings.restore();
+    unawaited(GuideAnalytics.setLanguage(settings.language));
+    final notebook = Notebook();
+    await notebook.load();
+    try {
+      await OfflineBook.restore();
+    } catch (error, stack) {
+      debugPrint('offline: $error');
+      recordGuideError(error, stack, reason: 'offline restore');
+    }
+    runApp(
+      GuideApp(
+        settings: settings,
+        notebook: notebook,
+        catalog: CatalogRepository(),
+      ),
+    );
+  }, (error, stack) {
+    if (isIgnorableGuideError(error)) return;
+    debugPrint('uncaught: $error');
+    recordGuideError(error, stack);
+  });
 }
 
 class GuideApp extends StatefulWidget {
@@ -73,16 +89,49 @@ class _GuideAppState extends State<GuideApp> {
     super.initState();
     widget.settings.addListener(_onSettings);
     widget.notebook.addListener(_onNotebook);
+    Purchases.revision.addListener(_syncAnalytics);
     _load();
+    unawaited(GuideAnalytics.screen(guideAnalyticsTab(0)));
     unawaited(_billing.start());
     unawaited(_startAds());
   }
 
+  void _syncAnalytics() {
+    Auth.syncAnalytics();
+  }
+
+  void _selectTab(int index) {
+    if (index != _tab) {
+      unawaited(GuideAnalytics.screen(guideAnalyticsTab(index)));
+    }
+    setState(() => _tab = index);
+  }
+
   Future<void> _startAds() async {
+    var umpFailed = false;
     try {
-      await gatherAdConsent();
+      umpFailed = await gatherAdConsent();
     } catch (error) {
+      umpFailed = true;
       debugPrint('ads consent: $error');
+    }
+    var trackingAuthorized = !Platform.isIOS;
+    if (Platform.isIOS) {
+      try {
+        final status =
+            await AppTrackingTransparency.requestTrackingAuthorization();
+        trackingAuthorized = status == TrackingStatus.authorized;
+      } catch (error) {
+        debugPrint('tracking: $error');
+      }
+    }
+    try {
+      await applyAnalyticsConsent(
+        umpFailed: umpFailed,
+        trackingAuthorized: trackingAuthorized,
+      );
+    } catch (error) {
+      debugPrint('analytics consent: $error');
     }
     try {
       await MobileAds.instance.initialize();
@@ -97,6 +146,7 @@ class _GuideAppState extends State<GuideApp> {
   void dispose() {
     widget.settings.removeListener(_onSettings);
     widget.notebook.removeListener(_onNotebook);
+    Purchases.revision.removeListener(_syncAnalytics);
     unawaited(_billing.dispose());
     super.dispose();
   }
@@ -158,7 +208,7 @@ class _GuideAppState extends State<GuideApp> {
       settings: widget.settings,
       reload: _load,
       reloadLists: _reloadLists,
-      selectTab: (index) => setState(() => _tab = index),
+      selectTab: _selectTab,
       child: MaterialApp(
         title: copy.app,
         debugShowCheckedModeBanner: false,
@@ -172,10 +222,10 @@ class _GuideAppState extends State<GuideApp> {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        home: GuideShell(
-          index: _tab,
-          onSelect: (index) => setState(() => _tab = index),
-        ),
+        navigatorObservers: [
+          GuideAnalyticsObserver(shellName: () => guideAnalyticsTab(_tab)),
+        ],
+        home: GuideShell(index: _tab, onSelect: _selectTab),
       ),
     );
   }

@@ -3,14 +3,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:whats_that_mushroom/ads/ad_units.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 
 /// Collects consent before the first ad request.
 ///
 /// The published AdMob message is Google's consent form. Outside the EEA,
 /// the UK, and Switzerland this completes without a form. A failure still
-/// lets the SDK start. There is no analytics write: this app does not
-/// record an ads-consent choice anywhere else.
-Future<void> gatherAdConsent() async {
+/// lets the SDK start.
+///
+/// Returns true when the request failed, so analytics stays on. A shown form
+/// returns false and [applyAnalyticsConsent] reads the choice.
+Future<bool> gatherAdConsent() async {
   final updated = Completer<void>();
   var failed = false;
   try {
@@ -30,10 +33,43 @@ Future<void> gatherAdConsent() async {
         failed = true;
       },
     );
-    if (failed) return;
+    if (failed) return true;
     await ConsentForm.loadAndShowConsentFormIfRequired((_) {});
+    return false;
   } catch (error) {
     debugPrint('ads consent: $error');
+    return true;
+  }
+}
+
+/// Writes the ads-consent choice onto Firebase Analytics.
+Future<void> applyAnalyticsConsent({
+  bool umpFailed = false,
+  bool? trackingAuthorized,
+}) async {
+  if (umpFailed) {
+    await GuideAnalytics.applyConsent(
+      umpFailed: true,
+      trackingAuthorized: trackingAuthorized,
+    );
+    return;
+  }
+  try {
+    final status = await ConsentInformation.instance.getConsentStatus();
+    final canAds = await ConsentInformation.instance.canRequestAds();
+    await GuideAnalytics.applyConsent(
+      trackingAuthorized: trackingAuthorized,
+      consentKnown: status != ConsentStatus.unknown,
+      consentRequired:
+          status == ConsentStatus.required || status == ConsentStatus.obtained,
+      canRequestAds: canAds,
+    );
+  } catch (error) {
+    debugPrint('analytics consent: $error');
+    await GuideAnalytics.applyConsent(
+      umpFailed: true,
+      trackingAuthorized: trackingAuthorized,
+    );
   }
 }
 
@@ -58,6 +94,7 @@ Future<void> showAdPrivacyOptions() async {
       if (!done.isCompleted) done.complete();
     });
     await done.future;
+    await applyAnalyticsConsent();
   } catch (error) {
     debugPrint('ads privacy: $error');
   }

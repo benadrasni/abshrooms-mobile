@@ -20,6 +20,7 @@ import 'package:whats_that_mushroom/person/sign_in_page.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -299,9 +300,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
     final done = Completer<void>();
     var earned = false;
+    var dismissed = false;
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
+        dismissed = true;
         if (_rewarded == ad) _rewarded = null;
         _ensureAd();
         if (!done.isCompleted) done.complete();
@@ -321,6 +324,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       },
     );
     await done.future;
+    if (dismissed) unawaited(GuideAnalytics.adReward(earned: earned));
     if (!earned) return;
     if (Firebase.apps.isEmpty) {
       await Names.grant();
@@ -347,8 +351,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Future<void> _openFieldGuide() async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => const FieldGuidePage()));
+    await Navigator.of(context).push(
+      guideRoute<void>(guideScreenFieldGuide, (_) => const FieldGuidePage()),
+    );
     if (!mounted) return;
     setState(() {
       if (_canName) _limit = false;
@@ -356,8 +361,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Future<void> _openSignIn() async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => const SignInPage()));
+    await Navigator.of(context).push(
+      guideRoute<void>(guideScreenSignIn, (_) => const SignInPage()),
+    );
     if (!mounted) return;
     setState(() {
       if (_canName) _limit = false;
@@ -383,6 +389,16 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
     GuideScope.of(context).selectTab(0);
     Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _logPhoto(ImageSource source, String outcome, {bool counted = false}) {
+    unawaited(
+      GuideAnalytics.searchPhoto(
+        source: source == ImageSource.camera ? 'camera' : 'gallery',
+        outcome: outcome,
+        counted: counted,
+      ),
+    );
   }
 
   void _snack(String message) {
@@ -432,14 +448,19 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       return;
     }
     if (!mounted) return;
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => SpeciesPage(latin: latin)));
+    await Navigator.of(context).push(
+      guideRoute(
+        guideScreenSpecies,
+        (_) => SpeciesPage(latin: latin, source: GuideMushroomSource.photo),
+      ),
+    );
   }
 
   Future<void> _openSearch() async {
     if (!mounted) return;
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const SearchPage()));
+    await Navigator.of(context).push(
+      guideRoute(guideScreenSearch, (_) => const SearchPage()),
+    );
   }
 
   Future<void> _finishOutside(OutsideResult result) async {
@@ -500,6 +521,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       if (!mounted) return;
       final outcome = _outcome(guesses, catalog);
       if (outcome.notMushroom) {
+        _logPhoto(
+          source,
+          'not_mushroom',
+          counted: applied && Names.lastCharged,
+        );
         setState(() {
           _naming = false;
           _notMushroom = true;
@@ -507,6 +533,10 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         });
         return;
       }
+      _logPhoto(
+        source,
+        outcome.speciesName == null ? 'outside' : 'species',
+      );
       final id = DateTime.now().microsecondsSinceEpoch.toString();
       final saved = await scope.notebook.savePhoto(bytes, id);
       final photoPath = saved ?? path;
@@ -532,6 +562,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           ],
         ),
       );
+      unawaited(GuideAnalytics.seenSave(source: 'photo', shared: false));
       if (!applied && !_fieldGuide) {
         await Names.spend(signedIn: _signedIn);
       }
@@ -549,8 +580,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         await _openSpecies(species);
       } else {
         final result = await Navigator.of(context).push<OutsideResult>(
-          MaterialPageRoute(
-            builder: (_) => OutsidePage(
+          guideRoute(
+            guideScreenOutside,
+            (_) => OutsidePage(
               recordId: id,
               onOpenSpecies: widget.onOpenSpecies,
               onSearch: () => unawaited(_openSearch()),
@@ -563,6 +595,12 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       if (mounted) await _startPreview();
     } on NameRefused catch (error) {
       Names.takeServerApply();
+      _logPhoto(
+        source,
+        error.reason == 'sign-in' || error.reason == 'no-names'
+            ? 'limit'
+            : 'refused',
+      );
       if (!mounted) return;
       final limit = error.reason == 'sign-in' || error.reason == 'no-names';
       setState(() {
@@ -574,6 +612,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       _releaseShot();
     } catch (error) {
       debugPrint('camera: $error');
+      _logPhoto(source, 'error');
       if (!mounted) return;
       setState(() {
         _naming = false;

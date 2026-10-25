@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "968595882184-3q62pp7b5rqb8kde8v6a1l04jrv9lefn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "sk.ab.shrooms",
+            "certificate_hash": "b9462d162e26d3ec719210ab2246dcc0961c28a1"
+          }
+        },
+        {
+          "client_id": "968595882184-6qo39afvevpbd1va74vjttflb61u81d5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "sk.ab.shrooms",
+            "certificate_hash": "110a58d1a3a6f91d2d77cbc9159071fbc5b4ff67"
+          }
+        },
+        {
           "client_id": "968595882184-hhcnu3b0ffqus3fdud3ahl5el54sl58t.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -32,6 +48,9 @@
         }
       ],
       "services": {
+        "analytics_service": {
+          "status": 1
+        },
         "appinvite_service": {
           "other_platform_oauth_client": [
             {

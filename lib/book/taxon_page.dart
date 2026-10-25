@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/data/models.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -68,7 +69,13 @@ class TaxonPage extends StatelessWidget {
             SpeciesRow(
               catalog: catalog,
               species: species,
-              onTap: () => openSpecies(context, species.name),
+              onTap: () => openSpecies(
+                context,
+                species.name,
+                source: kind == 'favorites'
+                    ? GuideMushroomSource.favorite
+                    : GuideMushroomSource.list,
+              ),
             ),
         ],
       ),

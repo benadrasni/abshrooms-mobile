@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
@@ -5,6 +7,7 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/search.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -26,6 +29,18 @@ class _SearchPageState extends State<SearchPage> {
   void dispose() {
     _query.dispose();
     super.dispose();
+  }
+
+  void _logSearch(SearchSections sections) {
+    unawaited(
+      GuideAnalytics.search(
+        term: _query.text,
+        resultCount:
+            sections.mushrooms.length +
+            sections.genera.length +
+            sections.families.length,
+      ),
+    );
   }
 
   void _keyOut() {
@@ -89,8 +104,9 @@ class _SearchPageState extends State<SearchPage> {
         photo: copy.searchTryPhoto,
         keyLabel: copy.searchKeyOut,
         onPhoto: () =>
-            Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const CameraPage())),
+            Navigator.of(context).push(
+              guideRoute(guideScreenCamera, (_) => const CameraPage()),
+            ),
         onKey: _keyOut,
       );
     }
@@ -100,21 +116,22 @@ class _SearchPageState extends State<SearchPage> {
       children: [
         if (sections.mushrooms.isNotEmpty) ...[
           _SectionLabel(copy.mushroomsSection),
-          for (final hit in sections.mushrooms) _mushroom(catalog, hit),
+          for (final hit in sections.mushrooms)
+            _mushroom(catalog, sections, hit),
         ],
         if (sections.genera.isNotEmpty) ...[
           _SectionLabel(copy.genera),
-          for (final hit in sections.genera) _taxon(catalog, hit),
+          for (final hit in sections.genera) _taxon(catalog, sections, hit),
         ],
         if (sections.families.isNotEmpty) ...[
           _SectionLabel(copy.families),
-          for (final hit in sections.families) _taxon(catalog, hit),
+          for (final hit in sections.families) _taxon(catalog, sections, hit),
         ],
       ],
     );
   }
 
-  Widget _mushroom(Catalog catalog, SearchHit hit) {
+  Widget _mushroom(Catalog catalog, SearchSections sections, SearchHit hit) {
     final species = catalog.byName(hit.name);
     if (species == null) return const SizedBox.shrink();
     final title = catalog.heading(species);
@@ -128,11 +145,18 @@ class _SearchPageState extends State<SearchPage> {
       latin: spoken ? species.name : null,
       url: url,
       plate: plate,
-      onTap: () => openSpecies(context, species.name),
+      onTap: () {
+        _logSearch(sections);
+        openSpecies(
+          context,
+          species.name,
+          source: GuideMushroomSource.search,
+        );
+      },
     );
   }
 
-  Widget _taxon(Catalog catalog, SearchHit hit) {
+  Widget _taxon(Catalog catalog, SearchSections sections, SearchHit hit) {
     final title = catalog.taxonTitle(hit.name);
     final spoken = title != hit.name;
     return _ResultRow(
@@ -141,11 +165,15 @@ class _SearchPageState extends State<SearchPage> {
       url: familyIcon(_plateFamily(catalog, hit)),
       plate: true,
       count: catalog.countOf(hit.kind, hit.name),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TaxonPage(kind: hit.kind, name: hit.name),
-        ),
-      ),
+      onTap: () {
+        _logSearch(sections);
+        Navigator.of(context).push(
+          guideRoute(
+            guideTaxonScreen(hit.kind),
+            (_) => TaxonPage(kind: hit.kind, name: hit.name),
+          ),
+        );
+      },
     );
   }
 }

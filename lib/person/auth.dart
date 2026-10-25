@@ -1,14 +1,18 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/person/account.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 
 const _guestKey = 'guest_created';
 
@@ -42,6 +46,47 @@ class Auth {
     }
     appUser = _signedIn(user);
     revision.value++;
+    syncAnalytics();
+  }
+
+  /// The signed-in person, or the guest, and whether Field Guide is on.
+  static void syncAnalytics() {
+    User? user;
+    try {
+      if (Firebase.apps.isEmpty) return;
+      user = firebaseAuth.currentUser;
+    } catch (error) {
+      debugPrint('analytics account: $error');
+      return;
+    }
+    if (!kDebugMode) {
+      unawaited(
+        FirebaseCrashlytics.instance.setUserIdentifier(user?.uid ?? ''),
+      );
+    }
+    if (user == null) {
+      unawaited(GuideAnalytics.syncAccount());
+      return;
+    }
+    final guide = Purchases.hasFieldGuide();
+    unawaited(
+      GuideAnalytics.syncAccount(
+        userId: user.uid,
+        account: user.isAnonymous ? 'guest' : 'signed_in',
+        plan: guide ? 'field_guide' : 'free',
+        ads: Purchases.showsAds() ? 'shown' : 'hidden',
+      ),
+    );
+  }
+
+  static void _logAuth(UserCredential result, String providerId, bool signUp) {
+    final method = guideAnalyticsAuthMethod(providerId);
+    final uid = result.user?.uid;
+    if (signUp) {
+      unawaited(GuideAnalytics.signUp(method, userId: uid));
+    } else {
+      unawaited(GuideAnalytics.login(method, userId: uid));
+    }
   }
 
   /// Creates the guest account once per install. Signing out does not create
@@ -69,16 +114,24 @@ class Auth {
     final guest = guestUser;
     if (guest != null) {
       try {
-        return await guest.linkWithCredential(credential);
+        final linked = await guest.linkWithCredential(credential);
+        _logAuth(linked, credential.providerId, true);
+        return linked;
       } on FirebaseAuthException catch (error) {
         if (error.code != 'credential-already-in-use' &&
             error.code != 'email-already-in-use') {
           rethrow;
         }
-        return firebaseAuth.signInWithCredential(error.credential ?? credential);
+        final signed = await firebaseAuth.signInWithCredential(
+          error.credential ?? credential,
+        );
+        _logAuth(signed, credential.providerId, false);
+        return signed;
       }
     }
-    return firebaseAuth.signInWithCredential(credential);
+    final signed = await firebaseAuth.signInWithCredential(credential);
+    _logAuth(signed, credential.providerId, false);
+    return signed;
   }
 
   static Future<void> signInWithCredential(AuthCredential credential) async {
@@ -91,6 +144,7 @@ class Auth {
       email: email,
       password: password,
     );
+    _logAuth(result, 'password', false);
     publish();
     return result.user;
   }
@@ -105,6 +159,7 @@ class Auth {
               email: email,
               password: password,
             );
+      _logAuth(result, 'password', true);
       publish();
       return result.user;
     } on FirebaseAuthException catch (error) {

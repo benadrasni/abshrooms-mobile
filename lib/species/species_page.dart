@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,14 +10,23 @@ import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
 
-void openSpecies(BuildContext context, String latin) {
-  Navigator.of(context)
-      .push(MaterialPageRoute(builder: (_) => SpeciesPage(latin: latin)));
+void openSpecies(
+  BuildContext context,
+  String latin, {
+  String source = GuideMushroomSource.list,
+}) {
+  Navigator.of(context).push(
+    guideRoute(
+      guideScreenSpecies,
+      (_) => SpeciesPage(latin: latin, source: source),
+    ),
+  );
 }
 
 class SpeciesPage extends StatefulWidget {
@@ -25,7 +35,15 @@ class SpeciesPage extends StatefulWidget {
   /// Replaces the gallery picker in tests. Null is a cancelled pick.
   final Future<SeenPhoto?> Function()? pickSeen;
 
-  const SpeciesPage({super.key, required this.latin, this.pickSeen});
+  /// Where this page was opened. Sent with the species event.
+  final String source;
+
+  const SpeciesPage({
+    super.key,
+    required this.latin,
+    this.source = GuideMushroomSource.list,
+    this.pickSeen,
+  });
 
   @override
   State<SpeciesPage> createState() => _SpeciesPageState();
@@ -36,6 +54,12 @@ class _SpeciesPageState extends State<SpeciesPage> {
   var _namesOpen = false;
   var _ranksOpen = false;
   var _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(GuideAnalytics.mushroom(widget.latin, source: widget.source));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +106,11 @@ class _SpeciesPageState extends State<SpeciesPage> {
             backgroundColor: colors.paper,
             actions: [
               IconButton(
-                onPressed: () => scope.notebook.toggleFavorite(species.name),
+                onPressed: () {
+                  final on = !favorite;
+                  scope.notebook.toggleFavorite(species.name);
+                  unawaited(GuideAnalytics.favorite(on: on));
+                },
                 icon: Icon(favorite ? Icons.favorite : Icons.favorite_border),
                 color: favorite ? colors.madder : colors.ink,
               ),
@@ -272,6 +300,12 @@ class _SpeciesPageState extends State<SpeciesPage> {
           longitude: photo.longitude == 0 ? null : photo.longitude,
         ),
       );
+      unawaited(
+        GuideAnalytics.seenSave(
+          source: photo.fromPhoto ? 'photo' : 'manual',
+          shared: false,
+        ),
+      );
       if (!mounted) return;
       final copy = scope.copy;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -437,8 +471,9 @@ class _SpeciesPageState extends State<SpeciesPage> {
     if (!linked) return child;
     return InkWell(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TaxonPage(kind: rank, name: scientific),
+        guideRoute(
+          guideTaxonScreen(rank),
+          (_) => TaxonPage(kind: rank, name: scientific),
         ),
       ),
       child: child,

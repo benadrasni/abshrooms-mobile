@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:image/image.dart' as img;
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 
@@ -107,7 +108,7 @@ Future<List<NameGuess>> identifyMushroom(
     });
     _applyQuota(result.data);
     return guessesFrom(result.data);
-  } on FirebaseFunctionsException catch (error) {
+  } on FirebaseFunctionsException catch (error, stack) {
     if (error.code == 'resource-exhausted') {
       _applyQuota(error.details);
       final details = error.details;
@@ -116,6 +117,10 @@ Future<List<NameGuess>> identifyMushroom(
           : error.message;
       throw NameRefused(reason ?? 'sign-in');
     }
+    recordGuideError(error, stack, reason: 'identifyMushroom');
+    rethrow;
+  } catch (error, stack) {
+    recordGuideError(error, stack, reason: 'identifyMushroom');
     rethrow;
   }
 }

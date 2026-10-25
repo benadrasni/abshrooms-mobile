@@ -7,8 +7,10 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/field_guide/catalog.dart';
+import 'package:whats_that_mushroom/legal.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
@@ -44,6 +46,7 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
   String? _error;
   var _ticket = 0;
   var _failures = 0;
+  var _viewed = false;
 
   @override
   void initState() {
@@ -89,6 +92,14 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
         _failed = false;
         if (!_planChosen) _plan = _openingPlan(loaded.catalog);
       });
+      if (_viewed) return;
+      _viewed = true;
+      unawaited(
+        GuideAnalytics.viewItem([
+          loaded.catalog.yearly.productId,
+          loaded.catalog.monthly.productId,
+        ]),
+      );
     } catch (error) {
       debugPrint('field guide: $error');
       if (!mounted || ticket != _ticket) return;
@@ -409,6 +420,22 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
               fontSize: 12,
               height: 1.45,
             ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              _LegalLink(
+                label: copy.termsOfUse,
+                onPressed: () => openLegal(termsOfUseUrl),
+              ),
+              _LegalLink(
+                label: copy.privacyPolicy,
+                onPressed: () => openLegal(privacyPolicyUrl),
+              ),
+            ],
           ),
         ),
       ],
@@ -796,6 +823,32 @@ class _StartButton extends StatelessWidget {
                     ),
                   ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LegalLink extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _LegalLink({required this.label, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    return TextButton(
+      onPressed: onPressed,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: GuideType.sans,
+          color: colors.moss,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          decoration: TextDecoration.underline,
+          decorationColor: colors.moss,
         ),
       ),
     );

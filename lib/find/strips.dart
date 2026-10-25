@@ -10,6 +10,7 @@ import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/lists/curated_list_page.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -124,7 +125,11 @@ class SeenStrip extends StatelessWidget {
         child: InkWell(
           onTap: species == null
               ? onOpenSeen
-              : () => openSpecies(context, species.name),
+              : () => openSpecies(
+                  context,
+                  species.name,
+                  source: GuideMushroomSource.seen,
+                ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -221,8 +226,9 @@ class ListStrip extends StatelessWidget {
           photo: speciesPhoto(favorites.first),
           gold: false,
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const TaxonPage(kind: 'favorites', name: ''),
+            guideRoute(
+              guideScreenFavorites,
+              (_) => const TaxonPage(kind: 'favorites', name: ''),
             ),
           ),
         ),
@@ -238,8 +244,9 @@ class ListStrip extends StatelessWidget {
           photo: speciesPhoto(fresh.first.species.first),
           gold: true,
           onTap: () =>
-              Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const NewPage())),
+              Navigator.of(context).push(
+                guideRoute(guideScreenNew, (_) => const NewPage()),
+              ),
         ),
       for (final list in curated)
         _cover(
@@ -250,8 +257,9 @@ class ListStrip extends StatelessWidget {
           photo: list.coverPhotoUrl,
           gold: false,
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => CuratedListPage(list: list, backLabel: copy.find),
+            guideRoute(
+              guideListScreen(list.id),
+              (_) => CuratedListPage(list: list, backLabel: copy.find),
             ),
           ),
         ),

@@ -9,11 +9,20 @@ import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/lists/curated_list_page.dart';
 import 'package:whats_that_mushroom/lists/curated_lists_notice.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
 
 enum BookSegment { families, genera, lists }
+
+/// Each tick asks the living [BookPage] to show Lists.
+/// Find's All lists increments this, then selects the Book tab.
+class BookLists {
+  static final ValueNotifier<int> request = ValueNotifier(0);
+
+  static void open() => request.value++;
+}
 
 class BookPage extends StatefulWidget {
   const BookPage({super.key});
@@ -25,11 +34,25 @@ class BookPage extends StatefulWidget {
 class _BookPageState extends State<BookPage> {
   final ScrollController _scroll = ScrollController();
   BookSegment _segment = BookSegment.families;
+  var _listsSeen = BookLists.request.value;
+
+  @override
+  void initState() {
+    super.initState();
+    BookLists.request.addListener(_openLists);
+  }
 
   @override
   void dispose() {
+    BookLists.request.removeListener(_openLists);
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _openLists() {
+    if (!mounted || BookLists.request.value == _listsSeen) return;
+    _listsSeen = BookLists.request.value;
+    _select(BookSegment.lists);
   }
 
   void _select(BookSegment segment) {
@@ -70,8 +93,9 @@ class _BookPageState extends State<BookPage> {
             ),
             searchLabel: copy.search,
             onSearch: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const SearchPage(fromBook: true),
+              guideRoute(
+                guideScreenSearch,
+                (_) => const SearchPage(fromBook: true),
               ),
             ),
           ),
@@ -137,8 +161,9 @@ class _BookPageState extends State<BookPage> {
           plate: familyIcon(_plateFamily(catalog, name, family: family)),
           note: family ? null : _genusNote(catalog, name, seen),
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TaxonPage(kind: kind, name: name),
+            guideRoute(
+              guideTaxonScreen(kind),
+              (_) => TaxonPage(kind: kind, name: name),
             ),
           ),
         );
@@ -171,8 +196,9 @@ class _BookPageState extends State<BookPage> {
           favorite: true,
           gold: false,
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const TaxonPage(kind: 'favorites', name: ''),
+            guideRoute(
+              guideScreenFavorites,
+              (_) => const TaxonPage(kind: 'favorites', name: ''),
             ),
           ),
         ),
@@ -192,8 +218,9 @@ class _BookPageState extends State<BookPage> {
           favorite: false,
           gold: true,
           onTap: () =>
-              Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const NewPage())),
+              Navigator.of(context).push(
+                guideRoute(guideScreenNew, (_) => const NewPage()),
+              ),
         ),
       );
     }
@@ -219,8 +246,9 @@ class _BookPageState extends State<BookPage> {
           favorite: false,
           gold: false,
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => CuratedListPage(list: list, backLabel: copy.book),
+            guideRoute(
+              guideListScreen(list.id),
+              (_) => CuratedListPage(list: list, backLabel: copy.book),
             ),
           ),
         ),

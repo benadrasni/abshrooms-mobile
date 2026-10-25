@@ -9,6 +9,7 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 
 const _ownedKey = 'field_guide_products';
 
@@ -62,6 +63,7 @@ class FieldGuideBilling {
       onError: (Object error) {
         debugPrint('purchase stream: $error');
         Purchases.noteFailure();
+        unawaited(GuideAnalytics.purchaseFailed(reason: 'stream'));
       },
     );
     final available = await store.isAvailable();
@@ -101,9 +103,15 @@ class FieldGuideBilling {
         final before = Purchases.owned.length;
         Purchases.remember(id);
         changed = changed || Purchases.owned.length != before;
+        if (purchase.status == PurchaseStatus.purchased) {
+          unawaited(GuideAnalytics.purchase(id));
+        }
       } else if (purchase.status == PurchaseStatus.error &&
           !storePurchaseCanceled(purchase)) {
         Purchases.noteFailure();
+        unawaited(
+          GuideAnalytics.purchaseFailed(productId: id, reason: 'store'),
+        );
       }
       if (purchase.pendingCompletePurchase) {
         unawaited(_complete(purchase));

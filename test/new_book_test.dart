@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whats_that_mushroom/book/book_page.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
@@ -108,6 +109,7 @@ void main() {
   });
 
   testWidgets('Find hides Seen until a sighting exists', (tester) async {
+    addTearDown(() => BookLists.request.value = 0);
     final catalog = buildCatalog(
       language: 'en',
       speciesDocs: [
@@ -153,11 +155,20 @@ void main() {
     ];
     notebook.favorites = {'Boletus edulis'};
     notebook.notifyListeners();
-    await tester.pumpWidget(_harness(repository, notebook, reload, (_) {}));
+    var tab = -1;
+    await tester.pumpWidget(
+      _harness(repository, notebook, reload, (index) => tab = index),
+    );
     await tester.pump();
     expect(find.text('Seen lately'), findsOneWidget);
+    expect(find.text('All finds'), findsOneWidget);
+    expect(find.text('All lists'), findsOneWidget);
     expect(find.text('Boletus edulis'), findsWidgets);
     expect(find.text('Favorite mushrooms'), findsOneWidget);
+    await tester.tap(find.text('All finds'));
+    expect(tab, 2);
+    await tester.tap(find.text('All lists'));
+    expect(tab, 1);
 
     await tester.ensureVisible(find.text('New in the book'));
     await tester.tap(find.text('New in the book'));

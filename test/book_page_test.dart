@@ -10,6 +10,7 @@ import 'package:whats_that_mushroom/shell/theme.dart';
 
 void main() {
   testWidgets('Book matches the plant segments', (tester) async {
+    addTearDown(() => BookLists.request.value = 0);
     final catalog = buildCatalog(
       language: 'en',
       speciesDocs: [
@@ -100,5 +101,13 @@ void main() {
     expect(find.textContaining('Favorite mushrooms'), findsOneWidget);
     expect(find.textContaining('New in the book'), findsOneWidget);
     expect(find.byIcon(Icons.favorite), findsOneWidget);
+
+    await tester.tap(find.text('Families'));
+    await tester.pump();
+    expect(find.text('bolete family'), findsOneWidget);
+    BookLists.open();
+    await tester.pump();
+    expect(find.textContaining('Favorite mushrooms'), findsOneWidget);
+    expect(find.text('bolete family'), findsNothing);
   });
 }

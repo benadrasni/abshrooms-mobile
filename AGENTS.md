@@ -12,6 +12,6 @@ Plant.id is fungi only. `functions/src/plantid.ts` keeps kingdom Fungi and does 
 
 `firebase/firestore.rules` is published. Catalog collections are world-readable and client writes are denied. Deploy a rules change only when asked, with `firebase deploy --only firestore:rules --project abshrooms-a9d4c --non-interactive`.
 
-No custom lists, distribution map, or public sightings. Seen is the on-device notebook. A heart is a personal favorite.
+No custom lists or distribution map. Seen is the on-device notebook. A confirmed find in the book, with its photo still on the phone, can be shared as a Sighting: sign in, CC0 consent, then Firestore `sightings/{id}` and Storage `sightings/{uid}/{id}.jpg` at status `review`. The owner may delete that document. Admin writes set `public` or `rejected`. A heart is a personal favorite.
 
 Do not copy the flower app's `firebase_options`, keystore, or project `abherbs-backend`.

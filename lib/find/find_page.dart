@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:whats_that_mushroom/book/book_page.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
@@ -13,6 +14,7 @@ import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/lists/curated_lists_notice.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -60,7 +62,7 @@ class FindPage extends StatelessWidget {
           colors: colors,
           onPerson: () =>
               Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const PersonPage())),
+                  .push(guideRoute(guideScreenPerson, (_) => const PersonPage())),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -73,7 +75,7 @@ class FindPage extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(28),
               onTap: () => Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const SearchPage())),
+                  .push(guideRoute(guideScreenSearch, (_) => const SearchPage())),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -99,16 +101,18 @@ class FindPage extends StatelessWidget {
           copy: copy,
           colors: colors,
           onTap: () =>
-              Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const CameraPage())),
+              Navigator.of(context).push(
+                guideRoute(guideScreenCamera, (_) => const CameraPage()),
+              ),
         ),
         _KeyCard(
           copy: copy,
           colors: colors,
           counts: counts,
           onUnder: (id) => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => WherePage(selection: KeySelection(under: id)),
+            guideRoute(
+              guideScreenWhere,
+              (_) => WherePage(selection: KeySelection(under: id)),
             ),
           ),
         ),
@@ -126,7 +130,14 @@ class FindPage extends StatelessWidget {
           ),
         ],
         if (favorites.isNotEmpty || fresh.isNotEmpty || curated.isNotEmpty) ...[
-          SectionHeader(title: copy.listsTitle),
+          SectionHeader(
+            title: copy.listsTitle,
+            action: copy.allLists,
+            onAction: () {
+              BookLists.open();
+              scope.selectTab(1);
+            },
+          ),
           ListStrip(
             copy: copy,
             catalog: catalog,

@@ -17,7 +17,9 @@ import 'package:whats_that_mushroom/person/account_deletion.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/sign_in_page.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
+import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
@@ -51,6 +53,7 @@ class _PersonPageState extends State<PersonPage> {
     _versionName = widget.versionName;
     _buildNumber = widget.buildNumber;
     Purchases.revision.addListener(_onPlan);
+    Names.revision.addListener(_onPlan);
     Auth.revision.addListener(_onPlan);
     OfflineBook.revision.addListener(_onPlan);
     Ads.ready.addListener(_onAdsReady);
@@ -63,6 +66,7 @@ class _PersonPageState extends State<PersonPage> {
   @override
   void dispose() {
     Purchases.revision.removeListener(_onPlan);
+    Names.revision.removeListener(_onPlan);
     Auth.revision.removeListener(_onPlan);
     OfflineBook.revision.removeListener(_onPlan);
     Ads.ready.removeListener(_onAdsReady);
@@ -155,21 +159,27 @@ class _PersonPageState extends State<PersonPage> {
           children: [
             const _BackButton(),
             if (lines != null) _AccountHeader(lines: lines),
+            if (lines != null && !guide)
+              _NamesMonthCard(
+                month: MonthNames.of(Names.count, DateTime.now()),
+              ),
             if (lines == null || guide) ...[
               _PersonCard(
                 title: guide ? copy.fieldGuide : copy.signInCardTitle,
                 note: guide ? copy.fieldGuidePerks : copy.signInFree,
                 onOpen: guide
                     ? () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const FieldGuidePage(),
+                        guideRoute<void>(
+                          guideScreenFieldGuide,
+                          (_) => const FieldGuidePage(),
                         ),
                       )
                     : null,
                 onSignIn: lines == null
                     ? () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const SignInPage(),
+                        guideRoute<void>(
+                          guideScreenSignIn,
+                          (_) => const SignInPage(),
                         ),
                       )
                     : null,
@@ -182,8 +192,9 @@ class _PersonPageState extends State<PersonPage> {
                 title: copy.fieldGuide,
                 subtitle: copy.fieldGuideOffer,
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const FieldGuidePage(),
+                  guideRoute<void>(
+                    guideScreenFieldGuide,
+                    (_) => const FieldGuidePage(),
                   ),
                 ),
               ),
@@ -197,7 +208,9 @@ class _PersonPageState extends State<PersonPage> {
               name: settings.language == 'sk' ? copy.slovak : copy.english,
               onTap: () => Navigator.of(
                 context,
-              ).push(MaterialPageRoute(builder: (_) => const LanguagePage())),
+              ).push(
+                guideRoute(guideScreenLanguage, (_) => const LanguagePage()),
+              ),
             ),
             _ThemeRow(
               mode: settings.themeMode,
@@ -224,7 +237,7 @@ class _PersonPageState extends State<PersonPage> {
                 updateSpecies: _offlineUpdates(scope.catalogData),
               ),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const OfflinePage()),
+                guideRoute<void>(guideScreenOffline, (_) => const OfflinePage()),
               ),
             ),
             _MenuRow(
@@ -440,6 +453,106 @@ class _MenuRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _NamesMonthCard extends StatelessWidget {
+  final MonthNames month;
+
+  const _NamesMonthCard({required this.month});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final copy = GuideScope.of(context).copy;
+    final note = TextStyle(
+      fontFamily: GuideType.sans,
+      fontSize: 12,
+      color: colors.ink3,
+      height: 1.35,
+    );
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 12),
+      child: Material(
+        color: colors.cream,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.rule),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      copy.namesThisMonth,
+                      style: TextStyle(
+                        fontFamily: GuideType.sans,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colors.ink,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  Text(copy.namesReset(month.resetsOn), style: note),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _NamesBar(month: month),
+              const SizedBox(height: 6),
+              Text(
+                copy.namesMonthDetail(
+                  includedUsed: month.includedUsed,
+                  extraUsed: month.extraUsed,
+                  adsLeft: month.adsLeft,
+                ),
+                style: note,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NamesBar extends StatelessWidget {
+  final MonthNames month;
+
+  const _NamesBar({required this.month});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final parts = <Widget>[
+      if (month.includedUsed > 0)
+        Expanded(
+          flex: month.includedUsed,
+          child: ColoredBox(color: colors.mossFill),
+        ),
+      if (month.extraUsed > 0)
+        Expanded(
+          flex: month.extraUsed,
+          child: ColoredBox(color: colors.gold),
+        ),
+      if (month.rest > 0)
+        Expanded(
+          flex: month.rest,
+          child: ColoredBox(color: colors.paper2),
+        ),
+    ];
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 8,
+        width: double.infinity,
+        child: Row(children: parts),
       ),
     );
   }

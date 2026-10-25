@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 
 class GuideSettings extends ChangeNotifier {
   String language = 'en';
@@ -29,6 +31,8 @@ class GuideSettings extends ChangeNotifier {
     language = code == 'sk' ? 'sk' : 'en';
     await _prefs?.setString('language', language);
     notifyListeners();
+    unawaited(GuideAnalytics.language(language));
+    unawaited(GuideAnalytics.setLanguage(language));
   }
 
   Future<void> setTheme(ThemeMode mode) async {

@@ -1,3 +1,4 @@
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -6,6 +7,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 val keystoreProperties = Properties()
@@ -58,6 +60,12 @@ android {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
+            }
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
+            configure<CrashlyticsExtension> {
+                mappingFileUploadEnabled = true
             }
         }
     }

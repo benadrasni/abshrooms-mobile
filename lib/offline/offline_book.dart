@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
+import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/offline/offline_plan.dart';
 
@@ -236,6 +237,11 @@ Future<void> _run({
           onProgress(done, total);
           continue;
         }
+        recordGuideError(
+          StateError('missing $relative'),
+          StackTrace.current,
+          reason: 'offline download $relative',
+        );
         onFailed();
         return;
       }
@@ -251,9 +257,10 @@ Future<void> _run({
     if (request.markStored) await _markStored(request.species);
     if (!OfflineBook.owns(generation)) return;
     onFinished();
-  } catch (error) {
+  } catch (error, stack) {
     if (!OfflineBook.owns(generation)) return;
     debugPrint('offline: $error');
+    recordGuideError(error, stack, reason: 'offline download');
     onFailed();
   } finally {
     if (identical(OfflineBook._client, client)) OfflineBook._client = null;

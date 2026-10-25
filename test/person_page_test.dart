@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
+import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/person/person_page.dart';
+import 'package:whats_that_mushroom/purchase/names.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -26,6 +29,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Names this month'), findsNothing);
     expect(find.text('Field Guide'), findsOneWidget);
     expect(
       find.text('7 days free • Unlimited • No ads • Seen sync • Offline'),
@@ -60,6 +64,7 @@ void main() {
     expect(find.text('Motív'), findsOneWidget);
     expect(find.text('Terénny sprievodca'), findsOneWidget);
     expect(find.text('Prihlás sa na určenie z fotografie'), findsOneWidget);
+    expect(find.text('Určenia tento mesiac'), findsNothing);
     expect(find.text('Prihlásiť sa'), findsOneWidget);
     expect(find.text('Obnoviť nákupy'), findsOneWidget);
     expect(find.text('Ohodnotiť aplikáciu'), findsOneWidget);
@@ -75,6 +80,10 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     var signedOut = false;
+    Names.setForTest(used: 2, grants: 1);
+    addTearDown(Names.resetForTest);
+    final month = MonthNames.of(Names.count, DateTime.now());
+    const copy = Copy('en');
     await tester.pumpWidget(
       _Host(
         settings: GuideSettings(),
@@ -93,12 +102,47 @@ void main() {
     expect(find.text('ada@example.com · Google'), findsOneWidget);
     expect(find.text('Sign in to name a photo'), findsNothing);
     expect(find.text('Sign in'), findsNothing);
+    expect(find.text('Names this month'), findsOneWidget);
+    expect(find.text(copy.namesReset(month.resetsOn)), findsOneWidget);
+    expect(
+      find.text(
+        copy.namesMonthDetail(includedUsed: 2, extraUsed: 1, adsLeft: 4),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Sign out'), findsOneWidget);
     expect(find.text('Delete account'), findsOneWidget);
 
     await tester.tap(find.text('Sign out'));
     await tester.pump();
     expect(signedOut, isTrue);
+  });
+
+  testWidgets('Field Guide replaces the month card', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    Purchases.remember('field_guide_monthly');
+    addTearDown(Purchases.resetForTest);
+    Names.setForTest(used: 2, grants: 1);
+    addTearDown(Names.resetForTest);
+    await tester.pumpWidget(
+      _Host(
+        settings: GuideSettings(),
+        accountOf: () => const AccountView(
+          name: 'Ada Lovelace',
+          email: 'ada@example.com',
+          provider: AccountProvider.google,
+        ),
+      ),
+    );
+    expect(find.text('Names this month'), findsNothing);
+    expect(find.text('Field Guide'), findsOneWidget);
+    expect(
+      find.text('Unlimited • No ads • Seen sync • Offline'),
+      findsOneWidget,
+    );
   });
 }
 

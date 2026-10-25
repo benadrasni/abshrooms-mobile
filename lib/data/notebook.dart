@@ -5,6 +5,24 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Where a confirmed find sits with Sightings.
+enum FindShare { none, review, shared, rejected }
+
+/// A stored name, or the server status `public` for a published sighting.
+FindShare findShareFrom(Object? raw) {
+  switch (raw) {
+    case 'review':
+      return FindShare.review;
+    case 'shared':
+    case 'public':
+      return FindShare.shared;
+    case 'rejected':
+      return FindShare.rejected;
+    default:
+      return FindShare.none;
+  }
+}
+
 /// Another name Plant.id offered for the same photo.
 class FindName {
   final String scientificName;
@@ -57,6 +75,9 @@ class FindRecord {
   /// Other names from the same photo that are already in the book.
   final List<FindName> others;
 
+  /// Sightings status. [FindShare.none] has not been sent.
+  final FindShare share;
+
   const FindRecord({
     required this.id,
     required this.millis,
@@ -69,6 +90,7 @@ class FindRecord {
     this.latitude,
     this.longitude,
     this.others = const [],
+    this.share = FindShare.none,
   });
 
   FindRecord copyWith({
@@ -81,6 +103,7 @@ class FindRecord {
     bool dropSpoken = false,
     double? probability,
     List<FindName>? others,
+    FindShare? share,
   }) {
     return FindRecord(
       id: id,
@@ -94,6 +117,7 @@ class FindRecord {
       latitude: latitude,
       longitude: longitude,
       others: others ?? this.others,
+      share: share ?? this.share,
     );
   }
 
@@ -109,6 +133,7 @@ class FindRecord {
     if (latitude != null) 'latitude': latitude,
     if (longitude != null) 'longitude': longitude,
     if (others.isNotEmpty) 'others': [for (final name in others) name.toJson()],
+    if (share != FindShare.none) 'share': share.name,
   };
 
   factory FindRecord.fromJson(Map<String, dynamic> json) {
@@ -126,6 +151,7 @@ class FindRecord {
       latitude: _coord(json['latitude']),
       longitude: _coord(json['longitude']),
       others: _findNames(json['others']),
+      share: findShareFrom(json['share']),
     );
   }
 }
@@ -205,6 +231,20 @@ class Notebook extends ChangeNotifier {
 
   Future<void> addFind(FindRecord record) async {
     finds = [record, ...finds.where((item) => item.id != record.id)];
+    await _write();
+  }
+
+  Future<void> setShare(String id, FindShare share) async {
+    finds = [
+      for (final item in finds)
+        if (item.id == id) item.copyWith(share: share) else item,
+    ];
+    await _write();
+  }
+
+  /// Replaces the notebook after a Sightings refresh.
+  Future<void> replaceAll(List<FindRecord> next) async {
+    finds = next;
     await _write();
   }
 

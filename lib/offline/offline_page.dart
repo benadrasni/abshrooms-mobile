@@ -5,6 +5,7 @@ import 'package:whats_that_mushroom/field_guide/field_guide_page.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
 import 'package:whats_that_mushroom/offline/offline_plan.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
@@ -161,6 +162,7 @@ class _OfflinePageState extends State<OfflinePage> {
     }
     final copy = GuideScope.of(context).copy;
     final bar = _barMb(request);
+    final scope = request.update ? 'update' : 'everything';
     var finished = false;
     try {
       final started = await (widget.start ?? _engine)(
@@ -178,6 +180,7 @@ class _OfflinePageState extends State<OfflinePage> {
         },
         onFinished: () {
           finished = true;
+          unawaited(GuideAnalytics.offlinePack(scope: scope, result: 'ok'));
           if (!mounted) return;
           setState(() {
             _job = null;
@@ -186,6 +189,7 @@ class _OfflinePageState extends State<OfflinePage> {
           });
         },
         onFailed: () {
+          unawaited(GuideAnalytics.offlinePack(scope: scope, result: 'fail'));
           if (!mounted) return;
           setState(() => _job = null);
           ScaffoldMessenger.of(
@@ -195,6 +199,7 @@ class _OfflinePageState extends State<OfflinePage> {
       );
       if (!mounted || finished) return;
       if (started == OfflineStart.needsWifi) {
+        unawaited(GuideAnalytics.offlinePack(scope: scope, result: 'wifi'));
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(copy.offlineWifi)));
         return;
@@ -211,6 +216,7 @@ class _OfflinePageState extends State<OfflinePage> {
       }
     } catch (error) {
       debugPrint('offline: $error');
+      unawaited(GuideAnalytics.offlinePack(scope: scope, result: 'fail'));
       if (!mounted) return;
       setState(() => _job = null);
       ScaffoldMessenger.of(context)

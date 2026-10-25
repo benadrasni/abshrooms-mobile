@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/legal.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -541,6 +542,7 @@ class _SignInPageState extends State<SignInPage> {
                 ],
               ),
               if (_error != null) _ErrorText(_error!),
+              _SignInLegal(copy: copy, colors: colors),
             ],
           ),
         ),
@@ -1182,6 +1184,76 @@ class _CallingCode extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _SignInLegal extends StatelessWidget {
+  final Copy copy;
+  final GuideColors colors;
+
+  const _SignInLegal({required this.copy, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    final terms = copy.termsOfUse;
+    final privacy = copy.privacyPolicy;
+    final sentence = copy.signInLegal(terms, privacy);
+    final body = TextStyle(
+      fontFamily: GuideType.sans,
+      fontSize: 12,
+      height: 1.45,
+      color: colors.ink3,
+    );
+    final link = body.copyWith(
+      color: colors.moss,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+      decorationColor: colors.moss,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Text.rich(
+        TextSpan(style: body, children: _spans(sentence, terms, privacy, link)),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  List<InlineSpan> _spans(
+    String sentence,
+    String terms,
+    String privacy,
+    TextStyle link,
+  ) {
+    final termsAt = sentence.indexOf(terms);
+    final privacyAt = sentence.indexOf(privacy);
+    if (termsAt < 0 || privacyAt < 0) return [TextSpan(text: sentence)];
+    final marks = <(int, String, String)>[
+      (termsAt, terms, termsOfUseUrl),
+      (privacyAt, privacy, privacyPolicyUrl),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    for (final mark in marks) {
+      if (mark.$1 > cursor) {
+        spans.add(TextSpan(text: sentence.substring(cursor, mark.$1)));
+      }
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: GestureDetector(
+            onTap: () => openLegal(mark.$3),
+            child: Text(mark.$2, style: link),
+          ),
+        ),
+      );
+      cursor = mark.$1 + mark.$2.length;
+    }
+    if (cursor < sentence.length) {
+      spans.add(TextSpan(text: sentence.substring(cursor)));
+    }
+    return spans;
   }
 }
 

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/ads/app_banner_ad.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/key_filter.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -147,9 +150,10 @@ class _KeyAxisPageState extends State<_KeyAxisPage> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: FilledButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => widget.next(_selection)),
-                ),
+                onPressed: () {
+                  final page = widget.next(_selection);
+                  Navigator.of(context).push(guideRoute(_keyScreen(page), (_) => page));
+                },
                 child: Text(copy.count(matched)),
               ),
             ),
@@ -190,6 +194,22 @@ class ResultsPage extends StatefulWidget {
 class _ResultsPageState extends State<ResultsPage> {
   late KeySelection _selection = widget.selection;
   var _seasonOpen = false;
+  String? _filterStamp;
+
+  void _noteFilter(int count) {
+    final stamp =
+        '${_selection.under}|${_selection.where}|${_selection.color}|${_selection.season}|$count';
+    if (_filterStamp == stamp) return;
+    _filterStamp = stamp;
+    unawaited(
+      GuideAnalytics.filterResult(
+        under: _selection.under,
+        where: _selection.where,
+        color: _selection.color,
+        count: count,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +233,7 @@ class _ResultsPageState extends State<ResultsPage> {
       for (final item in catalog.species)
         if (matchesSelection(item, _selection)) item,
     ];
+    _noteFilter(matches.length);
     final rows = orderedResults(catalog, matches, _selection, month);
     final seasonCounts = optionCounts(catalog.species, _selection, 'season');
     final anyCount = catalog.species
@@ -361,8 +382,18 @@ Widget _row(BuildContext context, Catalog catalog, Species species) {
   return SpeciesRow(
     catalog: catalog,
     species: species,
-    onTap: () => openSpecies(context, species.name),
+    onTap: () => openSpecies(
+      context,
+      species.name,
+      source: GuideMushroomSource.key,
+    ),
   );
+}
+
+String _keyScreen(Widget page) {
+  if (page is ResultsPage) return guideScreenResults;
+  if (page is ColorPage) return guideScreenColour;
+  return guideScreenWhere;
 }
 
 Widget _swatch(String id, GuideColors colors) {

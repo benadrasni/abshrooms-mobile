@@ -45,7 +45,7 @@ class GuideShell extends StatelessWidget {
               onDestinationSelected: onSelect,
               destinations: [
                 NavigationDestination(
-                  icon: const Icon(Icons.search),
+                  icon: const Icon(Icons.center_focus_weak),
                   label: copy.find,
                 ),
                 NavigationDestination(
@@ -53,7 +53,7 @@ class GuideShell extends StatelessWidget {
                   label: copy.book,
                 ),
                 NavigationDestination(
-                  icon: const Icon(Icons.photo_outlined),
+                  icon: const Icon(Icons.article_outlined),
                   label: copy.seen,
                 ),
               ],

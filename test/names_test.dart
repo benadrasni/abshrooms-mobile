@@ -41,6 +41,36 @@ void main() {
     expect(nameMonthExhausted(done), isTrue);
   });
 
+  test('the person month bar counts included names, then ads', () {
+    final fresh = MonthNames.of(
+      const NameMonth(month: '2026-09', namesUsed: 4, adGrants: 2),
+      DateTime.utc(2026, 10, 2),
+    );
+    expect(fresh.includedUsed, 0);
+    expect(fresh.extraUsed, 0);
+    expect(fresh.adsLeft, 5);
+    expect(fresh.rest, 10);
+    expect(fresh.resetsOn, DateTime.utc(2026, 11, 1));
+
+    final used = MonthNames.of(
+      const NameMonth(month: '2026-10', namesUsed: 6, adGrants: 2),
+      DateTime.utc(2026, 10, 2),
+    );
+    expect(used.includedUsed, 5);
+    expect(used.extraUsed, 2);
+    expect(used.adsLeft, 3);
+    expect(used.rest, 3);
+
+    final done = MonthNames.of(
+      const NameMonth(month: '2026-10', namesUsed: 10, adGrants: 5),
+      DateTime.utc(2026, 10, 2),
+    );
+    expect(done.includedUsed, 5);
+    expect(done.extraUsed, 5);
+    expect(done.adsLeft, 0);
+    expect(done.rest, 0);
+  });
+
   test('a new month starts again', () {
     Names.setForTest(used: 10, grants: 5, now: DateTime.utc(2026, 9, 30));
     final next = Names.allowance(
