@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/new_page.dart';
 import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/text.dart';
-import 'package:whats_that_mushroom/lists/curated_lists_section.dart';
+import 'package:whats_that_mushroom/lists/curated_list_page.dart';
+import 'package:whats_that_mushroom/lists/curated_lists_notice.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -111,7 +113,7 @@ class _BookPageState extends State<BookPage> {
       case BookSegment.lists:
         return [
           _lists(catalog, copy, colors, seen),
-          const SliverToBoxAdapter(child: CuratedListsSection(book: true)),
+          const SliverToBoxAdapter(child: CuratedListsNotice()),
         ];
     }
   }
@@ -192,6 +194,35 @@ class _BookPageState extends State<BookPage> {
           onTap: () =>
               Navigator.of(context)
                   .push(MaterialPageRoute(builder: (_) => const NewPage())),
+        ),
+      );
+    }
+    final scope = GuideScope.of(context);
+    for (final list in presentCuratedLists(
+      scope.curatedLists,
+      catalog,
+      scope.language,
+    )) {
+      final photos = <String>[
+        for (final entry in list.entries.take(4))
+          curatedImage(entry.species, plate: false),
+      ].where((url) => url.isNotEmpty).toList();
+      final parameter = list.parameter?.trim() ?? '';
+      cards.add(
+        _ListCard(
+          key: Key('curated-card-${list.id}'),
+          title: list.title,
+          subtitle: parameter.isNotEmpty
+              ? parameter
+              : copy.count(list.entries.length),
+          photos: photos,
+          favorite: false,
+          gold: false,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => CuratedListPage(list: list, backLabel: copy.book),
+            ),
+          ),
         ),
       );
     }
@@ -518,6 +549,7 @@ class _ListCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ListCard({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.photos,

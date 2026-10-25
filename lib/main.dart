@@ -59,6 +59,7 @@ class GuideApp extends StatefulWidget {
 class _GuideAppState extends State<GuideApp> {
   var _tab = 0;
   var _appCheckStarted = false;
+  Future<void>? _curatedLists;
 
   @override
   void initState() {
@@ -76,7 +77,10 @@ class _GuideAppState extends State<GuideApp> {
   }
 
   Future<void> _load() async {
+    // The list documents do not depend on the catalog or the language.
+    final lists = _curatedLists ??= widget.catalog.loadCuratedLists();
     await widget.catalog.load(widget.settings.language);
+    await lists;
     if (mounted) setState(() {});
     // App Check stays off until the catalog has arrived. Activating it
     // first makes Firestore wait on a debug token, and a failed exchange
@@ -109,6 +113,13 @@ class _GuideAppState extends State<GuideApp> {
     setState(() {});
   }
 
+  Future<void> _reloadLists() async {
+    final lists = widget.catalog.loadCuratedLists();
+    _curatedLists = lists;
+    await lists;
+    if (mounted) setState(() {});
+  }
+
   void _onNotebook() {
     if (mounted) setState(() {});
   }
@@ -121,6 +132,7 @@ class _GuideAppState extends State<GuideApp> {
       notebook: widget.notebook,
       settings: widget.settings,
       reload: _load,
+      reloadLists: _reloadLists,
       selectTab: (index) => setState(() => _tab = index),
       child: MaterialApp(
         title: copy.app,

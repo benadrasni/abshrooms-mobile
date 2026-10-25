@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/find/key_glyph.dart';
 import 'package:whats_that_mushroom/find/strips.dart';
@@ -8,7 +9,7 @@ import 'package:whats_that_mushroom/data/key_filter.dart';
 import 'package:whats_that_mushroom/key/key_pages.dart';
 import 'package:whats_that_mushroom/person/person_page.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
-import 'package:whats_that_mushroom/lists/curated_lists_section.dart';
+import 'package:whats_that_mushroom/lists/curated_lists_notice.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -43,6 +44,11 @@ class FindPage extends StatelessWidget {
           (a, b) =>
               catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
         );
+    final curated = presentCuratedLists(
+      scope.curatedLists,
+      catalog,
+      scope.language,
+    );
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
@@ -116,16 +122,17 @@ class FindPage extends StatelessWidget {
             onOpenSeen: () => scope.selectTab(2),
           ),
         ],
-        if (favorites.isNotEmpty || fresh.isNotEmpty) ...[
+        if (favorites.isNotEmpty || fresh.isNotEmpty || curated.isNotEmpty) ...[
           SectionHeader(title: copy.listsTitle),
           ListStrip(
             copy: copy,
             catalog: catalog,
             favorites: favorites,
             fresh: fresh,
+            curated: curated,
           ),
         ],
-        const CuratedListsSection(),
+        const CuratedListsNotice(),
       ],
     );
   }

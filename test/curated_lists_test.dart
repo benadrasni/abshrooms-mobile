@@ -4,13 +4,14 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whats_that_mushroom/book/book_page.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/find/find_page.dart';
 import 'package:whats_that_mushroom/lists/curated_list_page.dart';
-import 'package:whats_that_mushroom/lists/curated_lists_section.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -234,6 +235,22 @@ void main() {
     expect(view.entries[3].region, 'Oregon');
   });
 
+  test('the cover resolves through the same name-then-id path as an entry', () {
+    final catalog = _catalog(photoFor: 'Amanita phalloides');
+    final view = presentCuratedList(
+      CuratedListDoc.fromJson({
+        'titles': {'en': 'Cover'},
+        'coverSpeciesId': 5,
+        'entries': [
+          {'name': 'Boletus edulis'},
+        ],
+      }),
+      catalog,
+      'en',
+    );
+    expect(view.coverPhotoUrl, mediaUrl('covers/Amanita phalloides.webp'));
+  });
+
   test('region names sort A–Z and a species list keeps stored order', () {
     final catalog = _catalog();
     final regions = presentCuratedList(
@@ -331,64 +348,53 @@ void main() {
     );
   });
 
-  testWidgets('cards hide when the read is empty and retry after a failure', (
-    tester,
-  ) async {
+  testWidgets('Find and Book share one lists snapshot', (tester) async {
     final catalog = _catalog();
     final repository = CatalogRepository()
       ..data = catalog
       ..loading = false;
-    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.physicalSize = const Size(800, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    Future<CuratedListsSnapshot> empty() async =>
-        const CuratedListsSnapshot([]);
     await tester.pumpWidget(
-      _host(
-        repository,
-        CuratedListsSection(key: const Key('empty'), loadLists: empty),
-      ),
+      _ListsHost(repository: repository, child: const FindPage()),
     );
-    await tester.pump();
-    await tester.pump();
     expect(
       find.byKey(const Key('curated-card-deadly-poisonous')),
       findsNothing,
     );
+    expect(find.text("Couldn't load lists."), findsNothing);
     expect(find.text('Lists'), findsNothing);
 
-    var calls = 0;
-    Future<CuratedListsSnapshot> load() async {
-      calls += 1;
-      if (calls == 1) return const CuratedListsSnapshot([], failed: true);
-      return CuratedListsSnapshot(_seed());
-    }
-
+    repository.curatedLists = const CuratedListsSnapshot([], failed: true);
     await tester.pumpWidget(
-      _host(
-        repository,
-        CuratedListsSection(key: const Key('retry'), loadLists: load),
-      ),
+      _ListsHost(repository: repository, child: const FindPage()),
     );
-    await tester.pump();
-    await tester.pump();
     expect(find.text("Couldn't load lists."), findsOneWidget);
+    expect(find.text('Lists'), findsNothing);
+
     await tester.tap(find.text('Try again'));
     await tester.pump();
-    await tester.pump();
+    expect(find.text('List of mushrooms'), findsOneWidget);
+    expect(find.text('Lists'), findsNothing);
     expect(
       find.byKey(const Key('curated-card-mushroom-of-the-year-de')),
       findsOneWidget,
     );
+    expect(find.text('Germany'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _ListsHost(repository: repository, child: const BookPage()),
+    );
+    await tester.tap(find.text('Lists'));
+    await tester.pumpAndSettle();
     expect(
-      find.byKey(const Key('curated-card-mushroom-of-the-year-nl')),
+      find.byKey(const Key('curated-card-mushroom-of-the-year-de')),
       findsOneWidget,
     );
-    expect(find.text('Germany'), findsOneWidget);
-    expect(calls, 2);
-
+    expect(find.textContaining('Austria'), findsOneWidget);
     await tester.tap(
       find.byKey(const Key('curated-card-mushroom-of-the-year-at')),
     );
@@ -397,20 +403,42 @@ void main() {
       find.text('None of these species are in the guide yet.'),
       findsOneWidget,
     );
-    expect(find.text('Find'), findsWidgets);
+    expect(find.text('Book'), findsWidgets);
   });
 }
 
-Widget _host(CatalogRepository repository, Widget child) {
-  return GuideScope(
-    catalog: repository,
-    notebook: Notebook(),
-    settings: GuideSettings(),
-    reload: () async {},
-    selectTab: (_) {},
-    child: MaterialApp(
-      theme: guideTheme(Brightness.light),
-      home: Scaffold(body: SingleChildScrollView(child: child)),
-    ),
-  );
+class _ListsHost extends StatefulWidget {
+  final CatalogRepository repository;
+  final Widget child;
+
+  const _ListsHost({required this.repository, required this.child});
+
+  @override
+  State<_ListsHost> createState() => _ListsHostState();
+}
+
+class _ListsHostState extends State<_ListsHost> {
+  @override
+  Widget build(BuildContext context) {
+    return GuideScope(
+      catalog: widget.repository,
+      notebook: Notebook(),
+      settings: GuideSettings(),
+      reload: () async {},
+      reloadLists: () async {
+        widget.repository.curatedLists = CuratedListsSnapshot(_seed());
+        setState(() {});
+      },
+      selectTab: (_) {},
+      child: MaterialApp(
+        theme: guideTheme(Brightness.light),
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          DefaultMaterialLocalizations.delegate,
+          DefaultWidgetsLocalizations.delegate,
+        ],
+        home: Scaffold(body: widget.child),
+      ),
+    );
+  }
 }

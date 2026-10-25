@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
@@ -10,6 +11,7 @@ class GuideScope extends InheritedWidget {
   final Notebook notebook;
   final GuideSettings settings;
   final Future<void> Function() reload;
+  final Future<void> Function() reloadLists;
   final void Function(int index) selectTab;
 
   /// Snapshots taken when this widget is built. The repository, notebook,
@@ -18,6 +20,7 @@ class GuideScope extends InheritedWidget {
   final Catalog? catalogData;
   final bool catalogLoading;
   final Object? catalogError;
+  final CuratedListsSnapshot curatedLists;
   final int notebookEpoch;
   final String language;
   final ThemeMode themeMode;
@@ -30,12 +33,17 @@ class GuideScope extends InheritedWidget {
     required this.reload,
     required this.selectTab,
     required super.child,
-  }) : catalogData = catalog.data,
+    Future<void> Function()? reloadLists,
+  }) : reloadLists = reloadLists ?? _ignore,
+       catalogData = catalog.data,
        catalogLoading = catalog.loading,
        catalogError = catalog.error,
+       curatedLists = catalog.curatedLists,
        notebookEpoch = notebook.epoch,
        language = settings.language,
        themeMode = settings.themeMode;
+
+  static Future<void> _ignore() async {}
 
   static GuideScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<GuideScope>();
@@ -50,6 +58,7 @@ class GuideScope extends InheritedWidget {
     return catalogData != oldWidget.catalogData ||
         catalogLoading != oldWidget.catalogLoading ||
         catalogError != oldWidget.catalogError ||
+        curatedLists != oldWidget.curatedLists ||
         notebookEpoch != oldWidget.notebookEpoch ||
         language != oldWidget.language ||
         themeMode != oldWidget.themeMode;
