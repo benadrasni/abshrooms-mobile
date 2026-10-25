@@ -28,3 +28,5 @@ functions/lib/
 
 *.iml
 .idea/
+
+lib/firebase_options.dart
