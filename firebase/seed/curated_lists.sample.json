@@ -1,0 +1,649 @@
+{
+  "collection": "curated_lists",
+  "documents": [
+    {
+      "id": "mushroom-of-the-year-de",
+      "type": "year",
+      "sort": 10,
+      "locales": [
+        "de",
+        "en"
+      ],
+      "titles": {
+        "de": "Pilz des Jahres",
+        "en": "Mushroom of the Year — Germany"
+      },
+      "descriptions": {
+        "de": "Seit 1994 von der Deutschen Gesellschaft für Mykologie gewählt.",
+        "en": "Chosen each year since 1994 by the German Mycological Society."
+      },
+      "entries": [
+        {
+          "name": "Leccinum quercinum",
+          "year": 1994
+        },
+        {
+          "name": "Fomes fomentarius",
+          "speciesId": 42,
+          "year": 1995
+        },
+        {
+          "name": "Sarcodon imbricatus",
+          "speciesId": 29,
+          "year": 1996
+        },
+        {
+          "name": "Russula cyanoxantha",
+          "speciesId": 30,
+          "year": 1997
+        },
+        {
+          "name": "Gomphus clavatus",
+          "year": 1998
+        },
+        {
+          "name": "Rubroboletus satanas",
+          "speciesId": 21,
+          "year": 1999
+        },
+        {
+          "name": "Amanita regalis",
+          "year": 2000
+        },
+        {
+          "name": "Choiromyces maeandriformis",
+          "year": 2001
+        },
+        {
+          "name": "Cortinarius orellanus",
+          "year": 2002
+        },
+        {
+          "name": "Hygrocybe psittacina",
+          "year": 2003
+        },
+        {
+          "name": "Serpula lacrymans",
+          "year": 2004
+        },
+        {
+          "name": "Astraeus hygrometricus",
+          "year": 2005
+        },
+        {
+          "name": "Hericium coralloides",
+          "year": 2006
+        },
+        {
+          "name": "Cordyceps militaris",
+          "year": 2007
+        },
+        {
+          "name": "Boletus aereus",
+          "year": 2008
+        },
+        {
+          "name": "Terana caerulea",
+          "year": 2009
+        },
+        {
+          "name": "Cortinarius praestans",
+          "year": 2010
+        },
+        {
+          "name": "Clathrus ruber",
+          "year": 2011
+        },
+        {
+          "name": "Craterellus cinereus",
+          "year": 2012
+        },
+        {
+          "name": "Entoloma incanum",
+          "year": 2013
+        },
+        {
+          "name": "Crucibulum laeve",
+          "year": 2014
+        },
+        {
+          "name": "Artomyces pyxidatus",
+          "speciesId": 36,
+          "year": 2015
+        },
+        {
+          "name": "Lepista saeva",
+          "year": 2016
+        },
+        {
+          "name": "Auricularia auricula-judae",
+          "speciesId": 43,
+          "year": 2017
+        },
+        {
+          "name": "Agaricus campestris",
+          "speciesId": 16,
+          "year": 2018
+        },
+        {
+          "name": "Amanita phalloides",
+          "speciesId": 5,
+          "year": 2019
+        },
+        {
+          "name": "Phallus impudicus",
+          "speciesId": 41,
+          "year": 2020
+        },
+        {
+          "name": "Tricholoma equestre",
+          "speciesId": 47,
+          "year": 2021
+        },
+        {
+          "name": "Amanita muscaria",
+          "speciesId": 1,
+          "year": 2022
+        },
+        {
+          "name": "Mitrula paludosa",
+          "year": 2023
+        },
+        {
+          "name": "Coprinus comatus",
+          "speciesId": 12,
+          "year": 2024
+        },
+        {
+          "name": "Clavaria zollingeri",
+          "year": 2025
+        },
+        {
+          "name": "Hericium erinaceus",
+          "year": 2026
+        },
+        {
+          "name": "Lactarius lignyotus",
+          "year": 2027
+        }
+      ],
+      "parameter": "Germany",
+      "sourceUrl": "https://www.dgfm-ev.de/de/naturschutz/pilz-des-jahres",
+      "coverSpecies": "Amanita muscaria",
+      "coverSpeciesId": 1
+    },
+    {
+      "id": "mushroom-of-the-year-at",
+      "type": "year",
+      "sort": 20,
+      "locales": [
+        "de",
+        "en"
+      ],
+      "titles": {
+        "de": "Pilz des Jahres — Österreich",
+        "en": "Mushroom of the Year — Austria"
+      },
+      "descriptions": {
+        "de": "Der Pilz des Jahres in Österreich, seit 2016.",
+        "en": "Austria's fungus of the year, named since 2016."
+      },
+      "entries": [
+        {
+          "name": "Hapalopilus croceus",
+          "year": 2016
+        },
+        {
+          "name": "Bovista paludosa",
+          "year": 2017
+        },
+        {
+          "name": "Pseudoplectania melaena",
+          "year": 2018
+        },
+        {
+          "name": "Picipes rhizophilus",
+          "year": 2019
+        },
+        {
+          "name": "Climacodon septentrionalis",
+          "year": 2020
+        },
+        {
+          "name": "Tricholoma focale",
+          "year": 2021
+        },
+        {
+          "name": "Hydnellum mirabile",
+          "year": 2022
+        },
+        {
+          "name": "Gyromitra inflata",
+          "year": 2023
+        },
+        {
+          "name": "Phaeoclavulina roellinii",
+          "year": 2024
+        },
+        {
+          "name": "Cortinarius atrovirens",
+          "year": 2025
+        },
+        {
+          "name": "Phaeoclavulina macrospora",
+          "year": 2026
+        }
+      ],
+      "parameter": "Austria",
+      "sourceUrl": "https://naturschutzbund.at/pilz-des-jahres.html",
+      "coverSpecies": "Phaeoclavulina macrospora"
+    },
+    {
+      "id": "mushroom-of-the-year-nl",
+      "type": "year",
+      "sort": 30,
+      "locales": [
+        "nl",
+        "en"
+      ],
+      "titles": {
+        "nl": "Soort van het jaar",
+        "en": "Species of the Year — Netherlands"
+      },
+      "descriptions": {
+        "nl": "De soort van het jaar van de Nederlandse Mycologische Vereniging, sinds 2013.",
+        "en": "The Dutch Mycological Society's species of the year since 2013."
+      },
+      "entries": [
+        {
+          "name": "Cantharellus cibarius",
+          "speciesId": 2,
+          "year": 2013
+        },
+        {
+          "name": "Gliophorus psittacinus",
+          "year": 2014
+        },
+        {
+          "name": "Boletus edulis",
+          "speciesId": 0,
+          "year": 2015
+        },
+        {
+          "name": "Hericium erinaceus",
+          "year": 2016
+        },
+        {
+          "name": "Fistulina hepatica",
+          "speciesId": 24,
+          "year": 2017
+        },
+        {
+          "name": "Leotia lubrica",
+          "year": 2018
+        },
+        {
+          "name": "Clavaria argillacea",
+          "year": 2019
+        },
+        {
+          "name": "Clavaria argillacea",
+          "year": 2020
+        },
+        {
+          "name": "Phyllotopsis nidulans",
+          "year": 2021
+        },
+        {
+          "name": "Amanita muscaria",
+          "speciesId": 1,
+          "year": 2022
+        },
+        {
+          "name": "Hygrocybe conica",
+          "year": 2023
+        },
+        {
+          "name": "Laccaria amethystina",
+          "year": 2024
+        },
+        {
+          "name": "Marasmius oreades",
+          "year": 2025
+        }
+      ],
+      "parameter": "Netherlands",
+      "sourceUrl": "https://www.mycologen.nl/onderzoek/soort-van-het-jaar/",
+      "coverSpecies": "Boletus edulis",
+      "coverSpeciesId": 0
+    },
+    {
+      "id": "mushroom-of-the-year-lv",
+      "type": "year",
+      "sort": 40,
+      "locales": [
+        "lv",
+        "en"
+      ],
+      "titles": {
+        "lv": "Gada sēne",
+        "en": "Mushroom of the Year — Latvia"
+      },
+      "descriptions": {
+        "lv": "Latvijas Mikologu biedrības gada sēne.",
+        "en": "The Latvian Mycological Society's mushroom of the year."
+      },
+      "entries": [
+        {
+          "name": "Helvella crispa",
+          "year": 2003
+        },
+        {
+          "name": "Ganoderma lucidum",
+          "year": 2004
+        },
+        {
+          "name": "Phaeolepiota aurea",
+          "year": 2005
+        },
+        {
+          "name": "Sarcosoma globosum",
+          "year": 2006
+        },
+        {
+          "name": "Leucopaxillus giganteus",
+          "year": 2007
+        },
+        {
+          "name": "Agaricus bitorquis",
+          "year": 2008
+        },
+        {
+          "name": "Heterobasidion annosum",
+          "year": 2009
+        },
+        {
+          "name": "Hericium clathroides",
+          "year": 2010
+        },
+        {
+          "name": "Amanita phalloides",
+          "speciesId": 5,
+          "year": 2011
+        },
+        {
+          "name": "Rhodotus palmatus",
+          "year": 2012
+        },
+        {
+          "name": "Serpula lacrymans",
+          "year": 2013
+        },
+        {
+          "name": "Boletus projectellus",
+          "year": 2014
+        },
+        {
+          "name": "Phlebiopsis gigantea",
+          "year": 2015
+        },
+        {
+          "name": "Amanita strobiliformis",
+          "year": 2016
+        },
+        {
+          "name": "Choiromyces meandriformis",
+          "year": 2017
+        },
+        {
+          "name": "Calvatia gigantea",
+          "speciesId": 52,
+          "year": 2018
+        },
+        {
+          "name": "Sarcodontia crocea",
+          "year": 2019
+        },
+        {
+          "name": "Peziza ammophila",
+          "year": 2020
+        },
+        {
+          "name": "Hygrocybe conica",
+          "year": 2021
+        },
+        {
+          "name": "Hydnellum ferrugineum",
+          "year": 2022
+        },
+        {
+          "name": "Hydnellum peckii",
+          "year": 2022
+        },
+        {
+          "name": "Grifola frondosa",
+          "year": 2023
+        },
+        {
+          "name": "Chlorociboria aeruginascens",
+          "year": 2024
+        },
+        {
+          "name": "Gliophorus psittacinus",
+          "year": 2025
+        },
+        {
+          "name": "Laccaria amethystina",
+          "year": 2026
+        }
+      ],
+      "parameter": "Latvia",
+      "sourceUrl": "http://www.senes.lv/mikologubiedriba/GADA_SENES.htm",
+      "coverSpecies": "Calvatia gigantea",
+      "coverSpeciesId": 52
+    },
+    {
+      "id": "mushroom-of-the-year-hu",
+      "type": "year",
+      "sort": 50,
+      "locales": [
+        "hu",
+        "en"
+      ],
+      "titles": {
+        "hu": "Év gombája",
+        "en": "Mushroom of the Year — Hungary"
+      },
+      "descriptions": {
+        "hu": "A Magyar Mikológiai Társaság közönségszavazással választott év gombája.",
+        "en": "Chosen by public vote coordinated by the Hungarian Mycological Society."
+      },
+      "entries": [
+        {
+          "name": "Amanita phalloides",
+          "speciesId": 5,
+          "year": 2006
+        },
+        {
+          "name": "Cantharellus cibarius",
+          "speciesId": 2,
+          "year": 2007
+        },
+        {
+          "name": "Russula virescens",
+          "year": 2008
+        },
+        {
+          "name": "Coprinus comatus",
+          "speciesId": 12,
+          "year": 2009
+        },
+        {
+          "name": "Ganoderma lucidum",
+          "year": 2010
+        },
+        {
+          "name": "Amanita caesarea",
+          "year": 2011
+        },
+        {
+          "name": "Macrolepiota procera",
+          "speciesId": 4,
+          "year": 2012
+        },
+        {
+          "name": "Agaricus bohusii",
+          "year": 2013
+        },
+        {
+          "name": "Marasmius oreades",
+          "year": 2014
+        },
+        {
+          "name": "Craterellus cornucopioides",
+          "speciesId": 23,
+          "year": 2015
+        },
+        {
+          "name": "Lepista personata",
+          "year": 2016
+        },
+        {
+          "name": "Omphalotus olearius",
+          "year": 2017
+        },
+        {
+          "name": "Hericium erinaceus",
+          "year": 2018
+        },
+        {
+          "name": "Boletus aereus",
+          "year": 2019
+        },
+        {
+          "name": "Microstoma protractum",
+          "year": 2020
+        },
+        {
+          "name": "Volvariella bombycina",
+          "year": 2021
+        },
+        {
+          "name": "Lactarius deliciosus",
+          "speciesId": 19,
+          "year": 2022
+        },
+        {
+          "name": "Gomphus clavatus",
+          "year": 2023
+        },
+        {
+          "name": "Amanita excelsa",
+          "year": 2024
+        },
+        {
+          "name": "Laetiporus sulphureus",
+          "speciesId": 9,
+          "year": 2025
+        },
+        {
+          "name": "Agaricus bohusii",
+          "year": 2026
+        }
+      ],
+      "parameter": "Hungary",
+      "sourceUrl": "https://www.gombacsoda.hu/ev-gombaja",
+      "coverSpecies": "Laetiporus sulphureus",
+      "coverSpeciesId": 9
+    },
+    {
+      "id": "us-state-mushrooms",
+      "type": "region",
+      "sort": 60,
+      "locales": [
+        "*"
+      ],
+      "titles": {
+        "en": "US state mushrooms"
+      },
+      "descriptions": {
+        "en": "Mushrooms designated as an official symbol of a US state."
+      },
+      "entries": [
+        {
+          "name": "Morchella esculenta",
+          "speciesId": 7,
+          "region": "Minnesota"
+        },
+        {
+          "name": "Cantharellus formosus",
+          "region": "Oregon"
+        },
+        {
+          "name": "Chorioactis geaster",
+          "region": "Texas"
+        },
+        {
+          "name": "Boletus edulis",
+          "speciesId": 0,
+          "region": "Utah"
+        }
+      ],
+      "parameter": "United States",
+      "coverSpecies": "Morchella esculenta",
+      "coverSpeciesId": 7
+    },
+    {
+      "id": "deadly-poisonous",
+      "type": "species",
+      "sort": 70,
+      "locales": [
+        "*"
+      ],
+      "titles": {
+        "en": "Deadly poisonous"
+      },
+      "descriptions": {
+        "en": "Species this guide classifies as deadly."
+      },
+      "entries": [
+        {
+          "name": "Amanita phalloides",
+          "speciesId": 5
+        },
+        {
+          "name": "Amanita virosa",
+          "speciesId": 20
+        },
+        {
+          "name": "Amanita ocreata"
+        },
+        {
+          "name": "Galerina marginata",
+          "speciesId": 32
+        },
+        {
+          "name": "Cortinarius rubellus",
+          "speciesId": 22
+        },
+        {
+          "name": "Gyromitra esculenta",
+          "speciesId": 13
+        },
+        {
+          "name": "Inosperma erubescens",
+          "speciesId": 27
+        },
+        {
+          "name": "Paxillus involutus",
+          "speciesId": 34
+        },
+        {
+          "name": "Conocybe filaris"
+        }
+      ],
+      "coverSpecies": "Amanita phalloides",
+      "coverSpeciesId": 5
+    }
+  ]
+}
