@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "968595882184",
+    "project_id": "abshrooms-a9d4c",
+    "storage_bucket": "abshrooms-a9d4c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:968595882184:android:2dd55d5fa4bba8413ca5fd",
+        "android_client_info": {
+          "package_name": "sk.ab.shrooms"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "968595882184-hhcnu3b0ffqus3fdud3ahl5el54sl58t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "sk.ab.shrooms",
+            "certificate_hash": "d1389dd6c2b9535ca1c17499c1b0c616df447116"
+          }
+        },
+        {
+          "client_id": "968595882184-rt3pd4sgt9cr8g2qt4j6m7i3396c54bt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAT6noga69gPCATfFvWLO_kg1WqHI5tzoA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "968595882184-rt3pd4sgt9cr8g2qt4j6m7i3396c54bt.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "968595882184-5ueoqks0upo9baodegbj2q9o9u7jr0ql.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "sk.ab.shrooms"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

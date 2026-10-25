@@ -6,8 +6,7 @@
       "type": "year",
       "sort": 10,
       "locales": [
-        "de",
-        "en"
+        "de"
       ],
       "titles": {
         "de": "Pilz des Jahres",
@@ -177,8 +176,7 @@
       "type": "year",
       "sort": 20,
       "locales": [
-        "de",
-        "en"
+        "de"
       ],
       "titles": {
         "de": "Pilz des Jahres — Österreich",
@@ -243,8 +241,7 @@
       "type": "year",
       "sort": 30,
       "locales": [
-        "nl",
-        "en"
+        "nl"
       ],
       "titles": {
         "nl": "Soort van het jaar",
@@ -322,8 +319,7 @@
       "type": "year",
       "sort": 40,
       "locales": [
-        "lv",
-        "en"
+        "lv"
       ],
       "titles": {
         "lv": "Gada sēne",
@@ -447,8 +443,7 @@
       "type": "year",
       "sort": 50,
       "locales": [
-        "hu",
-        "en"
+        "hu"
       ],
       "titles": {
         "hu": "Év gombája",
@@ -561,7 +556,7 @@
       "type": "region",
       "sort": 60,
       "locales": [
-        "*"
+        "en"
       ],
       "titles": {
         "en": "US state mushrooms"

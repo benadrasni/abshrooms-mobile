@@ -91,32 +91,37 @@ void main() {
   final now = DateTime(2026, 10, 24);
 
   test(
-    'a language with its own lists does not also take the English-only set',
+    'each list is limited to its language, and deadly is on every language',
     () {
       final lists = _seed();
-      final german = selectCuratedLists(
-        lists,
-        'de',
-      ).map((list) => list.id).toList();
-      expect(german, [
-        'mushroom-of-the-year-de',
-        'mushroom-of-the-year-at',
-        'us-state-mushrooms',
-        'deadly-poisonous',
-      ]);
-      final slovak = selectCuratedLists(
-        lists,
-        'sk',
-      ).map((list) => list.id).toList();
-      expect(slovak, [
-        'mushroom-of-the-year-de',
-        'mushroom-of-the-year-at',
-        'mushroom-of-the-year-nl',
-        'mushroom-of-the-year-lv',
-        'mushroom-of-the-year-hu',
-        'us-state-mushrooms',
-        'deadly-poisonous',
-      ]);
+      expect(
+        selectCuratedLists(lists, 'de').map((list) => list.id).toList(),
+        [
+          'mushroom-of-the-year-de',
+          'mushroom-of-the-year-at',
+          'deadly-poisonous',
+        ],
+      );
+      expect(
+        selectCuratedLists(lists, 'nl').map((list) => list.id).toList(),
+        ['mushroom-of-the-year-nl', 'deadly-poisonous'],
+      );
+      expect(
+        selectCuratedLists(lists, 'lv').map((list) => list.id).toList(),
+        ['mushroom-of-the-year-lv', 'deadly-poisonous'],
+      );
+      expect(
+        selectCuratedLists(lists, 'hu').map((list) => list.id).toList(),
+        ['mushroom-of-the-year-hu', 'deadly-poisonous'],
+      );
+      expect(
+        selectCuratedLists(lists, 'en').map((list) => list.id).toList(),
+        ['us-state-mushrooms', 'deadly-poisonous'],
+      );
+      expect(
+        selectCuratedLists(lists, 'sk').map((list) => list.id).toList(),
+        ['deadly-poisonous'],
+      );
       expect(
         localizedListText(_doc('mushroom-of-the-year-de').titles, 'de'),
         'Pilz des Jahres',
@@ -380,10 +385,17 @@ void main() {
     expect(find.text('List of mushrooms'), findsOneWidget);
     expect(find.text('Lists'), findsNothing);
     expect(
-      find.byKey(const Key('curated-card-mushroom-of-the-year-de')),
+      find.byKey(const Key('curated-card-us-state-mushrooms')),
       findsOneWidget,
     );
-    expect(find.text('Germany'), findsOneWidget);
+    expect(
+      find.byKey(const Key('curated-card-deadly-poisonous')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('curated-card-mushroom-of-the-year-de')),
+      findsNothing,
+    );
 
     await tester.pumpWidget(
       _ListsHost(repository: repository, child: const BookPage()),
@@ -391,18 +403,13 @@ void main() {
     await tester.tap(find.text('Lists'));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const Key('curated-card-mushroom-of-the-year-de')),
+      find.byKey(const Key('curated-card-us-state-mushrooms')),
       findsOneWidget,
     );
-    expect(find.textContaining('Austria'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const Key('curated-card-mushroom-of-the-year-at')),
-    );
+    expect(find.textContaining('Austria'), findsNothing);
+    await tester.tap(find.byKey(const Key('curated-card-deadly-poisonous')));
     await tester.pumpAndSettle();
-    expect(
-      find.text('None of these species are in the guide yet.'),
-      findsOneWidget,
-    );
+    expect(find.text('Amanita phalloides'), findsWidgets);
     expect(find.text('Book'), findsWidgets);
   });
 }

@@ -1,10 +1,99 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/field_guide/catalog.dart';
+import 'package:whats_that_mushroom/field_guide/field_guide_page.dart';
+import 'package:whats_that_mushroom/person/account.dart';
+import 'package:whats_that_mushroom/person/account_deletion.dart';
+import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/person/sign_in_page.dart';
+import 'package:whats_that_mushroom/purchase/billing.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
-class PersonPage extends StatelessWidget {
-  const PersonPage({super.key});
+class PersonPage extends StatefulWidget {
+  final String? versionName;
+  final String? buildNumber;
+  final AccountView? Function()? accountOf;
+  final Future<void> Function()? onSignOut;
+
+  const PersonPage({
+    super.key,
+    this.versionName,
+    this.buildNumber,
+    this.accountOf,
+    this.onSignOut,
+  });
+
+  @override
+  State<PersonPage> createState() => _PersonPageState();
+}
+
+class _PersonPageState extends State<PersonPage> {
+  String? _versionName;
+  String? _buildNumber;
+  var _restoring = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _versionName = widget.versionName;
+    _buildNumber = widget.buildNumber;
+    Purchases.revision.addListener(_onPlan);
+    Auth.revision.addListener(_onPlan);
+    if (widget.versionName == null && widget.buildNumber == null) {
+      unawaited(_loadVersion());
+    }
+  }
+
+  @override
+  void dispose() {
+    Purchases.revision.removeListener(_onPlan);
+    Auth.revision.removeListener(_onPlan);
+    super.dispose();
+  }
+
+  void _onPlan() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _versionName = info.version;
+        _buildNumber = info.buildNumber;
+      });
+    } catch (error) {
+      debugPrint('version: $error');
+    }
+  }
+
+  Future<void> _restore() async {
+    if (_restoring) return;
+    setState(() => _restoring = true);
+    final copy = GuideScope.of(context).copy;
+    try {
+      final started = await restoreFieldGuidePurchases();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(started ? copy.restoring : copy.restoreFailed)),
+      );
+    } catch (error) {
+      debugPrint('restore: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(copy.restoreFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,13 +102,68 @@ class PersonPage extends StatelessWidget {
     final colors = GuideColors.of(context);
     final settings = scope.settings;
     final platform = MediaQuery.platformBrightnessOf(context);
+    final version = versionLine(
+      label: copy.versionLabel,
+      version: _versionName ?? '',
+      build: _buildNumber ?? '',
+    );
+    final account = widget.accountOf == null ? readSignedInAccount() : widget.accountOf!();
+    final guide = Purchases.hasFieldGuide();
+    final lines = account == null
+        ? null
+        : accountLines(
+            name: account.name,
+            email: account.email,
+            phone: account.phone,
+            provider: account.provider,
+            yourAccount: copy.yourAccount,
+            signedIn: copy.signedIn,
+            google: copy.googleAccount,
+            apple: copy.appleAccount,
+            emailPassword: copy.emailPassword,
+            phoneLabel: copy.phoneAccount,
+            appleHidden: copy.appleHidden,
+          );
     return Scaffold(
       backgroundColor: colors.paper,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.only(bottom: 16),
           children: [
             const _BackButton(),
+            if (lines != null) _AccountHeader(lines: lines),
+            if (lines == null || guide) ...[
+              _PersonCard(
+                title: guide ? copy.fieldGuide : copy.signInCardTitle,
+                note: guide ? copy.fieldGuidePerks : copy.signInFree,
+                onOpen: guide
+                    ? () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const FieldGuidePage()),
+                      )
+                    : null,
+                onSignIn: lines == null
+                    ? () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const SignInPage()),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 4),
+            ],
+            if (!guide)
+              _MenuRow(
+                icon: Icons.eco_outlined,
+                title: copy.fieldGuide,
+                subtitle: copy.fieldGuideOffer,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const FieldGuidePage()),
+                ),
+              ),
+            _MenuRow(
+              icon: Icons.restore,
+              title: copy.restore,
+              subtitle: _restoring ? copy.restoring : copy.restoreNote,
+              onTap: _restore,
+            ),
             _LanguageRow(
               name: settings.language == 'sk' ? copy.slovak : copy.english,
               onTap: () => Navigator.of(
@@ -31,35 +175,322 @@ class PersonPage extends StatelessWidget {
               detail: _themeDetail(copy, settings.themeMode, platform),
               onChoose: settings.setTheme,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-              child: Text(copy.aboutHeadline, style: GuideType.section(colors)),
+            _MenuRow(
+              icon: Icons.star_outline,
+              title: copy.rate,
+              subtitle: copy.rateNote,
+              onTap: () {
+                unawaited(openWriteReview());
+              },
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-              child: Text(
-                copy.aboutBody,
-                style: TextStyle(
-                  fontFamily: GuideType.sans,
-                  fontSize: 14,
-                  height: 1.4,
-                  color: colors.ink2,
+            if (lines != null) ...[
+              _MenuRow(
+                icon: Icons.person_outline,
+                title: copy.signOut,
+                subtitle: copy.signOutNote,
+                onTap: () {
+                  unawaited(widget.onSignOut == null ? Auth.signOut() : widget.onSignOut!());
+                },
+              ),
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 6),
+                child: Text(
+                  copy.dangerZone,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colors.ink3,
+                    height: 1.2,
+                  ),
                 ),
               ),
-            ),
+              _MenuRow(
+                icon: Icons.delete_outline,
+                title: copy.deleteAccount,
+                subtitle: copy.deleteAccountNote,
+                danger: true,
+                onTap: () async {
+                  final result = await confirmAndDeleteAccount(context);
+                  if (!context.mounted) return;
+                  showDeleteAccountResult(context, result);
+                },
+              ),
+            ],
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
               child: Text(
                 copy.noCustomLists,
                 style: TextStyle(
                   fontFamily: GuideType.sans,
                   fontSize: 13,
-                  height: 1.3,
-                  color: colors.ink2,
+                  height: 1.35,
+                  color: colors.ink3,
                 ),
               ),
             ),
+            if (version.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                child: Center(
+                  child: TextButton(
+                    key: const Key('guide-version'),
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: version));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(version)),
+                      );
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.ink3,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(
+                        fontFamily: GuideType.sans,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    child: Text(version),
+                  ),
+                ),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountHeader extends StatelessWidget {
+  final AccountLines lines;
+
+  const _AccountHeader({required this.lines});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final avatar = lines.phoneAvatar
+        ? const Icon(Icons.smartphone_outlined, color: Colors.white, size: 24)
+        : lines.initial.isEmpty
+        ? const Icon(Icons.person, color: Colors.white, size: 26)
+        : Text(
+            lines.initial,
+            style: const TextStyle(
+              fontFamily: GuideType.display,
+              fontSize: 24,
+              color: Colors.white,
+              height: 1,
+            ),
+          );
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(20, 6, 20, 14),
+      child: Row(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(color: colors.gold, shape: BoxShape.circle),
+            child: SizedBox(width: 54, height: 54, child: Center(child: avatar)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lines.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: colors.ink,
+                  ),
+                ),
+                Text(
+                  lines.detail,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 13,
+                    color: colors.ink3,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool danger;
+
+  const _MenuRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final tone = danger ? colors.madder : colors.moss;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.rule)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 10),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: tone),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: GuideType.sans,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: danger ? colors.madder : colors.ink,
+                        height: 1.2,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontFamily: GuideType.sans,
+                        fontSize: 13,
+                        color: colors.ink3,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonCard extends StatelessWidget {
+  final String title;
+  final String note;
+  final VoidCallback? onOpen;
+  final VoidCallback? onSignIn;
+
+  const _PersonCard({
+    required this.title,
+    required this.note,
+    required this.onOpen,
+    required this.onSignIn,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final copy = GuideScope.of(context).copy;
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 12),
+      child: Material(
+        color: colors.cream,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.rule),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colors.ink,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  note,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 12,
+                    color: colors.ink3,
+                    height: 1.35,
+                  ),
+                ),
+                if (onSignIn != null) ...[
+                  const SizedBox(height: 10),
+                  _SignInButton(label: copy.signIn, onPressed: onSignIn),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SignInButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _SignInButton({required this.label, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Material(
+        color: colors.mossFill,
+        borderRadius: BorderRadius.circular(17),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+            child: SizedBox(
+              height: 34,
+              child: Center(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -216,7 +647,7 @@ class _LanguageRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Flexible(
+              Expanded(
                 child: Text(
                   name,
                   maxLines: 1,
@@ -232,7 +663,7 @@ class _LanguageRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 2),
-              Icon(forward, size: 22, color: colors.ink2),
+              Icon(forward, size: 22, color: colors.ink3),
             ],
           ),
         ),
@@ -285,7 +716,7 @@ class _ThemeRow extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: GuideType.sans,
                       fontSize: 13,
-                      color: colors.ink2,
+                      color: colors.ink3,
                       height: 1.3,
                     ),
                   ),
@@ -351,9 +782,6 @@ class _ThemeChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
-    final onInk = Theme.of(context).brightness == Brightness.dark
-        ? colors.paper
-        : Colors.white;
     return Material(
       color: selected ? colors.ink : Colors.transparent,
       borderRadius: BorderRadius.circular(14),
@@ -371,7 +799,7 @@ class _ThemeChoice extends StatelessWidget {
                   fontFamily: GuideType.sans,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: selected ? onInk : colors.ink2,
+                  color: selected ? colors.onInk : colors.ink3,
                 ),
               ),
             ),

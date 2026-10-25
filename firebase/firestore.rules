@@ -38,5 +38,9 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    match /curated_lists/{listId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +10,8 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/firebase_options.dart';
+import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/purchase/billing.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/shell.dart';
@@ -22,11 +23,7 @@ Future<void> main() async {
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
-  try {
-    await FirebaseAuth.instance.signInAnonymously();
-  } on Object {
-    // Anonymous sign-in is only required when a photo is named.
-  }
+  await Auth.startGuest();
   final settings = GuideSettings();
   await settings.restore();
   final notebook = Notebook();
@@ -60,6 +57,7 @@ class _GuideAppState extends State<GuideApp> {
   var _tab = 0;
   var _appCheckStarted = false;
   Future<void>? _curatedLists;
+  final _billing = FieldGuideBilling();
 
   @override
   void initState() {
@@ -67,12 +65,14 @@ class _GuideAppState extends State<GuideApp> {
     widget.settings.addListener(_onSettings);
     widget.notebook.addListener(_onNotebook);
     _load();
+    unawaited(_billing.start());
   }
 
   @override
   void dispose() {
     widget.settings.removeListener(_onSettings);
     widget.notebook.removeListener(_onNotebook);
+    unawaited(_billing.dispose());
     super.dispose();
   }
 

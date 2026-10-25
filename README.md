@@ -10,9 +10,9 @@ English and Slovak. The key is underside, where it grows, cap colour, and season
 node tool/sync_key.mjs
 ```
 
-Favorites and the Seen notebook stay on the device. Editorial lists are read from the Firestore collection `curated_lists` (see `docs/CURATED_LISTS.md`). The app does not write them, and `firebase/firestore.rules` does not allow that read yet, so Find and Book show no lists until that rule is published.
+Favorites and the Seen notebook stay on the device. Editorial lists are read from the Firestore collection `curated_lists` (see `docs/CURATED_LISTS.md`). The app does not write them.
 
-Firestore rules in `firebase/firestore.rules` are published on `abshrooms-a9d4c`. Catalog collections are world-readable. Client writes stay denied. The `identifyMushroom` callable is not deployed.
+Firestore rules in `firebase/firestore.rules` are published on `abshrooms-a9d4c`. Catalog collections and `curated_lists` are world-readable. Client writes stay denied. The `identifyMushroom` callable is not deployed.
 
 ```bash
 flutter test

@@ -1,6 +1,6 @@
 # Curated lists
 
-Editorial lists for Find and Book. These are not lists a person makes on the device. The app only reads them. It does not write Firestore, and this change does not publish security rules.
+Editorial lists for Find and Book. These are not lists a person makes on the device. The app only reads them. It does not write Firestore.
 
 The sample the ingest pipeline can copy is `firebase/seed/curated_lists.sample.json`.
 
@@ -39,16 +39,13 @@ Text uses the device language, then English, then any stored string.
 
 ## Which lists a language sees
 
-English is the fallback when a language has no lists of its own. That is a choice for this app. The flower guide reads one language and shows nothing when that node is missing.
+A list is shown only when `locales` contains the guide language, or `*`. Another language's lists are not a fallback. A missing `locales` field is treated as English only.
 
-- If any list is tagged with the device language, show those lists plus every `*` list. Do not also show lists that are only tagged `en`.
-- If the language has no tagged lists, show lists tagged `en` plus every `*` list.
+Adding a translation string does not change which lists appear. Adding the language code to `locales` does.
 
-Adding a translation string does not change which lists appear. Adding the language code to `locales` does. Tag every list that language should see, or tag none of them and leave the English fallback in place. Tagging only one list turns the fallback off.
+The sample tags each mushroom-of-the-year list with one language: `de` for Germany and Austria, `nl` for the Netherlands, `lv` for Latvia, and `hu` for Hungary. US state mushrooms are `en` only. Deadly poisonous is `*`, so every guide language sees it, including English and Slovak.
 
-`*` lists are included in both cases. The sample uses that for US state mushrooms and deadly species, and tags each mushroom-of-the-year list with its country code and `en`.
-
-The app’s language setting is English or Slovak today. Slovak has no `sk` tag in the sample, so it uses the English set and English titles until ingest adds `sk` text. The selector itself accepts any code, which is what a later language setting would pass in.
+The app’s language setting is English or Slovak today. The selector accepts any code, which is what a later language setting would pass in. Slovak has no list of its own in the sample, so it sees only the `*` lists. Titles still fall back to English when that language has no string.
 
 ## Sample lists
 
@@ -60,11 +57,9 @@ The seed file has seven documents:
 
 Austria’s names are not in the current catalog, so that list opens on the empty state. That is intentional.
 
-## Read rule to publish
+## Read rule
 
-`firebase/firestore.rules` has no `curated_lists` match, so a client read is denied. The app reads the collection once, on `CatalogRepository`, and Find and Book share that snapshot. Until the owner adds the match below, the denied read is an empty snapshot, so both tabs show no list cards and do not show an error. Any other read error is the same snapshot with a retry, so one retry updates both tabs.
-
-Inside the existing `rules_version = '2'` `match /databases/{database}/documents` block:
+`firebase/firestore.rules` allows an unauthenticated read of `curated_lists` and denies client writes. The rule is published on `abshrooms-a9d4c`. The app reads the collection once, on `CatalogRepository`, and Find and Book share that snapshot. A failed read shows a retry on both tabs.
 
 ```
 match /curated_lists/{listId} {
@@ -73,6 +68,6 @@ match /curated_lists/{listId} {
 }
 ```
 
-Unauthenticated list and get both need to be allowed. Admin SDK writes bypass rules. Do not deploy this from the app change; the owner publishes it.
+Admin SDK writes bypass rules.
 
 Ingest writes one document per list with the Admin SDK. Use the document id from the sample `id` field. The app never writes this collection.

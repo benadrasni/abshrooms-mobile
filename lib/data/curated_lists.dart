@@ -167,23 +167,16 @@ String localizedListText(
   return fallback;
 }
 
-/// A language with any list of its own sees those lists plus every `*` list.
-/// A language with none sees the English set plus every `*` list.
+/// A list is visible when `locales` contains this language, or `*`.
+/// There is no fallback onto another language's lists.
 List<CuratedListDoc> selectCuratedLists(
   List<CuratedListDoc> lists,
   String language,
 ) {
   final code = language.toLowerCase();
-  final hasOwn = lists.any((list) => list.locales.contains(code));
-  if (hasOwn) {
-    return [
-      for (final list in lists)
-        if (list.locales.contains(code) || list.locales.contains('*')) list,
-    ];
-  }
   return [
     for (final list in lists)
-      if (list.locales.contains('en') || list.locales.contains('*')) list,
+      if (list.locales.contains(code) || list.locales.contains('*')) list,
   ];
 }
 

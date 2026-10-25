@@ -5,28 +5,34 @@ class GuideColors extends ThemeExtension<GuideColors> {
   final Color paper2;
   final Color ink;
   final Color ink2;
+  final Color ink3;
   final Color rule;
   final Color madder;
   final Color moss;
+  final Color mossFill;
   final Color gold;
   final Color cream;
   final Color body;
   final Color plateWell;
   final Color onMoss;
+  final Color onInk;
 
   const GuideColors({
     required this.paper,
     required this.paper2,
     required this.ink,
     required this.ink2,
+    required this.ink3,
     required this.rule,
     required this.madder,
     required this.moss,
+    required this.mossFill,
     required this.gold,
     required this.cream,
     required this.body,
     required this.plateWell,
     required this.onMoss,
+    required this.onInk,
   });
 
   static const light = GuideColors(
@@ -34,14 +40,17 @@ class GuideColors extends ThemeExtension<GuideColors> {
     paper2: Color(0xFFE9E2D3),
     ink: Color(0xFF1A1612),
     ink2: Color(0xFF5A5248),
+    ink3: Color(0xFF6E6659),
     rule: Color(0xFFD0C6B2),
     madder: Color(0xFF8E3B2A),
     moss: Color(0xFF3E5344),
+    mossFill: Color(0xFF3E5344),
     gold: Color(0xFF85603C),
     cream: Color(0xFFFFFDF8),
     body: Color(0xFF2C261F),
     plateWell: Color(0xFFEFE6D3),
     onMoss: Color(0xFFF3EEE4),
+    onInk: Color(0xFFFFFFFF),
   );
 
   static const dark = GuideColors(
@@ -49,14 +58,17 @@ class GuideColors extends ThemeExtension<GuideColors> {
     paper2: Color(0xFF211C16),
     ink: Color(0xFFEEE6D6),
     ink2: Color(0xFFC2B7A3),
+    ink3: Color(0xFF9C9180),
     rule: Color(0xFF3A332A),
     madder: Color(0xFFE08A70),
     moss: Color(0xFF9FBEA5),
+    mossFill: Color(0xFF4A6652),
     gold: Color(0xFFD0A57A),
     cream: Color(0xFF1F1A15),
     body: Color(0xFFDED5C4),
     plateWell: Color(0xFF332D25),
     onMoss: Color(0xFF15120E),
+    onInk: Color(0xFF15120E),
   );
 
   static GuideColors of(BuildContext context) {
