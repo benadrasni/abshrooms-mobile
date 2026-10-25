@@ -8,6 +8,7 @@ import 'package:whats_that_mushroom/data/key_filter.dart';
 import 'package:whats_that_mushroom/key/key_pages.dart';
 import 'package:whats_that_mushroom/person/person_page.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
+import 'package:whats_that_mushroom/lists/curated_lists_section.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -124,6 +125,7 @@ class FindPage extends StatelessWidget {
             fresh: fresh,
           ),
         ],
+        const CuratedListsSection(),
       ],
     );
   }

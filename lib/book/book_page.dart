@@ -5,6 +5,7 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/lists/curated_lists_section.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -108,7 +109,10 @@ class _BookPageState extends State<BookPage> {
           ),
         ];
       case BookSegment.lists:
-        return [_lists(catalog, copy, colors, seen)];
+        return [
+          _lists(catalog, copy, colors, seen),
+          const SliverToBoxAdapter(child: CuratedListsSection(book: true)),
+        ];
     }
   }
 
