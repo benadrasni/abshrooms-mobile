@@ -14,6 +14,8 @@ class GuideColors extends ThemeExtension<GuideColors> {
   final Color cream;
   final Color body;
   final Color plateWell;
+  final Color photoWell;
+  final Color wash;
   final Color onMoss;
   final Color onInk;
 
@@ -31,6 +33,8 @@ class GuideColors extends ThemeExtension<GuideColors> {
     required this.cream,
     required this.body,
     required this.plateWell,
+    required this.photoWell,
+    required this.wash,
     required this.onMoss,
     required this.onInk,
   });
@@ -49,6 +53,8 @@ class GuideColors extends ThemeExtension<GuideColors> {
     cream: Color(0xFFFFFDF8),
     body: Color(0xFF2C261F),
     plateWell: Color(0xFFEFE6D3),
+    photoWell: Color(0xFFE6DFCF),
+    wash: Color(0xEBFFFDF8),
     onMoss: Color(0xFFF3EEE4),
     onInk: Color(0xFFFFFFFF),
   );
@@ -67,6 +73,8 @@ class GuideColors extends ThemeExtension<GuideColors> {
     cream: Color(0xFF1F1A15),
     body: Color(0xFFDED5C4),
     plateWell: Color(0xFF332D25),
+    photoWell: Color(0xFF332D25),
+    wash: Color(0xE61F1A15),
     onMoss: Color(0xFF15120E),
     onInk: Color(0xFF15120E),
   );

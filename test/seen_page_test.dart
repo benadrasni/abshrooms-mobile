@@ -28,6 +28,7 @@ void main() {
     expect(find.text('0 finds · on this phone'), findsOneWidget);
     expect(find.text('Finds you save will show up here.'), findsOneWidget);
     expect(find.byKey(const Key('guide-seen-camera')), findsOneWidget);
+    expect(find.byKey(const Key('guide-seen-stats')), findsOneWidget);
     expect(find.byKey(const Key('guide-seen-upsell')), findsOneWidget);
     expect(
       find.text('Unlimited names from photos, no ads, and the book offline.'),
@@ -40,8 +41,55 @@ void main() {
     expect(find.byType(FieldGuidePage), findsOneWidget);
   });
 
+  testWidgets('the chart opens statistics for the notebook', (tester) async {
+    final notebook = Notebook()
+      ..finds = [
+        FindRecord(
+          id: 'a',
+          millis: DateTime(2026, 5, 2).millisecondsSinceEpoch,
+          latin: 'Boletus edulis',
+          confirmed: true,
+        ),
+        FindRecord(
+          id: 'b',
+          millis: DateTime(2026, 6, 1).millisecondsSinceEpoch,
+          latin: 'Boletus edulis',
+          confirmed: true,
+          share: FindShare.shared,
+        ),
+      ];
+    await _pump(tester, notebook);
+    await tester.tap(find.byKey(const Key('guide-seen-stats')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('STATISTICS'), findsOneWidget);
+    expect(find.text('Your finds'), findsWidgets);
+    expect(find.text('penny bun'), findsWidgets);
+    expect(find.text('May 2, 2026'), findsOneWidget);
+    expect(find.text('Jun 1, 2026'), findsOneWidget);
+    expect(find.text('2 finds'), findsOneWidget);
+    expect(
+      find.text('Each mushroom once, so none is most seen.'),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('guide-stats-sightings')));
+    await tester.pump();
+    expect(
+      find.text('No public sightings yet. Share one from Seen.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('guide-stats-back')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('0 finds · on this phone'), findsNothing);
+    expect(find.text('2 finds · on this phone'), findsOneWidget);
+  });
+
   testWidgets('Field Guide hides the card at the bottom', (tester) async {
-    Purchases.remember(fieldGuideMonthlyPlay);
+    Purchases.replaceAccountProducts({fieldGuideMonthlyPlay});
     await _pump(tester, Notebook());
     expect(find.byKey(const Key('guide-seen-upsell')), findsNothing);
   });
@@ -347,7 +395,10 @@ void main() {
     await tester.tap(find.byKey(const Key('guide-seen-hide-shared')));
     await tester.pump();
     expect(find.text('Shared hidden · 1'), findsOneWidget);
-    expect(find.text('1 find · 1 shared hidden · on this phone'), findsOneWidget);
+    expect(
+      find.text('1 find · 1 shared hidden · on this phone'),
+      findsOneWidget,
+    );
     expect(find.text('penny bun'), findsNothing);
     expect(find.text('fly agaric'), findsOneWidget);
 
@@ -360,7 +411,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(withdrawn, ['kept']);
     expect(find.text('Withdrawn from Sightings.'), findsOneWidget);
-    expect(notebook.finds.singleWhere((item) => item.id == 'kept').share, FindShare.none);
+    expect(
+      notebook.finds.singleWhere((item) => item.id == 'kept').share,
+      FindShare.none,
+    );
   });
 
   testWidgets('deleting a sent find removes the copy that was sent', (

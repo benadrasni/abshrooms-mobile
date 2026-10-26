@@ -27,20 +27,25 @@ class Copy {
   String get person => sk ? 'Účet' : 'Person';
   String get search => sk ? 'Hľadať' : 'Search';
 
-  String get keyTitle => sk ? 'Kľúč' : 'Identify';
   String get keyStep => sk ? 'Urč kľúčom · 1 z 3' : 'Key it out · 1 of 3';
+  String get keyStepWhere => sk ? 'Urč kľúčom · 2 z 3' : 'Key it out · 2 of 3';
+  String get keyStepColor => sk ? 'Urč kľúčom · 3 z 3' : 'Key it out · 3 of 3';
   String get keyFree => sk ? 'Vždy zadarmo' : 'Always free';
   String get keyLede => sk
       ? 'Zúžte katalóg podľa spodnej strany, miesta, farby klobúka a obdobia. Neurčuje to meno s istotou a nie je to návod na zber.'
       : 'Narrow the catalog by the underside, where it grows, the cap colour, and the season. It does not confirm a name, and it is not a guide to eating.';
   String get underQuestion => sk ? 'Čo je naspodku?' : 'What is underneath?';
+  String get underBack => sk ? 'Naspodku' : 'Underneath';
   String get underNote => sk
       ? 'Otočte ju. Ak nemá klobúk, vyberte plochu, na ktorej vznikajú výtrusy.'
       : 'Turn it over. If there is no cap, choose the surface that bears the spores.';
   String get whereQuestion => sk ? 'Kde rastie?' : 'Where is it growing?';
+  String get whereBack => sk ? 'Biotop' : 'Habitat';
   String get anyWhere => sk ? 'Kdekoľvek' : 'Anywhere';
   String get colorQuestion =>
       sk ? 'Akej farby je klobúk?' : 'What colour is the cap?';
+  String get colorBack => sk ? 'Farba' : 'Colour';
+  String get anyColor => sk ? 'Ktorákoľvek farba' : 'Any colour';
   String get colorNote => sk
       ? 'Žltá zahŕňa oranžovú. Červená zahŕňa ružovú. Tmavá je sivá alebo čierna. Klobúk môže mať viac farieb.'
       : 'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one colour.';
@@ -50,12 +55,12 @@ class Copy {
       ? 'Podľa mesiacov, ktoré tento katalóg uvádza pri druhu.'
       : 'Matched to the months this catalog gives for each species.';
   String get anySeason => sk ? 'Ktorékoľvek obdobie' : 'Any season';
-  String get startOver => sk ? 'Od začiatku' : 'Start over';
   String get keyEmpty => sk
       ? 'Žiadna huba nezodpovedá tomuto výberu.'
       : 'No mushrooms match those choices.';
   String get fruitingNow => sk ? 'Plodí teraz' : 'Fruiting now';
-  String get later => sk ? 'Neskôr v roku' : 'Later in the year';
+  String otherMonthsLine(int n) =>
+      sk ? 'Iné mesiace · $n' : 'Other months · $n';
 
   String underLabel(String id) => switch (id) {
     'gills' => sk ? 'Lupene' : 'Gills',
@@ -134,20 +139,16 @@ class Copy {
     _ => id,
   };
 
-  String count(int n) {
-    if (sk) {
-      if (n == 1) return '1 huba';
-      if (n >= 2 && n <= 4) return '$n huby';
-      return '$n húb';
-    }
-    return n == 1 ? '1 mushroom' : '$n mushrooms';
-  }
+  String count(int n) => '$n ${countNoun(n)}';
 
-  String moreNames(int n) {
-    if (!sk) return '$n more names';
-    if (n == 1) return 'ešte $n meno';
-    if (n >= 2 && n <= 4) return 'ešte $n mená';
-    return 'ešte $n mien';
+  /// The word after the big results number.
+  String countNoun(int n) {
+    if (sk) {
+      if (n == 1) return 'huba';
+      if (n >= 2 && n <= 4) return 'huby';
+      return 'húb';
+    }
+    return n == 1 ? 'mushroom' : 'mushrooms';
   }
 
   String photo(int index, int total) =>
@@ -174,20 +175,28 @@ class Copy {
 
   String fruitingNowLine(int n) => '$fruitingNow · $n';
   String get favorites => sk ? 'Obľúbené' : 'Favorites';
-  String get family => sk ? 'Čeľaď' : 'Family';
-  String get genus => sk ? 'Rod' : 'Genus';
   String get familyLede =>
       sk ? 'Huby tejto čeľade.' : 'Mushrooms in this family.';
   String get genusLede => sk ? 'Druhy tohto rodu.' : 'Species in this genus.';
-  String get plate => sk ? 'Ilustrácia' : 'Illustration';
+  String get plate => sk ? 'Ilustrácia' : 'Plate';
+
+  String photoCount(int n) {
+    if (!sk) return n == 1 ? '1 photo' : '$n photos';
+    if (n == 1) return '1 fotografia';
+    return '$n fotografií';
+  }
+
+  String get favoriteAdd => sk ? 'Označiť ako obľúbenú' : 'Mark as favorite';
+  String get favoriteRemove =>
+      sk ? 'Odstrániť z obľúbených' : 'Remove from favorites';
   String get field => sk ? 'V teréne' : 'In the field';
   String get fieldLede => sk
       ? 'Vybrané fotografie tohto druhu v prírode (odlišné od ilustrácie).'
       : 'Curated photographs of this species, distinct from the illustration.';
   String get also => sk ? 'Aj' : 'Also called';
+  String get edibilityLabel => sk ? 'Jedlosť' : 'Edibility';
   String get cap => sk ? 'Klobúk' : 'Cap';
   String get season => sk ? 'Obdobie' : 'Season';
-  String get edibilityLabel => sk ? 'Jedlosť' : 'Edibility';
   String get stipe => sk ? 'Hlúbik' : 'Stipe';
   String get flesh => sk ? 'Dužina' : 'Flesh';
   String get spore => sk ? 'Výtrusný prach' : 'Spore print';
@@ -202,12 +211,8 @@ class Copy {
   String get lookalikes => sk ? 'Zámena' : 'Lookalikes';
   String get notes => sk ? 'Poznámky' : 'Notes';
   String get classification => sk ? 'Taxonómia' : 'Taxonomy';
-  String get showRanks => sk ? 'Zobraziť všetky taxóny' : 'Show all ranks';
-  String get synonyms => sk ? 'Synonymá' : 'Synonyms';
+  String get taxonomySystem => 'Index Fungorum';
   String get sources => sk ? 'Zdroje' : 'Sources';
-  String get sourcesLede => sk
-      ? 'Záznamy o názve a stránky použité pre text.'
-      : 'Name records and the pages used for the text.';
 
   String rank(String id) => switch (id) {
     'kingdom' => sk ? 'ríša' : 'Kingdom',
@@ -250,17 +255,11 @@ class Copy {
   String get cameraGuestBody => sk
       ? 'Hosť má jedno určenie. Účet má päť mesačne a päť z reklamy.'
       : 'A guest has one name. An account has five a month, and five more from an ad.';
-  String get cameraLede => sk
-      ? 'Plant.id, len huby. Meno v knihe otvorí druh. Meno mimo knihy otvorí vlastnú stránku.'
-      : 'Plant.id, mushrooms only. A name in the book opens that species. A name outside the book opens its own page.';
-  String get takePhoto => sk ? 'Odfotiť' : 'Take a photo';
-  String get choosePhoto => sk ? 'Vybrať fotku' : 'Choose a photo';
   String get cameraClose => sk ? 'Zavrieť' : 'Close';
   String get cameraFieldGuide =>
       sk ? 'Terénny sprievodca · neobmedzene' : 'Field Guide · unlimited';
 
-  String get namesThisMonth =>
-      sk ? 'Určenia tento mesiac' : 'Names this month';
+  String get namesThisMonth => sk ? 'Určenia tento mesiac' : 'Names this month';
 
   String namesReset(DateTime day) {
     final label = _shortMonthDay(day);
@@ -389,9 +388,6 @@ class Copy {
   String get cameraRoll => sk ? 'Vybrať z fotografií' : 'Pick from photos';
   String get cameraKey => sk ? 'Radšej urč kľúčom' : 'Key it out instead';
   String get naming => sk ? 'Pomenúvam…' : 'Naming…';
-  String get notMushroom => sk
-      ? 'Toto nevyzerá ako huba. Skúste bližšie, na plodnicu.'
-      : 'This does not look like a mushroom. Try again, closer, on the fruit body.';
   String get cameraNotTitle =>
       sk ? 'Toto nevyzerá ako huba' : "That doesn't look like a mushroom";
   String get cameraNotBody => sk
@@ -401,8 +397,6 @@ class Copy {
   String get likely => sk ? 'Pravdepodobné' : 'Likely';
   String get possible => sk ? 'Možné' : 'Possible';
   String get uncertain => sk ? 'Neisté' : 'Uncertain';
-  String get openSpecies => sk ? 'Otvoriť druh' : 'Open species';
-  String get outsideBook => sk ? 'Mimo knihy' : 'Outside the book';
   String get cameraFailed =>
       sk ? 'Pomenovanie zlyhalo.' : 'The photo could not be named.';
   String get cameraTooSoon => sk
@@ -420,7 +414,6 @@ class Copy {
   String get cameraUnavailable => sk
       ? 'Pomenovanie z fotky zatiaľ nie je zapnuté.'
       : 'Photo names are not available yet.';
-  String get otherNames => sk ? 'Ďalšie možnosti' : 'Other names';
   String get cameraOutside => sk
       ? 'Túto hubu vieme pomenovať, no jej stránka v atlase ešte nie je spracovaná. V nálezoch ju však už máš.'
       : "We can name this one, but its page isn't written yet. It's in your Seen notebook either way.";
@@ -527,8 +520,7 @@ class Copy {
   String get seenInReview => sk ? 'Na kontrole' : 'In review';
   String get seenShared => sk ? 'Zdieľané' : 'Shared';
   String get seenNotAccepted => sk ? 'Neprijaté' : 'Not accepted';
-  String seenShareTitle(String name) =>
-      sk ? 'Zdieľať $name' : 'Share $name';
+  String seenShareTitle(String name) => sk ? 'Zdieľať $name' : 'Share $name';
   String get seenShareReviewed => sk
       ? 'Skôr než sa ukáže ako pozorovanie na stránke druhu, prejde kontrolou, tu aj na webe.'
       : 'It’s reviewed before it appears as a Sighting on the species page, here and on the website.';
@@ -537,18 +529,15 @@ class Copy {
       : 'The place is shown as country and month, not a pin.';
   String get seenShareNote =>
       sk ? 'Poznámka zostáva súkromná.' : 'Your note stays private.';
-  String get seenShareAnytime => sk
-      ? 'Kedykoľvek ho môžeš odvolať.'
-      : 'You can withdraw it at any time.';
+  String get seenShareAnytime =>
+      sk ? 'Kedykoľvek ho môžeš odvolať.' : 'You can withdraw it at any time.';
   String get seenShareConsent => sk
       ? 'Túto fotografiu zverejňujem pod licenciou CC0 (voľné dielo).'
       : 'I publish this photo under CC0 (public domain).';
   String get seenShareSend => sk ? 'Poslať na kontrolu' : 'Send for review';
-  String get seenShareSent =>
-      sk ? 'Odoslané na kontrolu.' : 'Sent for review.';
-  String get seenShareFailed => sk
-      ? 'Tento nález sa nepodarilo zdieľať.'
-      : 'Couldn’t share this find.';
+  String get seenShareSent => sk ? 'Odoslané na kontrolu.' : 'Sent for review.';
+  String get seenShareFailed =>
+      sk ? 'Tento nález sa nepodarilo zdieľať.' : 'Couldn’t share this find.';
   String seenIsSighting(String name) =>
       sk ? '$name je pozorovanie' : '$name is a Sighting';
   String get seenWithdrawBody => sk
@@ -601,6 +590,146 @@ class Copy {
       ? 'Žiadny z týchto druhov zatiaľ v atlase nie je.'
       : 'None of these species are in the guide yet.';
 
+  String get statistics => sk ? 'Štatistika' : 'Statistics';
+  String get statsYours => sk ? 'Tvoje nálezy' : 'Your finds';
+  String get statsSightings => sk ? 'Pozorovania' : 'Sightings';
+  String get statsMenu =>
+      sk ? 'Tvoje nálezy a pozorovania' : 'Your finds, and Sightings';
+  String get statsYoursNote =>
+      sk ? 'Nálezy na tomto telefóne.' : 'This Seen notebook, on this phone.';
+  String get statsSightingsNote => sk
+      ? 'Prijaté nálezy, ktoré ľudia zdieľajú v aplikácii.'
+      : 'Accepted finds, shared by people using the app.';
+  String get statsEmpty =>
+      sk ? 'V nálezoch zatiaľ nič nie je.' : 'Nothing in Seen yet.';
+  String get statsSightingsEmpty => sk
+      ? 'Zatiaľ žiadne verejné pozorovania. Zdieľaj jeden zo svojich nálezov.'
+      : 'No public sightings yet. Share one from Seen.';
+
+  String sightingsShared(int n) {
+    if (!sk) return '$n shared by app users';
+    if (n == 1) return '1 zdieľané používateľmi';
+    if (n >= 2 && n <= 4) return '$n zdieľané používateľmi';
+    return '$n zdieľaných používateľmi';
+  }
+
+  String get sightingsHint => sk
+      ? 'Len krajina a mesiac. Fotografie pod CC0, pred zobrazením skontrolované.'
+      : 'Country and month only. Photos under CC0, reviewed before they appear.';
+  String get statsOnce => sk
+      ? 'Každá huba raz, takže žiadna nie je najčastejšia.'
+      : 'Each mushroom once, so none is most seen.';
+  String get statsFailed =>
+      sk ? 'Pozorovania sa nepodarilo načítať' : 'Couldn’t load Sightings';
+  String get statsFirst => sk ? 'Prvý' : 'First';
+  String get statsLast => sk ? 'Posledný' : 'Last';
+  String get statsMost => sk ? 'Najčastejšie' : 'Most seen';
+  String get statsByYear => sk ? 'Podľa roka' : 'By year';
+  String get statsSpan => sk ? 'Prvý a posledný' : 'First and last';
+  String get statsSpanMost =>
+      sk ? 'Prvý, posledný, najčastejší' : 'First, last, most';
+  String get statsPeople => sk ? 'Ľudia' : 'People';
+
+  String statsFinds(int n) {
+    if (!sk) return n == 1 ? 'Find' : 'Finds';
+    if (n == 1) return 'Nález';
+    if (n >= 2 && n <= 4) return 'Nálezy';
+    return 'Nálezov';
+  }
+
+  String statsMushrooms(int n) {
+    if (!sk) return n == 1 ? 'Mushroom' : 'Mushrooms';
+    if (n == 1) return 'Huba';
+    if (n >= 2 && n <= 4) return 'Huby';
+    return 'Húb';
+  }
+
+  String statsShared(int n) {
+    if (!sk) return 'Shared';
+    if (n == 1) return 'Zdieľaný';
+    if (n >= 2 && n <= 4) return 'Zdieľané';
+    return 'Zdieľaných';
+  }
+
+  String statsToConfirm(int n) {
+    if (!sk) {
+      return n == 1
+          ? 'Includes 1 still to confirm.'
+          : 'Includes $n still to confirm.';
+    }
+    if (n == 1) return 'Vrátane 1, ktorý ešte treba potvrdiť.';
+    return 'Vrátane $n, ktoré ešte treba potvrdiť.';
+  }
+
+  String statsSightingTimes(int n) {
+    if (!sk) return n == 1 ? '1 sighting' : '$n sightings';
+    if (n == 1) return '1 pozorovanie';
+    if (n >= 2 && n <= 4) return '$n pozorovania';
+    return '$n pozorovaní';
+  }
+
+  String statsSharedFinds(int n) {
+    if (!sk) return n == 1 ? '1 shared find' : '$n shared finds';
+    if (n == 1) return '1 zdieľaný nález';
+    if (n >= 2 && n <= 4) return '$n zdieľané nálezy';
+    return '$n zdieľaných nálezov';
+  }
+
+  String statsPlace(String people, int shared) {
+    final line = statsSharedFinds(shared);
+    if (sk) {
+      return 'Tvoje miesto medzi týmito $people ľuďmi sa počíta zo zdieľaných nálezov. V nálezoch máš $line.';
+    }
+    return 'Your own place among these $people people is counted from the finds you have shared. This notebook has $line.';
+  }
+
+  String statsNoPlace(int n) {
+    if (!sk) {
+      return n == 1
+          ? 'One find has no place, so it isn’t in a country.'
+          : '$n finds have no place, so they aren’t in a country.';
+    }
+    if (n == 1) return 'Jeden nález nemá miesto, preto nie je v krajine.';
+    return '$n nálezov nemá miesto, preto nie sú v krajine.';
+  }
+
+  String statsByCountry(String count) =>
+      sk ? 'Podľa krajiny · $count' : 'By country · $count';
+
+  String statsDay(DateTime when) {
+    const english = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const slovak = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'máj',
+      'jún',
+      'júl',
+      'aug',
+      'sep',
+      'okt',
+      'nov',
+      'dec',
+    ];
+    final month = (sk ? slovak : english)[when.month - 1];
+    if (sk) return '${when.day}. $month ${when.year}';
+    return '$month ${when.day}, ${when.year}';
+  }
+
   String latestLine(String countLine, String date) =>
       sk ? '$countLine · najnovšie $date' : '$countLine · latest $date';
 
@@ -616,8 +745,6 @@ class Copy {
 
   String youHaveSeen(int n) => sk ? 'máš v nálezoch $n' : "you've seen $n";
   String get confirm => sk ? 'Potvrdiť' : 'Confirm';
-  String get confirmed => sk ? 'Potvrdené' : 'Confirmed';
-  String get unconfirmed => sk ? 'Nepotvrdené' : 'Unconfirmed';
   String get delete => sk ? 'Zmazať' : 'Delete';
   String get deleteAsk => sk ? 'Zmazať tento nález?' : 'Delete this find?';
   String get cancel => sk ? 'Zrušiť' : 'Cancel';
@@ -640,8 +767,6 @@ class Copy {
       sk ? 'Svetlý, ako telefón' : 'Light, like the phone';
   String get themeLikePhoneDark =>
       sk ? 'Tmavý, ako telefón' : 'Dark, like the phone';
-
-  String get about => sk ? 'O projekte' : 'About';
 
   String get fieldGuide => sk ? 'Terénny sprievodca' : 'Field Guide';
   String get fieldGuidePerks => sk
@@ -681,6 +806,9 @@ class Copy {
       sk ? 'Každá stránka druhu' : 'Every species page';
   String get fieldGuideFreeSeen =>
       sk ? 'Nálezy na tomto telefóne' : 'Seen on this phone';
+  String get fieldGuideFreeNames => sk
+      ? '5 určení mesačne a až 5 z reklám'
+      : '5 names a month, plus up to 5 from ads';
   String get fieldGuideAddNames =>
       sk ? 'Neobmedzené určenia z fotografií' : 'Unlimited names from photos';
   String get fieldGuideAddAds => sk ? 'Žiadne reklamy' : 'No ads';

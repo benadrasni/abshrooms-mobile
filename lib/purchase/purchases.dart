@@ -9,6 +9,9 @@ const fieldGuideYearlyApple = 'shrooms_field_guide_yearly';
 const fieldGuideMonthlyPlay = 'field_guide_monthly';
 const fieldGuideYearlyPlay = 'field_guide_yearly';
 
+const fieldGuideMonthlyIds = {fieldGuideMonthlyApple, fieldGuideMonthlyPlay};
+const fieldGuideYearlyIds = {fieldGuideYearlyApple, fieldGuideYearlyPlay};
+
 class FieldGuideIds {
   final String monthly;
   final String yearly;
@@ -37,30 +40,62 @@ class FieldGuideIds {
   }
 }
 
-/// Field Guide receipts on this phone. There is no account entitlement yet,
-/// so a purchased or restored store receipt is the grant.
+/// This phone's product id for a plan the account holds on either store.
+Set<String> localFieldGuideIds(Set<String> account, TargetPlatform platform) {
+  final ids = FieldGuideIds.forPlatform(platform);
+  return {
+    if (account.any(fieldGuideYearlyIds.contains)) ids.yearly,
+    if (account.any(fieldGuideMonthlyIds.contains)) ids.monthly,
+  };
+}
+
+/// Field Guide on the signed-in account. A receipt on this phone is kept in
+/// [Purchases.purchases] so a plan change can replace it. It is not a grant.
 class Purchases {
   static final Map<String, PurchaseDetails> purchases = {};
-  static final Set<String> owned = {};
+
+  /// Product ids a checked receipt granted to the signed-in account.
+  static final Set<String> accountProducts = <String>{};
+
   static final ValueNotifier<int> revision = ValueNotifier(0);
   static final ValueNotifier<int> failures = ValueNotifier(0);
 
-  static bool hasFieldGuide() => owned.any(FieldGuideIds.isFieldGuide);
+  /// Product ids for this phone's store, including a plan bought on the other.
+  static Set<String> get owned =>
+      localFieldGuideIds(accountProducts, defaultTargetPlatform);
 
-  /// Field Guide is the grant that hides ads. There is no separate no-ads product.
+  static bool hasFieldGuide() => accountProducts.any(FieldGuideIds.isFieldGuide);
+
+  /// Field Guide is the grant that hides ads.
   static bool showsAds() => !hasFieldGuide();
 
-  static void remember(String id) {
-    if (!FieldGuideIds.isFieldGuide(id) || !owned.add(id)) return;
+  /// A Field Guide receipt from the store on this phone.
+  static bool get fieldGuideOnThisStore {
+    final ids = FieldGuideIds.forPlatform(defaultTargetPlatform);
+    return purchases.containsKey(ids.monthly) || purchases.containsKey(ids.yearly);
+  }
+
+  /// The plan arrived from the account. This phone cannot change it.
+  static bool get fieldGuideFromAccountOnly =>
+      hasFieldGuide() && !fieldGuideOnThisStore;
+
+  static void replaceAccountProducts(Set<String> ids) {
+    final next = ids.where(FieldGuideIds.isFieldGuide).toSet();
+    if (next.length == accountProducts.length && accountProducts.containsAll(next)) {
+      return;
+    }
+    accountProducts
+      ..clear()
+      ..addAll(next);
     revision.value++;
   }
 
-  static void restoreOwned(Set<String> ids) {
-    final next = ids.where(FieldGuideIds.isFieldGuide).toSet();
-    if (next.length == owned.length && owned.containsAll(next)) return;
-    owned
-      ..clear()
-      ..addAll(next);
+  static void clearAccountProducts() {
+    replaceAccountProducts(<String>{});
+  }
+
+  /// The in-memory store receipt changed. The grant did not.
+  static void noteStoreReceipt() {
     revision.value++;
   }
 
@@ -70,7 +105,7 @@ class Purchases {
 
   static void resetForTest() {
     purchases.clear();
-    owned.clear();
+    accountProducts.clear();
   }
 }
 

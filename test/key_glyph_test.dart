@@ -4,7 +4,7 @@ import 'package:whats_that_mushroom/find/key_glyph.dart';
 
 void main() {
   test('each underside glyph draws inside the 72 box', () {
-    for (final id in underChoices) {
+    for (final id in [...underChoices, ...whereChoices]) {
       final bounds = glyphBounds(id);
       expect(bounds.width, greaterThan(8), reason: id);
       expect(bounds.left, greaterThanOrEqualTo(0), reason: id);

@@ -43,6 +43,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Checked Field Guide plans. Cloud Functions write them after Apple or
+    // Google confirms the receipt. The owner can read them. A purchase on
+    // either store unlocks the other phone from this document.
+    match /users/{uid} {
+      allow read: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow write: if false;
+    }
+    match /purchase_proofs/{id} {
+      allow read, write: if false;
+    }
+    match /store_accounts/{id} {
+      allow read, write: if false;
+    }
+
     // A Sighting sent from Seen. The owner creates it as review and may
     // delete it. Publishing or rejecting is an admin write.
     match /sightings/{id} {

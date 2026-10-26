@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:country_picker/country_picker.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -18,6 +19,7 @@ import 'package:whats_that_mushroom/firebase_options.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
+import 'package:whats_that_mushroom/purchase/entitlements.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
@@ -27,39 +29,45 @@ import 'package:whats_that_mushroom/shell/shell.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
 void main() {
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    await startCrashReporting();
-    await GuideAnalytics.start();
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-    );
-    await Auth.startGuest();
-    Auth.syncAnalytics();
-    final settings = GuideSettings();
-    await settings.restore();
-    unawaited(GuideAnalytics.setLanguage(settings.language));
-    final notebook = Notebook();
-    await notebook.load();
-    try {
-      await OfflineBook.restore();
-    } catch (error, stack) {
-      debugPrint('offline: $error');
-      recordGuideError(error, stack, reason: 'offline restore');
-    }
-    runApp(
-      GuideApp(
-        settings: settings,
-        notebook: notebook,
-        catalog: CatalogRepository(),
-      ),
-    );
-  }, (error, stack) {
-    if (isIgnorableGuideError(error)) return;
-    debugPrint('uncaught: $error');
-    recordGuideError(error, stack);
-  });
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      await startCrashReporting();
+      await GuideAnalytics.start();
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+      );
+      await Auth.startGuest();
+      Entitlements.start();
+      Auth.syncAnalytics();
+      final settings = GuideSettings();
+      await settings.restore();
+      unawaited(GuideAnalytics.setLanguage(settings.language));
+      final notebook = Notebook();
+      await notebook.load();
+      try {
+        await OfflineBook.restore();
+      } catch (error, stack) {
+        debugPrint('offline: $error');
+        recordGuideError(error, stack, reason: 'offline restore');
+      }
+      runApp(
+        GuideApp(
+          settings: settings,
+          notebook: notebook,
+          catalog: CatalogRepository(),
+        ),
+      );
+    },
+    (error, stack) {
+      if (isIgnorableGuideError(error)) return;
+      debugPrint('uncaught: $error');
+      recordGuideError(error, stack);
+    },
+  );
 }
 
 class GuideApp extends StatefulWidget {
@@ -175,6 +183,7 @@ class _GuideAppState extends State<GuideApp> {
             ? const AppleDebugProvider()
             : const AppleDeviceCheckProvider(),
       );
+      await Entitlements.afterAppCheck();
     } on Object {
       // A failed debug token must not block the catalog screens.
     }
@@ -221,6 +230,7 @@ class _GuideAppState extends State<GuideApp> {
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
+          CountryLocalizations.delegate,
         ],
         navigatorObservers: [
           GuideAnalyticsObserver(shellName: () => guideAnalyticsTab(_tab)),

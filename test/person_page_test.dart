@@ -43,6 +43,8 @@ void main() {
     expect(find.text('Light, like the phone'), findsOneWidget);
     expect(find.text('Offline'), findsOneWidget);
     expect(find.text('With Field Guide'), findsOneWidget);
+    expect(find.text('Statistics'), findsOneWidget);
+    expect(find.text('Your finds, and Sightings'), findsOneWidget);
     expect(find.text('Person'), findsNothing);
 
     await tester.tap(find.text('Dark'));
@@ -70,6 +72,8 @@ void main() {
     expect(find.text('Ohodnotiť aplikáciu'), findsOneWidget);
     expect(find.text('Režim offline'), findsOneWidget);
     expect(find.text('S Terénnym sprievodcom'), findsOneWidget);
+    expect(find.text('Štatistika'), findsOneWidget);
+    expect(find.text('Tvoje nálezy a pozorovania'), findsOneWidget);
   });
 
   testWidgets('a signed-in person shows the account and sign out', (
@@ -123,7 +127,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    Purchases.remember('field_guide_monthly');
+    Purchases.replaceAccountProducts({fieldGuideMonthlyPlay});
     addTearDown(Purchases.resetForTest);
     Names.setForTest(used: 2, grants: 1);
     addTearDown(Names.resetForTest);

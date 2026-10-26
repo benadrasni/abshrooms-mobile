@@ -98,17 +98,20 @@ class FieldGuideAccess {
   const FieldGuideAccess({required this.upgrade, required this.locked});
 }
 
-/// Monthly bought on this phone can move to yearly. Any other owned plan
-/// leaves the rows in place and turns the button off.
+/// Monthly bought on this phone can move to yearly. A plan that arrived from
+/// the account, including one bought on the other store, cannot be changed here.
 FieldGuideAccess fieldGuideAccess({
   required FieldGuideCatalog catalog,
   required bool monthlyOnThisStore,
+  bool fromAccountOnly = false,
 }) {
   final upgrade = monthlyOnThisStore &&
+      !fromAccountOnly &&
       catalog.monthly.owned &&
       !catalog.yearly.owned &&
       catalog.yearly.price != null;
-  final hasPlan = catalog.monthly.owned || catalog.yearly.owned;
+  final hasPlan =
+      catalog.monthly.owned || catalog.yearly.owned || fromAccountOnly;
   return FieldGuideAccess(upgrade: upgrade, locked: hasPlan && !upgrade);
 }
 

@@ -26,7 +26,7 @@ void main() {
 
   test('Field Guide hides ads', () {
     expect(Purchases.showsAds(), isTrue);
-    Purchases.remember('field_guide_monthly');
+    Purchases.replaceAccountProducts({fieldGuideMonthlyPlay});
     expect(Purchases.showsAds(), isFalse);
   });
 }

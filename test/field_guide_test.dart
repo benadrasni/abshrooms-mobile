@@ -149,6 +149,7 @@ void main() {
     expect(find.text('The three-step key'), findsOneWidget);
     expect(find.text('Every species page'), findsOneWidget);
     expect(find.text('Seen on this phone'), findsOneWidget);
+    expect(find.text('5 names a month, plus up to 5 from ads'), findsOneWidget);
     expect(find.text('Unlimited names from photos'), findsOneWidget);
     expect(find.text('No ads'), findsOneWidget);
     expect(find.text('Seen on all your devices, with photos'), findsOneWidget);

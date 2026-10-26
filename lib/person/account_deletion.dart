@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/purchase/store_proof.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
@@ -84,6 +85,7 @@ Future<void> _deleteUser() async {
   if (user == null || user.isAnonymous) {
     throw StateError('not signed in');
   }
+  await releaseStorePurchases();
   await user.delete();
   await Auth.signOut();
 }

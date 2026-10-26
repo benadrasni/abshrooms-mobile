@@ -60,9 +60,8 @@ class FindPage extends StatelessWidget {
         _TitleBar(
           copy: copy,
           colors: colors,
-          onPerson: () =>
-              Navigator.of(context)
-                  .push(guideRoute(guideScreenPerson, (_) => const PersonPage())),
+          onPerson: () => Navigator.of(context)
+              .push(guideRoute(guideScreenPerson, (_) => const PersonPage())),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -74,8 +73,9 @@ class FindPage extends StatelessWidget {
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(28),
-              onTap: () => Navigator.of(context)
-                  .push(guideRoute(guideScreenSearch, (_) => const SearchPage())),
+              onTap: () => Navigator.of(
+                context,
+              ).push(guideRoute(guideScreenSearch, (_) => const SearchPage())),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -100,10 +100,8 @@ class FindPage extends StatelessWidget {
         _CameraCard(
           copy: copy,
           colors: colors,
-          onTap: () =>
-              Navigator.of(context).push(
-                guideRoute(guideScreenCamera, (_) => const CameraPage()),
-              ),
+          onTap: () => Navigator.of(context)
+              .push(guideRoute(guideScreenCamera, (_) => const CameraPage())),
         ),
         _KeyCard(
           copy: copy,
@@ -350,7 +348,8 @@ class _NameMeter extends StatelessWidget {
             style: style,
           );
         }
-        final freshMonth = !allowance.guest &&
+        final freshMonth =
+            !allowance.guest &&
             allowance.extraUsed == 0 &&
             allowance.namesLeft >= 5;
         final label = allowance.guest
@@ -409,9 +408,9 @@ class _KeyCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _StepLine(copy: copy, colors: colors),
+          KeyStepLine(step: copy.keyStep, free: copy.keyFree),
           const SizedBox(height: 8),
-          const _KeyStepper(filled: 1, steps: 3),
+          const KeyStepper(filled: 1, steps: 3),
           const SizedBox(height: 12),
           Text(copy.underQuestion, style: GuideType.question(colors)),
           const SizedBox(height: 6),
@@ -451,61 +450,6 @@ class _KeyCard extends StatelessWidget {
   }
 }
 
-class _StepLine extends StatelessWidget {
-  final Copy copy;
-  final GuideColors colors;
-
-  const _StepLine({required this.copy, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    final stepStyle = GuideType.eyebrow(colors);
-    final freeStyle = stepStyle.copyWith(color: colors.moss);
-    return Row(
-      children: [
-        Flexible(
-          child: Text(
-            copy.keyStep.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: stepStyle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(copy.keyFree.toUpperCase(), maxLines: 1, style: freeStyle),
-      ],
-    );
-  }
-}
-
-class _KeyStepper extends StatelessWidget {
-  final int filled;
-  final int steps;
-
-  const _KeyStepper({required this.filled, required this.steps});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = GuideColors.of(context);
-    return Row(
-      children: [
-        for (var i = 0; i < steps; i++) ...[
-          if (i > 0) const SizedBox(width: 4),
-          Expanded(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: i < filled ? colors.madder : colors.rule,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: const SizedBox(height: 3),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 class _UnderPill extends StatelessWidget {
   final String label;
   final String example;
@@ -537,7 +481,7 @@ class _UnderPill extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Stack(
-            alignment: Alignment.center,
+            alignment: Alignment.topCenter,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 14, 6, 14),

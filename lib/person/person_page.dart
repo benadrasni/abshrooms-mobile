@@ -19,6 +19,7 @@ import 'package:whats_that_mushroom/person/sign_in_page.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/seen/stats_page.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -206,9 +207,7 @@ class _PersonPageState extends State<PersonPage> {
             ),
             _LanguageRow(
               name: settings.language == 'sk' ? copy.slovak : copy.english,
-              onTap: () => Navigator.of(
-                context,
-              ).push(
+              onTap: () => Navigator.of(context).push(
                 guideRoute(guideScreenLanguage, (_) => const LanguagePage()),
               ),
             ),
@@ -237,7 +236,21 @@ class _PersonPageState extends State<PersonPage> {
                 updateSpecies: _offlineUpdates(scope.catalogData),
               ),
               onTap: () => Navigator.of(context).push(
-                guideRoute<void>(guideScreenOffline, (_) => const OfflinePage()),
+                guideRoute<void>(
+                  guideScreenOffline,
+                  (_) => const OfflinePage(),
+                ),
+              ),
+            ),
+            _MenuRow(
+              icon: Icons.bar_chart_outlined,
+              title: copy.statistics,
+              subtitle: copy.statsMenu,
+              onTap: () => Navigator.of(context).push(
+                guideRoute<void>(
+                  guideScreenStatistics,
+                  (_) => const StatsPage(),
+                ),
               ),
             ),
             _MenuRow(

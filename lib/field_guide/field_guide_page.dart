@@ -123,6 +123,7 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
     return fieldGuideAccess(
       catalog: catalog,
       monthlyOnThisStore: Purchases.purchases.containsKey(catalog.monthly.productId),
+      fromAccountOnly: Purchases.fieldGuideFromAccountOnly,
     );
   }
 
@@ -305,6 +306,7 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
                     copy.fieldGuideFreeKey,
                     copy.fieldGuideFreeSpecies,
                     copy.fieldGuideFreeSeen,
+                    copy.fieldGuideFreeNames,
                   ],
                 ),
               ),

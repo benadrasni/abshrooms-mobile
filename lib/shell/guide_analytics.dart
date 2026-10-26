@@ -36,6 +36,7 @@ const guideScreenNew = 'New';
 const guideScreenFavorites = 'Favorites';
 const guideScreenFamily = 'Family';
 const guideScreenGenus = 'Genus';
+const guideScreenStatistics = 'Statistics';
 
 /// Find, Book, and Seen stay on one route, so each tab is its own screen.
 String guideAnalyticsTab(int index) {
@@ -279,10 +280,7 @@ class GuideAnalytics {
     });
   }
 
-  static Future<void> search({
-    required String term,
-    required int resultCount,
-  }) {
+  static Future<void> search({required String term, required int resultCount}) {
     final clean = guideAnalyticsText(term);
     if (clean == null) return Future<void>.value();
     return _event('search', {
@@ -394,10 +392,7 @@ class GuideAnalytics {
     });
   }
 
-  static Future<void> seenSave({
-    required String source,
-    required bool shared,
-  }) {
+  static Future<void> seenSave({required String source, required bool shared}) {
     return _event('seen_save', {
       'source': guideAnalyticsText(source, max: 24),
       'shared': shared ? 'true' : 'false',
@@ -431,10 +426,8 @@ class GuideAnalytics {
 
   static Future<void> _event(String name, Map<String, Object?> parameters) {
     return _run(
-      (analytics) => analytics.logEvent(
-        name: name,
-        parameters: _parameters(parameters),
-      ),
+      (analytics) =>
+          analytics.logEvent(name: name, parameters: _parameters(parameters)),
     );
   }
 

@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineSecret } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { hasUnlimitedNames } from './entitlements';
 import {
   plantIdBody,
   plantIdFinished,
@@ -57,6 +58,12 @@ async function updateQuota<T>(
   });
 }
 
+async function accountHasFieldGuide(uid: string): Promise<boolean> {
+  const snap = await getFirestore().collection('users').doc(uid).get();
+  const data = snap.data();
+  return hasUnlimitedNames(data ?? null);
+}
+
 function refusalError(reason: Refusal, state: QuotaState | null, now: number): HttpsError {
   const meter = meterCounts(state, now);
   return new HttpsError('resource-exhausted', reason, {
@@ -89,8 +96,7 @@ export const identifyMushroom = onCall(
         : 'en';
 
     const anonymous = request.auth?.token.firebase?.sign_in_provider === 'anonymous';
-    // The store receipt lives on the phone. There is no server entitlement yet.
-    const subscribed = request.data?.fieldGuide === true;
+    const subscribed = await accountHasFieldGuide(uid);
     const guest = anonymous && !subscribed;
     const hash = photoHash(image);
     const now = Date.now();
@@ -227,3 +233,12 @@ export const grantPhotoName = onCall(
     return { granted, namesUsed: meter.namesUsed, adGrants: meter.adGrants };
   },
 );
+
+export {
+  appleStoreNotification,
+  playStoreNotification,
+  refreshStoreEntitlements,
+  registerStoreAccount,
+  releaseStorePurchases,
+  submitPurchase,
+} from './store_callables';

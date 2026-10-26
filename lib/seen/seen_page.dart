@@ -14,6 +14,7 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
+import 'package:whats_that_mushroom/seen/stats_page.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -188,6 +189,8 @@ class _SeenPageState extends State<SeenPage> {
             subtitle: hiding
                 ? copy.seenSubtitleHidden(visible.length, sharedCount)
                 : copy.seenSubtitle(visible.length),
+            statisticsLabel: copy.statistics,
+            onStatistics: _openStatistics,
             cameraLabel: copy.cameraTitle,
             onCamera: _openCamera,
           );
@@ -424,8 +427,16 @@ class _SeenPageState extends State<SeenPage> {
   }
 
   void _openCamera() {
+    Navigator.of(context)
+        .push(guideRoute<void>(guideScreenCamera, (_) => const CameraPage()));
+  }
+
+  void _openStatistics() {
     Navigator.of(context).push(
-      guideRoute<void>(guideScreenCamera, (_) => const CameraPage()),
+      guideRoute<void>(
+        guideScreenStatistics,
+        (_) => const StatsPage(fromSeen: true),
+      ),
     );
   }
 
@@ -453,9 +464,7 @@ class _SeenPageState extends State<SeenPage> {
         (_) => OutsidePage(
           recordId: find.id,
           onSearch: () {
-            Navigator.of(
-              context,
-            ).push(
+            Navigator.of(context).push(
               guideRoute<void>(guideScreenSearch, (_) => const SearchPage()),
             );
           },
@@ -508,10 +517,9 @@ class _SeenPageState extends State<SeenPage> {
       candidates: candidates,
       onSearch: () {
         if (!mounted) return;
-        Navigator.of(context)
-            .push(
-              guideRoute<void>(guideScreenSearch, (_) => const SearchPage()),
-            );
+        Navigator.of(
+          context,
+        ).push(guideRoute<void>(guideScreenSearch, (_) => const SearchPage()));
       },
     );
     if (!mounted || chosen == null) return;
@@ -646,9 +654,7 @@ class _SeenPageState extends State<SeenPage> {
       if (!mounted) return;
       final copy = GuideScope.of(context).copy;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? copy.seenWithdrawn : copy.seenShareFailed),
-        ),
+        SnackBar(content: Text(ok ? copy.seenWithdrawn : copy.seenShareFailed)),
       );
     } finally {
       if (mounted) setState(() => _busy.remove(find.id));
@@ -778,7 +784,16 @@ String _detail(Copy copy, FindRecord find) {
   return '$month ${date.day}';
 }
 
-enum _Kind { empty, confirmHead, confirm, hide, onlyShared, month, find, upsell }
+enum _Kind {
+  empty,
+  confirmHead,
+  confirm,
+  hide,
+  onlyShared,
+  month,
+  find,
+  upsell,
+}
 
 Widget _sheetFrame(BuildContext context, Widget sheet) {
   final size = MediaQuery.sizeOf(context);
@@ -814,12 +829,16 @@ class _Face {
 class _Title extends StatelessWidget {
   final String title;
   final String subtitle;
+  final String statisticsLabel;
+  final VoidCallback onStatistics;
   final String cameraLabel;
   final VoidCallback onCamera;
 
   const _Title({
     required this.title,
     required this.subtitle,
+    required this.statisticsLabel,
+    required this.onStatistics,
     required this.cameraLabel,
     required this.onCamera,
   });
@@ -858,6 +877,13 @@ class _Title extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          _RoundButton(
+            buttonKey: const Key('guide-seen-stats'),
+            label: statisticsLabel,
+            icon: Icons.bar_chart_outlined,
+            onPressed: onStatistics,
+          ),
+          const SizedBox(width: 8),
           Semantics(
             button: true,
             label: cameraLabel,
@@ -887,6 +913,49 @@ class _Title extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RoundButton extends StatelessWidget {
+  final Key buttonKey;
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _RoundButton({
+    required this.buttonKey,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      onTap: onPressed,
+      child: Tooltip(
+        message: label,
+        child: Material(
+          color: colors.cream,
+          shape: CircleBorder(side: BorderSide(color: colors.rule)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: buttonKey,
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Icon(icon, size: 20, color: colors.ink),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1448,7 +1517,9 @@ class _ShareSheetState extends State<_ShareSheet> {
                     children: [
                       DecoratedBox(
                         decoration: BoxDecoration(
-                          color: _consent ? colors.mossFill : Colors.transparent,
+                          color: _consent
+                              ? colors.mossFill
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: _consent ? colors.mossFill : colors.ink3,
@@ -1491,7 +1562,9 @@ class _ShareSheetState extends State<_ShareSheet> {
               style: FilledButton.styleFrom(
                 backgroundColor: colors.mossFill,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: colors.mossFill.withValues(alpha: 0.45),
+                disabledBackgroundColor: colors.mossFill.withValues(
+                  alpha: 0.45,
+                ),
                 disabledForegroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(44),
               ),

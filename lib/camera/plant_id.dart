@@ -6,7 +6,6 @@ import 'package:image/image.dart' as img;
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
-import 'package:whats_that_mushroom/purchase/purchases.dart';
 
 /// `identifyMushroom` refused the photo before calling Plant.id.
 class NameRefused implements Exception {
@@ -104,7 +103,6 @@ Future<List<NameGuess>> identifyMushroom(
     final result = await callable.call<Object?>({
       'image': base64Encode(jpeg),
       'language': language,
-      'fieldGuide': Purchases.hasFieldGuide(),
     });
     _applyQuota(result.data);
     return guessesFrom(result.data);

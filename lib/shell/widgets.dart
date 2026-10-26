@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:whats_that_mushroom/ads/app_banner_ad.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
+import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
 class GuidePhoto extends StatelessWidget {
@@ -217,6 +219,62 @@ class CatalogMessage extends StatelessWidget {
   }
 }
 
+class KeyStepLine extends StatelessWidget {
+  final String step;
+  final String free;
+
+  const KeyStepLine({super.key, required this.step, required this.free});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final stepStyle = GuideType.eyebrow(colors);
+    final freeStyle = stepStyle.copyWith(color: colors.moss);
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            step.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: stepStyle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(free.toUpperCase(), maxLines: 1, style: freeStyle),
+      ],
+    );
+  }
+}
+
+class KeyStepper extends StatelessWidget {
+  final int filled;
+  final int steps;
+
+  const KeyStepper({super.key, required this.filled, required this.steps});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    return Row(
+      children: [
+        for (var i = 0; i < steps; i++) ...[
+          if (i > 0) const SizedBox(width: 4),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: i < filled ? colors.madder : colors.rule,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: const SizedBox(height: 3),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class KeyChoice extends StatelessWidget {
   final String label;
   final String example;
@@ -298,6 +356,66 @@ class KeyChoice extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Find, Book, and Seen. The banner sits above the bar.
+///
+/// [index] is null on a page pushed over the shell, so no tab is selected.
+class GuideBottomBar extends StatelessWidget {
+  final int? index;
+  final ValueChanged<int> onSelect;
+  final bool showAd;
+
+  const GuideBottomBar({
+    super.key,
+    required this.index,
+    required this.onSelect,
+    required this.showAd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final copy = GuideScope.of(context).copy;
+    final open = index == null;
+    final scheme = Theme.of(context).colorScheme;
+    final bar = NavigationBar(
+      selectedIndex: index ?? 0,
+      indicatorColor: open ? Colors.transparent : null,
+      onDestinationSelected: onSelect,
+      destinations: [
+        NavigationDestination(
+          icon: const Icon(Icons.center_focus_weak),
+          label: copy.find,
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.menu_book_outlined),
+          label: copy.book,
+        ),
+        NavigationDestination(
+          icon: const Icon(Icons.article_outlined),
+          label: copy.seen,
+        ),
+      ],
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showAd) const AppBannerAd(pinned: true),
+        if (open)
+          NavigationBarTheme(
+            data: NavigationBarTheme.of(context).copyWith(
+              indicatorColor: Colors.transparent,
+              iconTheme: WidgetStatePropertyAll(
+                IconThemeData(size: 24, color: scheme.onSurfaceVariant),
+              ),
+            ),
+            child: bar,
+          )
+        else
+          bar,
+      ],
     );
   }
 }
