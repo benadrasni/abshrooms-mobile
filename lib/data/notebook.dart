@@ -294,10 +294,6 @@ class Notebook extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<FindRecord> forSpecies(String latin) {
-    return finds.where((item) => item.latin == latin).toList();
-  }
-
   Future<void> _write() async {
     final dir = _dir;
     if (dir != null) {
