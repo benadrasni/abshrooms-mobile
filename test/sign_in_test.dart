@@ -10,39 +10,55 @@ import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
 void main() {
-  test('email follow-up creates a missing account and keeps a wrong password', () {
-    expect(emailLooksValid('ada@example.com'), isTrue);
-    expect(emailLooksValid('ada+mushroom@gmail.com'), isTrue);
-    expect(emailLooksValid('ada@example.online'), isTrue);
-    expect(emailLooksValid('ada'), isFalse);
-    expect(emailLooksValid('ada@example'), isFalse);
-    expect(emailFollowUp(creating: false, code: null), EmailFollowUp.signedIn);
-    expect(
-      emailFollowUp(creating: false, code: null, verified: false),
-      EmailFollowUp.needsVerification,
-    );
-    expect(emailFollowUp(creating: false, code: 'user-not-found'), EmailFollowUp.tryCreate);
-    expect(
-      emailFollowUp(creating: false, code: 'invalid-credential'),
-      EmailFollowUp.tryCreate,
-    );
-    expect(
-      emailFollowUp(creating: true, code: 'email-already-in-use'),
-      EmailFollowUp.wrongPassword,
-    );
-    expect(
-      emailFollowUp(creating: true, code: 'invalid-credential'),
-      EmailFollowUp.wrongPassword,
-    );
-    expect(emailFollowUp(creating: true, code: 'weak-password'), EmailFollowUp.shortPassword);
-    expect(phoneNumber('421', '905 123 456'), '+421905123456');
-    expect(phoneNumber('421', '0905 123 456'), '+421905123456');
-    expect(phoneNumber('421', '+421 905 123 456'), '+421905123456');
-    expect(phoneNumber('421', '00421905123456'), '+421905123456');
-    expect(phoneNumber('421', '   '), '');
-    expect(phoneFailure('invalid-phone-number'), PhoneFailure.invalidNumber);
-    expect(phoneFailure('invalid-verification-code'), PhoneFailure.wrongCode);
-  });
+  test(
+    'email follow-up creates a missing account and keeps a wrong password',
+    () {
+      expect(emailLooksValid('ada@example.com'), isTrue);
+      expect(emailLooksValid('ada+mushroom@gmail.com'), isTrue);
+      expect(emailLooksValid('ada@example.online'), isTrue);
+      expect(emailLooksValid('ada'), isFalse);
+      expect(emailLooksValid('ada@example'), isFalse);
+      expect(
+        emailFollowUp(creating: false, code: null),
+        EmailFollowUp.signedIn,
+      );
+      expect(
+        emailFollowUp(creating: false, code: null, verified: false),
+        EmailFollowUp.needsVerification,
+      );
+      expect(
+        emailFollowUp(creating: false, code: 'user-not-found'),
+        EmailFollowUp.tryCreate,
+      );
+      expect(
+        emailFollowUp(creating: false, code: 'invalid-credential'),
+        EmailFollowUp.tryCreate,
+      );
+      expect(
+        emailFollowUp(creating: true, code: 'email-already-in-use'),
+        EmailFollowUp.wrongPassword,
+      );
+      expect(
+        emailFollowUp(creating: true, code: 'invalid-credential'),
+        EmailFollowUp.wrongPassword,
+      );
+      expect(
+        emailFollowUp(creating: true, code: 'weak-password'),
+        EmailFollowUp.shortPassword,
+      );
+      expect(phoneNumber('421', '905 123 456'), '+421905123456');
+      expect(phoneNumber('421', '0905 123 456'), '+421905123456');
+      expect(phoneNumber('421', '+421 905 123 456'), '+421905123456');
+      expect(phoneNumber('421', '00421905123456'), '+421905123456');
+      expect(phoneNumber('421', '   '), '');
+      expect(callingCountry(null), isNull);
+      expect(callingCountry(''), isNull);
+      expect(callingCountry('SK')?.phoneCode, '421');
+      expect(callingCountry('not-a-country'), isNull);
+      expect(phoneFailure('invalid-phone-number'), PhoneFailure.invalidNumber);
+      expect(phoneFailure('invalid-verification-code'), PhoneFailure.wrongCode);
+    },
+  );
 
   test('the account line names the person and how they signed in', () {
     final google = accountLines(
@@ -116,7 +132,10 @@ void main() {
     await _open(tester, const SignInPage(showApple: true, plate: _plate));
     await tester.tap(find.text('Email'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('guideSignInEmail')), 'ada@example.com');
+    await tester.enterText(
+      find.byKey(const Key('guideSignInEmail')),
+      'ada@example.com',
+    );
     await tester.enterText(find.byKey(const Key('guideSignInPassword')), 'no');
     await tester.tap(find.text('Continue'));
     await tester.pump();
@@ -139,7 +158,10 @@ void main() {
     await tester.tap(find.text('Phone'));
     await tester.pumpAndSettle();
     expect(find.text('+421'), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('guideSignInPhone')), '0905123456');
+    await tester.enterText(
+      find.byKey(const Key('guideSignInPhone')),
+      '0905123456',
+    );
     await tester.tap(find.text('Send code'));
     await tester.pumpAndSettle();
     expect(sent, ['+421905123456']);
@@ -149,11 +171,32 @@ void main() {
     expect(codes, ['123456']);
     expect(find.text('open'), findsOneWidget);
   });
+
+  testWidgets('phone does not assume +1 when the locale has no country', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      const SignInPage(showApple: false, plate: _plate),
+      locale: const Locale('en'),
+    );
+    await tester.tap(find.text('Phone'));
+    await tester.pumpAndSettle();
+    expect(find.text('+1'), findsNothing);
+    expect(find.text('+'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('guideSignInPhone')),
+      '905123456',
+    );
+    await tester.tap(find.text('Send code'));
+    await tester.pump();
+    expect(find.text('Enter a valid phone number'), findsOneWidget);
+  });
 }
 
 Widget _plate(BuildContext context) => const SizedBox.shrink(key: Key('plate'));
 
-Future<void> _open(WidgetTester tester, Widget page) async {
+Future<void> _open(WidgetTester tester, Widget page, {Locale? locale}) async {
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -167,14 +210,15 @@ Future<void> _open(WidgetTester tester, Widget page) async {
       selectTab: (_) {},
       child: MaterialApp(
         theme: guideTheme(Brightness.light),
+        locale: locale ?? const Locale('en'),
+        supportedLocales: const [Locale('en'), Locale('sk')],
         home: Scaffold(
           body: Builder(
             builder: (context) {
               return TextButton(
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => page),
-                  );
+                  Navigator.of(context)
+                      .push(MaterialPageRoute<void>(builder: (_) => page));
                 },
                 child: const Text('open'),
               );

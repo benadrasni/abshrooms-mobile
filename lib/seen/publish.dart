@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
+import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
 
 /// Publishes one confirmed find for review. Returns false when there is no
@@ -23,10 +24,9 @@ Future<bool> publishSighting(FindRecord find) async {
     final photo = seenPhotoFromBytes(await file.readAsBytes());
     if (photo == null) return false;
     final object = _objectPath(user.uid, find.id);
-    await FirebaseStorage.instance.ref(object).putData(
-      photo.bytes,
-      SettableMetadata(contentType: 'image/jpeg'),
-    );
+    await sightingStorage()
+        .ref(object)
+        .putData(photo.bytes, SettableMetadata(contentType: 'image/jpeg'));
     await FirebaseFirestore.instance.collection('sightings').doc(find.id).set({
       'uid': user.uid,
       'latin': latin,
@@ -84,6 +84,31 @@ Future<void> syncSightings(Notebook notebook) async {
 
 String _objectPath(String uid, String id) => 'sightings/$uid/$id.jpg';
 
+/// Deletes this account's Sighting documents and their JPEGs.
+/// A missing file is already gone. Any other failure stops account deletion.
+Future<void> deleteOwnedSightings(String uid) async {
+  if (uid.isEmpty) return;
+  final snap = await FirebaseFirestore.instance
+      .collection('sightings')
+      .where('uid', isEqualTo: uid)
+      .get();
+  final paths = sightingObjectPaths(uid, [
+    for (final doc in snap.docs)
+      (id: doc.id, photo: doc.data()['photo']?.toString()),
+  ]);
+  final storage = sightingStorage();
+  for (final path in paths) {
+    try {
+      await storage.ref(path).delete();
+    } on FirebaseException catch (error) {
+      if (error.code != 'object-not-found') rethrow;
+    }
+  }
+  for (final doc in snap.docs) {
+    await doc.reference.delete();
+  }
+}
+
 User? _account() {
   try {
     if (Firebase.apps.isEmpty) return null;
@@ -103,7 +128,7 @@ Future<bool> _removeSighting(String id) async {
     final snap = await ref.get();
     if (snap.exists && snap.data()?['uid'] != user.uid) return false;
     try {
-      await FirebaseStorage.instance.ref(_objectPath(user.uid, id)).delete();
+      await sightingStorage().ref(_objectPath(user.uid, id)).delete();
     } on FirebaseException catch (error) {
       if (error.code != 'object-not-found') {
         debugPrint('seen share photo: $error');

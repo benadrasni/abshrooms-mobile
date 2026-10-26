@@ -13,6 +13,7 @@ import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/legal.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/person/phone_verify.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
@@ -235,7 +236,10 @@ class _SignInPageState extends State<SignInPage> {
 
   Future<void> _submitPhone() async {
     final copy = GuideScope.of(context).copy;
-    final phone = phoneNumber(_selectedCountry(context).phoneCode, _phone.text);
+    final country = _selectedCountry(context);
+    final phone = country == null
+        ? ''
+        : phoneNumber(country.phoneCode, _phone.text);
     if (phone.isEmpty) {
       setState(() => _error = copy.invalidPhone);
       return;
@@ -299,35 +303,48 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<bool> _verifyPhone(String phone, {bool resend = false}) async {
+    final gate = PhoneVerifyGate();
     final done = Completer<void>();
-    var signedIn = false;
+    void finish() {
+      if (!done.isCompleted) done.complete();
+    }
+
+    void fail(Object error) {
+      if (!done.isCompleted) done.completeError(error);
+    }
+
     await Auth.verifyPhone(
       phoneNumber: phone,
       forceResendingToken: resend ? _resendToken : null,
       verificationCompleted: (credential) async {
+        gate.autoStarted();
         try {
           await Auth.signInWithCredential(credential);
-          signedIn = true;
-          if (!done.isCompleted) done.complete();
+          if (gate.autoFinished(signedIn: true)) finish();
         } catch (error) {
-          if (!done.isCompleted) done.completeError(error);
+          if (gate.autoFinished(signedIn: false, error: error)) fail(error);
         }
       },
       verificationFailed: (error) {
-        if (!done.isCompleted) done.completeError(error);
+        if (gate.failed(error)) fail(error);
       },
       codeSent: (verificationId, token) {
-        _verificationId = verificationId;
-        _resendToken = token;
-        if (!done.isCompleted) done.complete();
+        gate.codeSent(verificationId, token);
+        _verificationId = gate.verificationId;
+        _resendToken = gate.resendToken;
       },
       codeAutoRetrievalTimeout: (verificationId) {
-        _verificationId = verificationId;
-        if (!done.isCompleted) done.complete();
+        if (gate.autoTimedOut(verificationId)) {
+          _verificationId = gate.verificationId;
+          finish();
+        }
       },
     );
     await done.future.timeout(const Duration(seconds: 60));
-    return signedIn;
+    _verificationId = gate.verificationId;
+    _resendToken = gate.resendToken ?? _resendToken;
+    if (gate.error != null && !gate.signedIn) throw gate.error!;
+    return gate.signedIn;
   }
 
   Future<void> _showVerify() {
@@ -377,16 +394,10 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  Country _selectedCountry(BuildContext context) {
+  Country? _selectedCountry(BuildContext context) {
     final chosen = _country ?? widget.initialCountry;
     if (chosen != null) return chosen;
-    final code = Localizations.localeOf(context).countryCode;
-    if (code != null && code.isNotEmpty) {
-      try {
-        return Country.parse(code);
-      } catch (_) {}
-    }
-    return Country.parse('US');
+    return callingCountry(Localizations.localeOf(context).countryCode);
   }
 
   Future<void> _pickCountry() async {
@@ -683,7 +694,7 @@ class _SignInPageState extends State<SignInPage> {
             child: Row(
               children: [
                 _CallingCode(
-                  code: '+${country.phoneCode}',
+                  code: country == null ? '+' : '+${country.phoneCode}',
                   onPressed: _pickCountry,
                 ),
                 const SizedBox(width: 8),

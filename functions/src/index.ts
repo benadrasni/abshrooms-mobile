@@ -25,9 +25,10 @@ import {
   photoHash,
   releaseAnonymousFree,
   releaseName,
+  releaseReservedCall,
   rememberPhoto,
   repeatWindowMs,
-  reserveCall,
+  reserveIdentify,
   storedQuota,
   takeAdGrant,
   takeAnonymousFree,
@@ -101,13 +102,20 @@ export const identifyMushroom = onCall(
     const hash = photoHash(image);
     const now = Date.now();
 
+    const chargeName = !subscribed && !guest;
     const reserved = await updateQuota<Refusal | undefined>(uid, (current) => {
-      const result = reserveCall(current, now, hash, {
-        dailyCeiling: subscribed ? dailyCeilingUnlimited : dailyCeilingFree,
-        cooldownMs,
-        repeatWindowMs,
-        lifetimeCeiling: guest ? anonymousLifetimeCalls : undefined,
-      });
+      const result = reserveIdentify(
+        current,
+        now,
+        hash,
+        {
+          dailyCeiling: subscribed ? dailyCeilingUnlimited : dailyCeilingFree,
+          cooldownMs,
+          repeatWindowMs,
+          lifetimeCeiling: guest ? anonymousLifetimeCalls : undefined,
+        },
+        chargeName,
+      );
       if ('refusal' in result) return { state: current ?? {}, value: result.refusal };
       return { state: result.state, value: undefined };
     });
@@ -136,6 +144,7 @@ export const identifyMushroom = onCall(
         return { state: result.state, value: result.taken };
       });
       if (!taken) {
+        await updateQuota(uid, (current) => ({ state: releaseReservedCall(current), value: true }));
         const state = (await quotaRef(uid).get()).data() as QuotaState | undefined;
         throw refusalError('no-names', state ?? null, now);
       }
@@ -207,7 +216,15 @@ export const identifyMushroom = onCall(
   },
 );
 
-/** One more monthly name after a rewarded ad. A guest has no ad names. */
+/**
+ * One more monthly name after a rewarded ad. A guest has no ad names.
+ *
+ * AdMob server-side verification is not wired. The callback URL is set in
+ * the AdMob console and Google signs it with rotating keys; requiring that
+ * callback before it is configured would refuse every legitimate reward.
+ * App Check, a signed-in account, the monthly cap, and [adGrantGapMs] are
+ * the guards this callable can enforce on its own.
+ */
 export const grantPhotoName = onCall(
   {
     region: 'us-central1',

@@ -11,8 +11,8 @@ import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 /// the UK, and Switzerland this completes without a form. A failure still
 /// lets the SDK start.
 ///
-/// Returns true when the request failed, so analytics stays on. A shown form
-/// returns false and [applyAnalyticsConsent] reads the choice.
+/// Returns true when the request failed. Analytics then stays off. A shown
+/// form returns false and [applyAnalyticsConsent] reads the choice.
 Future<bool> gatherAdConsent() async {
   final updated = Completer<void>();
   var failed = false;

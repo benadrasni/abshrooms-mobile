@@ -16,6 +16,11 @@ export class StoreUnavailable extends Error {}
 
 export type StoreFetch = { status: 'verified'; purchase: VerifiedPurchase } | { status: 'unknown' };
 
+/** A 404 or any other unverified lookup is skipped. It is not a revocation. */
+export function purchaseIfVerified(fetched: StoreFetch): VerifiedPurchase | null {
+  return fetched.status === 'verified' ? fetched.purchase : null;
+}
+
 export type AppStoreCredentials = { issuerId: string; keyId: string; privateKey: string };
 export type PlayCredentials = { email: string; privateKey: string };
 

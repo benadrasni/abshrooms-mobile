@@ -20,9 +20,20 @@ class EntitlementWatch {
   }
 }
 
+/// A checked product is on only while the server still counts it.
+/// Subscriptions follow [expiresAt], same as `hasUnlimitedNames`: a missing
+/// expiry stays on the active flag, and the expiry instant itself is off.
+bool entitlementRowActive(String id, Map value, int nowMs) {
+  if (value['active'] != true) return false;
+  if (!FieldGuideIds.isFieldGuide(id)) return true;
+  final expiresAt = value['expiresAt'];
+  if (expiresAt is! num) return true;
+  return expiresAt > nowMs;
+}
+
 /// Active and inactive products under `users/{uid}.entitlements`.
 /// Absent when the account has never had a checked receipt.
-AccountEntitlements accountEntitlementsOf(Object? userValue) {
+AccountEntitlements accountEntitlementsOf(Object? userValue, {DateTime? now}) {
   if (userValue is! Map || !userValue.containsKey('entitlements')) {
     return const AccountEntitlements(present: false, products: {});
   }
@@ -35,10 +46,11 @@ AccountEntitlements accountEntitlementsOf(Object? userValue) {
     return const AccountEntitlements(present: true, products: {});
   }
   final products = <String, bool>{};
+  final clock = (now ?? DateTime.now()).millisecondsSinceEpoch;
   raw.forEach((key, value) {
     if (key is! String || key.isEmpty || value is! Map) return;
-    final active = value['active'];
-    if (active is bool) products[key] = active;
+    if (value['active'] is! bool) return;
+    products[key] = entitlementRowActive(key, value, clock);
   });
   return AccountEntitlements(present: true, products: products);
 }

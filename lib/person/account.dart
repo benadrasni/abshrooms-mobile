@@ -1,3 +1,5 @@
+import 'package:country_picker/country_picker.dart';
+
 /// What the email form does after Firebase answers.
 enum EmailFollowUp {
   signedIn,
@@ -46,6 +48,18 @@ final RegExp _emailPattern = RegExp(
 
 bool emailLooksValid(String value) {
   return _emailPattern.hasMatch(value.trim());
+}
+
+/// Calling country for a locale. A language with no country, such as `en`
+/// or `sk`, does not invent `+1`.
+Country? callingCountry(String? countryCode) {
+  final code = countryCode?.trim() ?? '';
+  if (code.isEmpty) return null;
+  try {
+    return Country.parse(code);
+  } catch (_) {
+    return null;
+  }
 }
 
 /// E.164 number from a calling code and whatever the person typed.

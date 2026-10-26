@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 
 /// Where a species page was opened. Values are analytics parameters.
 class GuideMushroomSource {
@@ -78,8 +79,8 @@ class GuideAnalyticsConsent {
   });
 }
 
-/// A failed consent request leaves collection on. A required choice that
-/// was refused or not given denies storage. Ad personalization also needs
+/// A failed consent request denies collection. A required choice that was
+/// refused or not given denies storage. Ad personalization also needs
 /// permission to track.
 GuideAnalyticsConsent guideAnalyticsConsent({
   required bool umpFailed,
@@ -89,7 +90,7 @@ GuideAnalyticsConsent guideAnalyticsConsent({
   required bool trackingAuthorized,
 }) {
   final storage =
-      umpFailed || (consentKnown && (!consentRequired || canRequestAds));
+      !umpFailed && consentKnown && (!consentRequired || canRequestAds);
   final ads = storage && trackingAuthorized;
   return GuideAnalyticsConsent(
     analyticsStorage: storage,
@@ -189,8 +190,8 @@ class GuideAnalyticsObserver extends NavigatorObserver {
 ///
 /// Debug builds send nothing. A debug install also turns collection off,
 /// because that switch is stored on the phone and would otherwise keep a
-/// later release build quiet. Release builds deny storage until the consent
-/// form returns, then [applyConsent] sets the choice.
+/// later release build quiet. Release builds keep collection off until
+/// [applyConsent] records a grant. A failed consent request stays off.
 class GuideAnalytics {
   static bool _trackingAuthorized = false;
 
@@ -202,7 +203,7 @@ class GuideAnalytics {
         await analytics.setAnalyticsCollectionEnabled(false);
         return;
       }
-      await analytics.setAnalyticsCollectionEnabled(true);
+      await analytics.setAnalyticsCollectionEnabled(false);
       await _consent(
         analytics,
         const GuideAnalyticsConsent(
@@ -227,16 +228,17 @@ class GuideAnalytics {
     if (trackingAuthorized != null) _trackingAuthorized = trackingAuthorized;
     if (kDebugMode || Firebase.apps.isEmpty) return;
     try {
-      await _consent(
-        FirebaseAnalytics.instance,
-        guideAnalyticsConsent(
-          umpFailed: umpFailed,
-          consentKnown: consentKnown,
-          consentRequired: consentRequired,
-          canRequestAds: canRequestAds,
-          trackingAuthorized: _trackingAuthorized,
-        ),
+      final consent = guideAnalyticsConsent(
+        umpFailed: umpFailed,
+        consentKnown: consentKnown,
+        consentRequired: consentRequired,
+        canRequestAds: canRequestAds,
+        trackingAuthorized: _trackingAuthorized,
       );
+      final analytics = FirebaseAnalytics.instance;
+      await _consent(analytics, consent);
+      await analytics.setAnalyticsCollectionEnabled(consent.analyticsStorage);
+      await setCrashCollectionEnabled(consent.analyticsStorage);
     } catch (error) {
       debugPrint('analytics: $error');
     }

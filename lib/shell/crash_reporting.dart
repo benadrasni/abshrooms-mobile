@@ -46,19 +46,28 @@ void recordGuideError(
   }
 }
 
-/// Collection stays off until this runs, and a debug install turns it off.
-///
-/// The switch is stored on the phone. Leaving a debug session enabled would
-/// keep the next release build from reporting.
-Future<void> startCrashReporting() async {
+/// Turns collection on only when [enabled] and this is not a debug install.
+/// Consent calls this after a grant. Startup calls it with false.
+Future<void> setCrashCollectionEnabled(bool enabled) async {
   if (Firebase.apps.isEmpty) return;
   try {
     await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
-      !kDebugMode,
+      enabled && !kDebugMode,
     );
   } catch (error) {
     debugPrint('crashlytics: $error');
   }
+}
+
+/// Collection stays off until consent. A debug install turns it off.
+///
+/// The switch is stored on the phone. Leaving a debug session enabled would
+/// keep the next release build from reporting. [startCrashReporting] installs
+/// the handlers and leaves collection disabled. [setCrashCollectionEnabled]
+/// turns it on only after a consent grant.
+Future<void> startCrashReporting() async {
+  await setCrashCollectionEnabled(false);
+  if (Firebase.apps.isEmpty) return;
   final previous = FlutterError.onError;
   FlutterError.onError = (details) {
     if (isIgnorableFlutterError(details)) {

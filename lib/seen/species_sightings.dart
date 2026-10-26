@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
-import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/seen/stats.dart';
 
 /// One accepted Sighting for a species page.
@@ -43,7 +43,7 @@ SpeciesSighting? _row(String id, Map<String, dynamic> data) {
   final status = data['status'];
   if (status != null && status != 'public') return null;
   final photo = data['photo']?.toString().trim() ?? '';
-  final url = mediaUrl(photo);
+  final url = sightingPhotoUrl(photo);
   if (url.isEmpty) return null;
   final millis = data['millis'];
   final when = millis is num

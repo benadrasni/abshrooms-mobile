@@ -59,10 +59,12 @@ class Auth {
       debugPrint('analytics account: $error');
       return;
     }
+    final id = signedInAnalyticsId(
+      user?.uid,
+      anonymous: user == null || user.isAnonymous,
+    );
     if (!kDebugMode) {
-      unawaited(
-        FirebaseCrashlytics.instance.setUserIdentifier(user?.uid ?? ''),
-      );
+      unawaited(FirebaseCrashlytics.instance.setUserIdentifier(id ?? ''));
     }
     if (user == null) {
       unawaited(GuideAnalytics.syncAccount());
@@ -71,7 +73,7 @@ class Auth {
     final guide = Purchases.hasFieldGuide();
     unawaited(
       GuideAnalytics.syncAccount(
-        userId: user.uid,
+        userId: id,
         account: user.isAnonymous ? 'guest' : 'signed_in',
         plan: guide ? 'field_guide' : 'free',
         ads: Purchases.showsAds() ? 'shown' : 'hidden',
@@ -89,18 +91,27 @@ class Auth {
     }
   }
 
-  /// Creates the guest account once per install. Signing out does not create
-  /// another.
+  /// A signed-out install needs a guest. [guestCreated] does not matter:
+  /// sign-out clears the user and the flag from the first launch would
+  /// otherwise leave the phone with no account.
+  static bool createGuest({
+    required bool firebaseReady,
+    required bool hasCurrentUser,
+  }) {
+    return firebaseReady && !hasCurrentUser;
+  }
+
+  /// Creates a guest when nobody is signed in, including after sign-out.
   static Future<void> startGuest() async {
-    if (Firebase.apps.isEmpty) return;
-    if (firebaseAuth.currentUser != null) {
-      publish();
+    final ready = Firebase.apps.isNotEmpty;
+    final hasUser = ready && firebaseAuth.currentUser != null;
+    if (!createGuest(firebaseReady: ready, hasCurrentUser: hasUser)) {
+      if (ready) publish();
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_guestKey) ?? false) return;
     try {
       await firebaseAuth.signInAnonymously();
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_guestKey, true);
       publish();
     } catch (error) {
@@ -197,11 +208,20 @@ class Auth {
 
   static Future<void> signOut() async {
     appUser = null;
-    if (Firebase.apps.isNotEmpty) {
-      await firebaseAuth.signOut();
+    if (Firebase.apps.isEmpty) {
+      publish();
+      return;
     }
-    publish();
+    await firebaseAuth.signOut();
+    await startGuest();
   }
+}
+
+/// Crashlytics and Analytics user id. A guest uid is not one.
+String? signedInAnalyticsId(String? uid, {required bool anonymous}) {
+  if (anonymous) return null;
+  final id = uid?.trim() ?? '';
+  return id.isEmpty ? null : id;
 }
 
 AccountView? readSignedInAccount() {

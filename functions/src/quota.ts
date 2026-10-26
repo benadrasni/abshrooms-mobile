@@ -14,6 +14,8 @@ export interface QuotaState {
   lastHashAt?: number;
   totalCalls?: number;
   anonymousFreeUsed?: boolean;
+  /** Milliseconds of the last accepted rewarded-ad grant. */
+  lastAdGrantAt?: number;
 }
 
 export interface CallLimits {
@@ -31,6 +33,13 @@ export const includedNamesPerMonth = 5;
 
 /** Rewarded-ad grants each UTC month. */
 export const adGrantsPerMonth = 5;
+
+/**
+ * Minimum gap between accepted ad grants. This is not proof an ad played.
+ * It stops one client from spending the month's grants in a single burst.
+ * AdMob server-side verification is the proof; see grantPhotoName.
+ */
+export const adGrantGapMs = 5_000;
 
 /** Not-a-mushroom answers that do not spend a monthly name. */
 export const freeNotMushroomPerMonth = 3;
@@ -149,6 +158,32 @@ export function reserveCall(
 }
 
 /**
+ * Reserves a Plant.id call. When the account would be refused for having no
+ * names left, the daily counter is left unchanged.
+ */
+export function reserveIdentify(
+  state: QuotaState | null,
+  now: number,
+  hash: string,
+  limits: CallLimits,
+  chargeName: boolean,
+): { state: QuotaState } | { refusal: Refusal } {
+  if (chargeName && !takeName(state, now).taken) return { refusal: 'no-names' };
+  return reserveCall(state, now, hash, limits);
+}
+
+/** Undoes one [reserveCall] after a later no-names refusal. */
+export function releaseReservedCall(state: QuotaState | null): QuotaState {
+  const next: QuotaState = { ...(state ?? {}) };
+  const day = next.dayCalls ?? 0;
+  if (day > 0) next.dayCalls = day - 1;
+  const total = next.totalCalls ?? 0;
+  if (total > 0) next.totalCalls = total - 1;
+  delete next.lastCallAt;
+  return next;
+}
+
+/**
  * A guest's one free identification. Taken before the call and given back
  * when Plant.id fails or finds no mushroom. Linking the account on sign-in
  * keeps the uid, so the name is not handed out again.
@@ -186,8 +221,12 @@ export function takeAdGrant(
   perMonth: number,
 ): { state: QuotaState; granted: boolean } {
   const next = rollOver(state, now);
+  if (next.lastAdGrantAt !== undefined && now - next.lastAdGrantAt < adGrantGapMs) {
+    return { state: next, granted: false };
+  }
   const used = next.adGrants ?? 0;
   if (used >= perMonth) return { state: next, granted: false };
   next.adGrants = used + 1;
+  next.lastAdGrantAt = now;
   return { state: next, granted: true };
 }

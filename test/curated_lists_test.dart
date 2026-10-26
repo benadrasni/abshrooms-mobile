@@ -94,34 +94,30 @@ void main() {
     'each list is limited to its language, and deadly is on every language',
     () {
       final lists = _seed();
-      expect(
-        selectCuratedLists(lists, 'de').map((list) => list.id).toList(),
-        [
-          'mushroom-of-the-year-de',
-          'mushroom-of-the-year-at',
-          'deadly-poisonous',
-        ],
-      );
-      expect(
-        selectCuratedLists(lists, 'nl').map((list) => list.id).toList(),
-        ['mushroom-of-the-year-nl', 'deadly-poisonous'],
-      );
-      expect(
-        selectCuratedLists(lists, 'lv').map((list) => list.id).toList(),
-        ['mushroom-of-the-year-lv', 'deadly-poisonous'],
-      );
-      expect(
-        selectCuratedLists(lists, 'hu').map((list) => list.id).toList(),
-        ['mushroom-of-the-year-hu', 'deadly-poisonous'],
-      );
-      expect(
-        selectCuratedLists(lists, 'en').map((list) => list.id).toList(),
-        ['us-state-mushrooms', 'deadly-poisonous'],
-      );
-      expect(
-        selectCuratedLists(lists, 'sk').map((list) => list.id).toList(),
-        ['deadly-poisonous'],
-      );
+      expect(selectCuratedLists(lists, 'de').map((list) => list.id).toList(), [
+        'mushroom-of-the-year-de',
+        'mushroom-of-the-year-at',
+        'deadly-poisonous',
+      ]);
+      expect(selectCuratedLists(lists, 'nl').map((list) => list.id).toList(), [
+        'mushroom-of-the-year-nl',
+        'deadly-poisonous',
+      ]);
+      expect(selectCuratedLists(lists, 'lv').map((list) => list.id).toList(), [
+        'mushroom-of-the-year-lv',
+        'deadly-poisonous',
+      ]);
+      expect(selectCuratedLists(lists, 'hu').map((list) => list.id).toList(), [
+        'mushroom-of-the-year-hu',
+        'deadly-poisonous',
+      ]);
+      expect(selectCuratedLists(lists, 'en').map((list) => list.id).toList(), [
+        'us-state-mushrooms',
+        'deadly-poisonous',
+      ]);
+      expect(selectCuratedLists(lists, 'sk').map((list) => list.id).toList(), [
+        'deadly-poisonous',
+      ]);
       expect(
         localizedListText(_doc('mushroom-of-the-year-de').titles, 'de'),
         'Pilz des Jahres',
@@ -290,6 +286,14 @@ void main() {
     );
     expect(species.type, CuratedListType.species);
     expect(_rows(species), ['||Fomes fomentarius', '||Boletus edulis']);
+  });
+
+  test('permission denied is a failed read', () {
+    final denied = curatedListsOnError(
+      FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied'),
+    );
+    expect(denied.documents, isEmpty);
+    expect(denied.failed, isTrue);
   });
 
   test('a missing Firebase app is an empty read, not a failure', () async {

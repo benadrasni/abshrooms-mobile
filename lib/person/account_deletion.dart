@@ -6,13 +6,45 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/person/phone_verify.dart';
 import 'package:whats_that_mushroom/purchase/store_proof.dart';
+import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
 enum DeleteAccountResult { success, canceled, failed }
 
-Future<DeleteAccountResult> confirmAndDeleteAccount(BuildContext context) async {
+enum ReauthResult { success, canceled, failed }
+
+/// A dismissed sheet stays [ReauthResult.canceled]. Any other failure is
+/// [ReauthResult.failed] so the account screen can say the deletion did not
+/// happen.
+ReauthResult reauthResultOf(Object error) {
+  if (error is GoogleSignInException &&
+      error.code == GoogleSignInExceptionCode.canceled) {
+    return ReauthResult.canceled;
+  }
+  if (error is SignInWithAppleAuthorizationException &&
+      error.code == AuthorizationErrorCode.canceled) {
+    return ReauthResult.canceled;
+  }
+  return ReauthResult.failed;
+}
+
+DeleteAccountResult deleteAccountResultForReauth(ReauthResult result) {
+  switch (result) {
+    case ReauthResult.success:
+      return DeleteAccountResult.success;
+    case ReauthResult.canceled:
+      return DeleteAccountResult.canceled;
+    case ReauthResult.failed:
+      return DeleteAccountResult.failed;
+  }
+}
+
+Future<DeleteAccountResult> confirmAndDeleteAccount(
+  BuildContext context,
+) async {
   final copy = GuideScope.of(context).copy;
   final confirmed = await showDialog<bool>(
     context: context,
@@ -33,10 +65,15 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(BuildContext context) async 
       );
     },
   );
-  if (confirmed != true || !context.mounted) return DeleteAccountResult.canceled;
+  if (confirmed != true || !context.mounted) {
+    return DeleteAccountResult.canceled;
+  }
 
   final reauthed = await reauthenticateCurrentUser(context);
-  if (!reauthed || !context.mounted) return DeleteAccountResult.canceled;
+  if (!context.mounted) return DeleteAccountResult.canceled;
+  if (reauthed != ReauthResult.success) {
+    return deleteAccountResultForReauth(reauthed);
+  }
 
   showDialog<void>(
     context: context,
@@ -60,7 +97,10 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(BuildContext context) async 
       return DeleteAccountResult.failed;
     }
     final again = await reauthenticateCurrentUser(context);
-    if (!again || !context.mounted) return DeleteAccountResult.canceled;
+    if (!context.mounted) return DeleteAccountResult.canceled;
+    if (again != ReauthResult.success) {
+      return deleteAccountResultForReauth(again);
+    }
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -85,6 +125,7 @@ Future<void> _deleteUser() async {
   if (user == null || user.isAnonymous) {
     throw StateError('not signed in');
   }
+  await deleteOwnedSightings(user.uid);
   await releaseStorePurchases();
   await user.delete();
   await Auth.signOut();
@@ -99,51 +140,50 @@ void showDeleteAccountResult(BuildContext context, DeleteAccountResult result) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
-Future<bool> reauthenticateCurrentUser(BuildContext context) async {
+Future<ReauthResult> reauthenticateCurrentUser(BuildContext context) async {
   final user = Auth.firebaseAuth.currentUser;
-  if (user == null) return false;
+  if (user == null) return ReauthResult.canceled;
   final providers = user.providerData.map((info) => info.providerId).toList();
   try {
     if (providers.contains('google.com')) {
       await prepareGoogleSignIn();
       final googleUser = await GoogleSignIn.instance.authenticate();
       final idToken = googleUser.authentication.idToken;
-      if (idToken == null) return false;
+      if (idToken == null) return ReauthResult.failed;
       await user.reauthenticateWithCredential(
         GoogleAuthProvider.credential(idToken: idToken),
       );
-      return true;
+      return ReauthResult.success;
     }
     if (providers.contains('apple.com')) {
       final apple = await appleOAuth();
       await user.reauthenticateWithCredential(apple.credential);
-      return true;
+      return ReauthResult.success;
     }
     if (providers.contains('password')) {
       final email = user.email;
-      if (email == null || !context.mounted) return false;
+      if (email == null || !context.mounted) return ReauthResult.canceled;
       final password = await _askPassword(context);
-      if (password == null || password.isEmpty) return false;
+      if (password == null || password.isEmpty) return ReauthResult.canceled;
       await user.reauthenticateWithCredential(
         EmailAuthProvider.credential(email: email, password: password),
       );
-      return true;
+      return ReauthResult.success;
     }
     if (providers.contains('phone')) {
       final phone = user.phoneNumber;
-      if (phone == null || !context.mounted) return false;
-      return await _reauthenticatePhone(context, user, phone);
+      if (phone == null || !context.mounted) return ReauthResult.canceled;
+      final signed = await _reauthenticatePhone(context, user, phone);
+      return signed ? ReauthResult.success : ReauthResult.canceled;
     }
   } on GoogleSignInException catch (error) {
-    if (error.code == GoogleSignInExceptionCode.canceled) return false;
-    return false;
+    return reauthResultOf(error);
   } on SignInWithAppleAuthorizationException catch (error) {
-    if (error.code == AuthorizationErrorCode.canceled) return false;
-    return false;
-  } catch (_) {
-    return false;
+    return reauthResultOf(error);
+  } catch (error) {
+    return reauthResultOf(error);
   }
-  return false;
+  return ReauthResult.failed;
 }
 
 Future<String?> _askPassword(BuildContext context) async {
@@ -176,39 +216,49 @@ Future<String?> _askPassword(BuildContext context) async {
   return result;
 }
 
-Future<bool> _reauthenticatePhone(BuildContext context, User user, String phone) async {
+Future<bool> _reauthenticatePhone(
+  BuildContext context,
+  User user,
+  String phone,
+) async {
   final copy = GuideScope.of(context).copy;
-  final done = Completer<String?>();
-  String? verificationId;
+  final gate = PhoneVerifyGate();
+  final done = Completer<void>();
   await Auth.verifyPhone(
     phoneNumber: phone,
     verificationCompleted: (credential) async {
+      gate.autoStarted();
       try {
         await user.reauthenticateWithCredential(credential);
-        if (!done.isCompleted) done.complete('signed');
+        if (gate.autoFinished(signedIn: true) && !done.isCompleted) {
+          done.complete();
+        }
       } catch (error) {
-        if (!done.isCompleted) done.completeError(error);
+        if (gate.autoFinished(signedIn: false, error: error) &&
+            !done.isCompleted) {
+          done.completeError(error);
+        }
       }
     },
     verificationFailed: (error) {
-      if (!done.isCompleted) done.completeError(error);
+      if (gate.failed(error) && !done.isCompleted) done.completeError(error);
     },
     codeSent: (id, _) {
-      verificationId = id;
-      if (!done.isCompleted) done.complete(null);
+      gate.codeSent(id, null);
     },
     codeAutoRetrievalTimeout: (id) {
-      verificationId = id;
-      if (!done.isCompleted) done.complete(null);
+      if (gate.autoTimedOut(id) && !done.isCompleted) done.complete();
     },
   );
-  final automatic = await done.future.timeout(const Duration(seconds: 60));
-  if (automatic == 'signed') return true;
+  await done.future.timeout(const Duration(seconds: 60));
+  if (gate.signedIn) return true;
+  if (gate.error != null) throw gate.error!;
+  final verificationId = gate.verificationId;
   if (!context.mounted || verificationId == null) return false;
   final code = await _askCode(context, copy, phone);
   if (code == null || code.length != 6) return false;
   await user.reauthenticateWithCredential(
-    PhoneAuthProvider.credential(verificationId: verificationId!, smsCode: code),
+    PhoneAuthProvider.credential(verificationId: verificationId, smsCode: code),
   );
   return true;
 }
@@ -223,7 +273,10 @@ Future<String?> _askCode(BuildContext context, Copy copy, String phone) {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(copy.signInCodeNote(phone), style: GuideType.muted(GuideColors.of(dialogContext))),
+            Text(
+              copy.signInCodeNote(phone),
+              style: GuideType.muted(GuideColors.of(dialogContext)),
+            ),
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
@@ -238,7 +291,8 @@ Future<String?> _askCode(BuildContext context, Copy copy, String phone) {
             child: Text(copy.cancel),
           ),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: Text(copy.signInContinue),
           ),
         ],

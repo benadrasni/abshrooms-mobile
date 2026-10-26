@@ -1,5 +1,5 @@
 import { logger } from 'firebase-functions';
-import { defineSecret } from 'firebase-functions/params';
+import { defineSecret, defineString } from 'firebase-functions/params';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { appleTransaction, verifyAppleSignedPayload } from './apple_jws';
@@ -9,6 +9,7 @@ import {
   appleNotice,
   applyVerifiedNotification,
   grantPurchase,
+  pageItems,
   playNotice,
   registerStoreAccount as registerAccount,
   releaseStorePurchases as releaseAccount,
@@ -19,12 +20,18 @@ import {
   fetchPlayPurchase,
   playBearer,
   playCredentialsOf,
+  purchaseIfVerified,
   StoreUnavailable,
   verifiedApple,
   type AppStoreCredentials,
 } from './store_fetch';
+import { authorizePubSub, googlePubSubKey, PubSubKeysUnavailable } from './pubsub_auth';
 
 const playPublisherJson = defineSecret('PLAY_PUBLISHER_JSON');
+const playPubsubEmail = defineString('PLAY_PUBSUB_EMAIL', { default: '' });
+const playPubsubAudience = defineString('PLAY_PUBSUB_AUDIENCE', { default: '' });
+
+const refreshPageSize = 500;
 const appStoreIssuerId = defineSecret('APP_STORE_ISSUER_ID');
 const appStoreKeyId = defineSecret('APP_STORE_KEY_ID');
 const appStorePrivateKey = defineSecret('APP_STORE_PRIVATE_KEY');
@@ -146,6 +153,35 @@ export const playStoreNotification = onRequest(
       res.status(405).send('method');
       return;
     }
+    const serviceAccount = playPubsubEmail.value();
+    const configuredAudience = playPubsubAudience.value();
+    const host = req.get('host') ?? '';
+    const path = req.path || '/';
+    const audiences = configuredAudience
+      ? [configuredAudience]
+      : host
+        ? [`https://${host}`, `https://${host}${path.startsWith('/') ? path : `/${path}`}`]
+        : [];
+    try {
+      const allowed = await authorizePubSub(req.get('authorization'), {
+        nowSec: Math.floor(Date.now() / 1000),
+        audiences,
+        serviceAccount,
+        keyForKid: (kid) => googlePubSubKey(kid),
+      });
+      if (!allowed) {
+        res.status(401).send('pubsub');
+        return;
+      }
+    } catch (error) {
+      if (error instanceof PubSubKeysUnavailable) {
+        logger.error('playStoreNotification certs', { error: String(error) });
+        res.status(503).send('retry');
+        return;
+      }
+      res.status(401).send('pubsub');
+      return;
+    }
     const notice = playNotice(req.body);
     if (!notice) {
       res.status(200).send('ignored');
@@ -174,9 +210,8 @@ export const playStoreNotification = onRequest(
           now,
           fetch,
         );
-        const purchase =
-          fetched.status === 'verified' ? fetched.purchase : { ...revokedProof(proof), revoked: true };
-        await applyVerifiedNotification(db, purchase, now);
+        const purchase = purchaseIfVerified(fetched);
+        if (purchase) await applyVerifiedNotification(db, purchase, now);
       } else {
         const fetched = await fetchPlayPurchase(
           notice.token,
@@ -186,7 +221,8 @@ export const playStoreNotification = onRequest(
           now,
           fetch,
         );
-        if (fetched.status === 'verified') await applyVerifiedNotification(db, fetched.purchase, now);
+        const purchase = purchaseIfVerified(fetched);
+        if (purchase) await applyVerifiedNotification(db, purchase, now);
       }
     } catch (error) {
       logger.error('playStoreNotification', { error: String(error) });
@@ -205,7 +241,7 @@ export const refreshStoreEntitlements = onSchedule(
   },
   async () => {
     const db = firestoreEntitlements();
-    const proofs = (await subscriptionProofs(db)).slice(0, 500);
+    const proofs = await subscriptionProofs(db);
     const play = playCredentialsOf(playPublisherJson.value());
     const issuer = appStoreIssuerId.value();
     const keyId = appStoreKeyId.value();
@@ -221,43 +257,23 @@ export const refreshStoreEntitlements = onSchedule(
         logger.error('refreshStoreEntitlements: play auth', { error: String(error) });
       }
     }
-    for (const proof of proofs) {
-      try {
-        let purchase: VerifiedPurchase | null = null;
-        if (proof.store === 'app_store') {
-          if (!apple) continue;
-          const fetched = await fetchAppleSubscription(proof.token, proof.environment, apple, now, fetch);
-          if (fetched.status === 'verified') purchase = fetched.purchase;
-          else purchase = { ...revokedProof(proof), revoked: true };
-        } else if (play && bearer) {
-          const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);
-          if (fetched.status === 'verified') purchase = fetched.purchase;
-          else purchase = { ...revokedProof(proof), revoked: true };
+    for (const page of pageItems(proofs, refreshPageSize)) {
+      for (const proof of page) {
+        try {
+          let purchase: VerifiedPurchase | null = null;
+          if (proof.store === 'app_store') {
+            if (!apple) continue;
+            const fetched = await fetchAppleSubscription(proof.token, proof.environment, apple, now, fetch);
+            purchase = purchaseIfVerified(fetched);
+          } else if (play && bearer) {
+            const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);
+            purchase = purchaseIfVerified(fetched);
+          }
+          if (purchase) await grantPurchase(db, proof.uid, purchase, now);
+        } catch (error) {
+          logger.error('refreshStoreEntitlements', { store: proof.store, error: String(error) });
         }
-        if (purchase) await grantPurchase(db, proof.uid, purchase, now);
-      } catch (error) {
-        logger.error('refreshStoreEntitlements', { store: proof.store, error: String(error) });
       }
     }
   },
 );
-
-function revokedProof(proof: {
-  store: VerifiedPurchase['store'];
-  productId: string;
-  token: string;
-  expiresAt: number | null;
-  accountToken: string | null;
-  environment: string | null;
-}): VerifiedPurchase {
-  return {
-    store: proof.store,
-    productId: proof.productId,
-    token: proof.token,
-    expiresAt: proof.expiresAt,
-    revoked: true,
-    accountToken: proof.accountToken,
-    environment: proof.environment,
-    subscription: true,
-  };
-}
