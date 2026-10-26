@@ -33,6 +33,486 @@ const monthsSk = [
   'december',
 ];
 
+const monthsCs = [
+  'leden',
+  'únor',
+  'březen',
+  'duben',
+  'květen',
+  'červen',
+  'červenec',
+  'srpen',
+  'září',
+  'říjen',
+  'listopad',
+  'prosinec',
+];
+
+const monthsDe = [
+  'Januar',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+];
+
+const monthsFr = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+];
+
+const monthsPl = [
+  'styczeń',
+  'luty',
+  'marzec',
+  'kwiecień',
+  'maj',
+  'czerwiec',
+  'lipiec',
+  'sierpień',
+  'wrzesień',
+  'październik',
+  'listopad',
+  'grudzień',
+];
+
+const monthsHu = [
+  'január',
+  'február',
+  'március',
+  'április',
+  'május',
+  'június',
+  'július',
+  'augusztus',
+  'szeptember',
+  'október',
+  'november',
+  'december',
+];
+
+const monthsUk = [
+  'січень',
+  'лютий',
+  'березень',
+  'квітень',
+  'травень',
+  'червень',
+  'липень',
+  'серпень',
+  'вересень',
+  'жовтень',
+  'листопад',
+  'грудень',
+];
+
+const monthsRu = [
+  'январь',
+  'февраль',
+  'март',
+  'апрель',
+  'май',
+  'июнь',
+  'июль',
+  'август',
+  'сентябрь',
+  'октябрь',
+  'ноябрь',
+  'декабрь',
+];
+
+const monthsEs = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+const monthsPt = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+];
+
+const monthsNl = [
+  'januari',
+  'februari',
+  'maart',
+  'april',
+  'mei',
+  'juni',
+  'juli',
+  'augustus',
+  'september',
+  'oktober',
+  'november',
+  'december',
+];
+
+const monthsDa = [
+  'januar',
+  'februar',
+  'marts',
+  'april',
+  'maj',
+  'juni',
+  'juli',
+  'august',
+  'september',
+  'oktober',
+  'november',
+  'december',
+];
+
+const monthsSv = [
+  'januari',
+  'februari',
+  'mars',
+  'april',
+  'maj',
+  'juni',
+  'juli',
+  'augusti',
+  'september',
+  'oktober',
+  'november',
+  'december',
+];
+
+const monthsNo = [
+  'januar',
+  'februar',
+  'mars',
+  'april',
+  'mai',
+  'juni',
+  'juli',
+  'august',
+  'september',
+  'oktober',
+  'november',
+  'desember',
+];
+
+const monthsFi = [
+  'tammikuu',
+  'helmikuu',
+  'maaliskuu',
+  'huhtikuu',
+  'toukokuu',
+  'kesäkuu',
+  'heinäkuu',
+  'elokuu',
+  'syyskuu',
+  'lokakuu',
+  'marraskuu',
+  'joulukuu',
+];
+
+const monthsEt = [
+  'jaanuar',
+  'veebruar',
+  'märts',
+  'aprill',
+  'mai',
+  'juuni',
+  'juuli',
+  'august',
+  'september',
+  'oktoober',
+  'november',
+  'detsember',
+];
+
+const monthsLv = [
+  'janvāris',
+  'februāris',
+  'marts',
+  'aprīlis',
+  'maijs',
+  'jūnijs',
+  'jūlijs',
+  'augusts',
+  'septembris',
+  'oktobris',
+  'novembris',
+  'decembris',
+];
+
+const monthsLt = [
+  'sausis',
+  'vasaris',
+  'kovas',
+  'balandis',
+  'gegužė',
+  'birželis',
+  'liepa',
+  'rugpjūtis',
+  'rugsėjis',
+  'spalis',
+  'lapkritis',
+  'gruodis',
+];
+
+const monthsIt = [
+  'gennaio',
+  'febbraio',
+  'marzo',
+  'aprile',
+  'maggio',
+  'giugno',
+  'luglio',
+  'agosto',
+  'settembre',
+  'ottobre',
+  'novembre',
+  'dicembre',
+];
+
+const monthsHr = [
+  'siječanj',
+  'veljača',
+  'ožujak',
+  'travanj',
+  'svibanj',
+  'lipanj',
+  'srpanj',
+  'kolovoz',
+  'rujan',
+  'listopad',
+  'studeni',
+  'prosinac',
+];
+
+const monthsSl = [
+  'januar',
+  'februar',
+  'marec',
+  'april',
+  'maj',
+  'junij',
+  'julij',
+  'avgust',
+  'september',
+  'oktober',
+  'november',
+  'december',
+];
+
+const monthsSr = [
+  'јануар',
+  'фебруар',
+  'март',
+  'април',
+  'мај',
+  'јун',
+  'јул',
+  'август',
+  'септембар',
+  'октобар',
+  'новембар',
+  'децембар',
+];
+
+const monthsRo = [
+  'ianuarie',
+  'februarie',
+  'martie',
+  'aprilie',
+  'mai',
+  'iunie',
+  'iulie',
+  'august',
+  'septembrie',
+  'octombrie',
+  'noiembrie',
+  'decembrie',
+];
+
+const monthsBg = [
+  'януари',
+  'февруари',
+  'март',
+  'април',
+  'май',
+  'юни',
+  'юли',
+  'август',
+  'септември',
+  'октомври',
+  'ноември',
+  'декември',
+];
+
+const monthsTr = [
+  'Ocak',
+  'Şubat',
+  'Mart',
+  'Nisan',
+  'Mayıs',
+  'Haziran',
+  'Temmuz',
+  'Ağustos',
+  'Eylül',
+  'Ekim',
+  'Kasım',
+  'Aralık',
+];
+
+const monthsId = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
+
+const monthsJa = [
+  '1月',
+  '2月',
+  '3月',
+  '4月',
+  '5月',
+  '6月',
+  '7月',
+  '8月',
+  '9月',
+  '10月',
+  '11月',
+  '12月',
+];
+
+const monthsKo = [
+  '1월',
+  '2월',
+  '3월',
+  '4월',
+  '5월',
+  '6월',
+  '7월',
+  '8월',
+  '9월',
+  '10월',
+  '11월',
+  '12월',
+];
+
+const monthsZh = [
+  '1月',
+  '2月',
+  '3月',
+  '4月',
+  '5月',
+  '6月',
+  '7月',
+  '8月',
+  '9月',
+  '10月',
+  '11月',
+  '12月',
+];
+
+const monthsHi = [
+  'जनवरी',
+  'फ़रवरी',
+  'मार्च',
+  'अप्रैल',
+  'मई',
+  'जून',
+  'जुलाई',
+  'अगस्त',
+  'सितंबर',
+  'अक्टूबर',
+  'नवंबर',
+  'दिसंबर',
+];
+
+const monthsHe = [
+  'ינואר',
+  'פברואר',
+  'מרץ',
+  'אפריל',
+  'מאי',
+  'יוני',
+  'יולי',
+  'אוגוסט',
+  'ספטמבר',
+  'אוקטובר',
+  'נובמבר',
+  'דצמבר',
+];
+
+const monthsFa = [
+  'ژانویه',
+  'فوریه',
+  'مارس',
+  'آوریل',
+  'مه',
+  'ژوئن',
+  'ژوئیه',
+  'اوت',
+  'سپتامبر',
+  'اکتبر',
+  'نوامبر',
+  'دسامبر',
+];
+
+const monthsAr = [
+  'يناير',
+  'فبراير',
+  'مارس',
+  'أبريل',
+  'مايو',
+  'يونيو',
+  'يوليو',
+  'أغسطس',
+  'سبتمبر',
+  'أكتوبر',
+  'نوفمبر',
+  'ديسمبر',
+];
+
 /// Fold used by catalog search: NFD, drop diacritics, lowercase, trim.
 String foldName(String value) {
   return removeDiacritics(value).toLowerCase().trim();
@@ -106,11 +586,17 @@ String _sortKey(String value, String language) {
   return buffer.toString();
 }
 
-/// Slovak labels lose a capital first letter. A missing label stays Latin.
+/// Slovak, Czech, Polish, Ukrainian, and Russian labels lose a capital first letter. A missing label stays Latin.
 String displayName(String? label, String language) {
   final value = label?.trim() ?? '';
   if (value.isEmpty) return '';
-  if (language != 'sk') return value;
+  if (language != 'sk' &&
+      language != 'cs' &&
+      language != 'pl' &&
+      language != 'uk' &&
+      language != 'ru') {
+    return value;
+  }
   return value.substring(0, 1).toLowerCase() + value.substring(1);
 }
 
@@ -157,7 +643,42 @@ String seasonSpan(int? from, int? to, String language) {
       to > 12) {
     return '';
   }
-  final months = language == 'sk' ? monthsSk : monthsEn;
+  final months = switch (language) {
+    'sk' => monthsSk,
+    'cs' => monthsCs,
+    'de' => monthsDe,
+    'fr' => monthsFr,
+    'pl' => monthsPl,
+    'hu' => monthsHu,
+    'uk' => monthsUk,
+    'ru' => monthsRu,
+    'es' => monthsEs,
+    'pt' => monthsPt,
+    'nl' => monthsNl,
+    'da' => monthsDa,
+    'sv' => monthsSv,
+    'no' => monthsNo,
+    'fi' => monthsFi,
+    'et' => monthsEt,
+    'lv' => monthsLv,
+    'lt' => monthsLt,
+    'it' => monthsIt,
+    'hr' => monthsHr,
+    'sl' => monthsSl,
+    'sr' => monthsSr,
+    'ro' => monthsRo,
+    'bg' => monthsBg,
+    'tr' => monthsTr,
+    'id' => monthsId,
+    'ja' => monthsJa,
+    'ko' => monthsKo,
+    'zh' => monthsZh,
+    'hi' => monthsHi,
+    'he' => monthsHe,
+    'fa' => monthsFa,
+    'ar' => monthsAr,
+    _ => monthsEn,
+  };
   return '${months[from - 1]}–${months[to - 1]}';
 }
 

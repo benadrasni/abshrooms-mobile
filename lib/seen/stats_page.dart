@@ -158,7 +158,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _findsBody(Copy copy, NotebookStats stats) {
     if (stats.finds == 0) return _Hint(copy.statsEmpty);
-    final slovak = copy.sk;
+    final slovak = !copy.en;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -234,7 +234,7 @@ class _StatsPageState extends State<StatsPage> {
     if (headline == null || headline.count == 0) {
       return _Hint(copy.statsSightingsEmpty);
     }
-    final slovak = copy.sk;
+    final slovak = !copy.en;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -770,7 +770,8 @@ class _YearBarsState extends State<_YearBars> {
   @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
-    final slovak = GuideScope.of(context).copy.sk;
+    final copy = GuideScope.of(context).copy;
+    final slovak = !copy.en;
     var maxCount = 0;
     for (final year in widget.years) {
       if (year.count > maxCount) maxCount = year.count;
@@ -837,7 +838,8 @@ class _Countries extends StatelessWidget {
   Widget build(BuildContext context) {
     if (countries.isEmpty) return const SizedBox.shrink();
     final colors = GuideColors.of(context);
-    final slovak = GuideScope.of(context).copy.sk;
+    final copy = GuideScope.of(context).copy;
+    final slovak = !copy.en;
     final rows = [...countries];
     rows.sort((a, b) {
       final byCount = b.count.compareTo(a.count);

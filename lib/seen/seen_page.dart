@@ -20,36 +20,6 @@ import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
 
-const _monthsShortEn = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-const _monthsShortSk = [
-  'jan',
-  'feb',
-  'mar',
-  'apr',
-  'máj',
-  'jún',
-  'júl',
-  'aug',
-  'sep',
-  'okt',
-  'nov',
-  'dec',
-];
-
 const _hideSharedKey = 'seen_hide_shared';
 
 /// The on-device notebook, laid out like the plants Seen page.
@@ -377,11 +347,13 @@ class _SeenPageState extends State<SeenPage> {
     if (sharedCount > 0) tiles.add(const _Tile(_Kind.hide));
     if (hiding && groups.total == 0) tiles.add(const _Tile(_Kind.onlyShared));
     for (final month in groups.months) {
+      final monthLabel = copy.hu
+          ? '${month.month.year}. ${copy.monthName(month.month.month)}'
+          : '${copy.monthName(month.month.month)} ${month.month.year}';
       tiles.add(
         _Tile(
           _Kind.month,
-          text: '${copy.monthName(month.month.month)} ${month.month.year}'
-              .toUpperCase(),
+          text: monthLabel.toUpperCase(),
         ),
       );
       for (final find in month.finds) {
@@ -779,8 +751,44 @@ int _newest(FindRecord a, FindRecord b) {
 
 String _detail(Copy copy, FindRecord find) {
   final date = DateTime.fromMillisecondsSinceEpoch(find.millis);
-  final month = (copy.sk ? _monthsShortSk : _monthsShortEn)[date.month - 1];
-  if (copy.sk) return '${date.day}. $month';
+  final month = copy.shortMonth(date.month);
+  if (copy.hu) return '$month ${date.day}.';
+  if (copy.sk || copy.cs) {
+    return '${date.day}. ${month.replaceAll('.', '')}';
+  }
+  if (copy.de ||
+      copy.pl ||
+      copy.uk ||
+      copy.ru ||
+      copy.da ||
+      copy.code == 'no' ||
+      copy.fi ||
+      copy.et ||
+      copy.lv ||
+      copy.lt ||
+      copy.hr ||
+      copy.sl ||
+      copy.sr ||
+      copy.bg) {
+    return '${date.day}. $month';
+  }
+  if (copy.ja || copy.zh) return '${date.month}月${date.day}日';
+  if (copy.ko) return '${date.month}월 ${date.day}일';
+  if (copy.fr ||
+      copy.es ||
+      copy.pt ||
+      copy.nl ||
+      copy.sv ||
+      copy.it ||
+      copy.ro ||
+      copy.tr ||
+      copy.id ||
+      copy.hi ||
+      copy.he ||
+      copy.fa ||
+      copy.ar) {
+    return '${date.day} $month';
+  }
   return '$month ${date.day}';
 }
 

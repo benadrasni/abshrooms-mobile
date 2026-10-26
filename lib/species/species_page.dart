@@ -430,9 +430,8 @@ class _SpeciesPageState extends State<SpeciesPage> {
   Future<void> _share(String title, String latin) async {
     final copy = GuideScope.of(context).copy;
     final name = Uri.encodeComponent(latin);
-    final url = copy.sk
-        ? 'https://whatsthatmushroom.app/sk/mushroom/$name/'
-        : 'https://whatsthatmushroom.app/mushroom/$name/';
+    final prefix = copy.code == 'en' ? '' : '/${copy.code}';
+    final url = 'https://whatsthatmushroom.app$prefix/mushroom/$name/';
     await SharePlus.instance.share(ShareParams(text: url, subject: title));
   }
 }
@@ -911,7 +910,42 @@ class _Facts extends StatelessWidget {
     final months = from == null || to == null
         ? const <int>[]
         : fruitingMonths(from, to);
-    final names = copy.sk ? monthsSk : monthsEn;
+    final names = switch (copy.code) {
+      'sk' => monthsSk,
+      'cs' => monthsCs,
+      'de' => monthsDe,
+      'fr' => monthsFr,
+      'pl' => monthsPl,
+      'hu' => monthsHu,
+      'uk' => monthsUk,
+      'ru' => monthsRu,
+      'es' => monthsEs,
+      'pt' => monthsPt,
+      'nl' => monthsNl,
+      'da' => monthsDa,
+      'sv' => monthsSv,
+      'no' => monthsNo,
+      'fi' => monthsFi,
+      'et' => monthsEt,
+      'lv' => monthsLv,
+      'lt' => monthsLt,
+      'it' => monthsIt,
+      'hr' => monthsHr,
+      'sl' => monthsSl,
+      'sr' => monthsSr,
+      'ro' => monthsRo,
+      'bg' => monthsBg,
+      'tr' => monthsTr,
+      'id' => monthsId,
+      'ja' => monthsJa,
+      'ko' => monthsKo,
+      'zh' => monthsZh,
+      'hi' => monthsHi,
+      'he' => monthsHe,
+      'fa' => monthsFa,
+      'ar' => monthsAr,
+      _ => monthsEn,
+    };
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: DecoratedBox(
@@ -1331,9 +1365,51 @@ const _shortMonths = [
 String _seenDate(DateTime when, Copy copy, {DateTime? now}) {
   final today = now ?? DateTime.now();
   final year = when.year == today.year ? '' : ' ${when.year}';
-  if (copy.sk) {
-    final month = monthsSk[when.month - 1];
+  final month = copy.monthName(when.month);
+  if (copy.hu) {
+    final yearHu = when.year == today.year ? '' : '${when.year}. ';
+    return '$yearHu$month ${when.day}.';
+  }
+  if (copy.sk ||
+      copy.cs ||
+      copy.de ||
+      copy.pl ||
+      copy.uk ||
+      copy.ru ||
+      copy.da ||
+      copy.code == 'no' ||
+      copy.fi ||
+      copy.et ||
+      copy.lv ||
+      copy.lt ||
+      copy.hr ||
+      copy.sl ||
+      copy.sr ||
+      copy.bg) {
     return '${when.day}. $month$year';
+  }
+  if (copy.ja || copy.zh) {
+    final yearCjk = when.year == today.year ? '' : '${when.year}年';
+    return '$yearCjk${when.month}月${when.day}日';
+  }
+  if (copy.ko) {
+    final yearKo = when.year == today.year ? '' : '${when.year}년 ';
+    return '$yearKo${when.month}월 ${when.day}일';
+  }
+  if (copy.fr ||
+      copy.es ||
+      copy.pt ||
+      copy.nl ||
+      copy.sv ||
+      copy.it ||
+      copy.ro ||
+      copy.tr ||
+      copy.id ||
+      copy.hi ||
+      copy.he ||
+      copy.fa ||
+      copy.ar) {
+    return '${when.day} $month$year';
   }
   return '${_shortMonths[when.month - 1]} ${when.day}$year';
 }
@@ -1827,7 +1903,45 @@ void _openSighting(BuildContext context, String url) {
 
 String? _sightingWhen(DateTime? when, Copy copy) {
   if (when == null) return null;
-  final names = copy.sk ? monthsSk : monthsEn;
+  final names = switch (copy.code) {
+    'sk' => monthsSk,
+    'cs' => monthsCs,
+    'de' => monthsDe,
+    'fr' => monthsFr,
+    'pl' => monthsPl,
+    'hu' => monthsHu,
+    'uk' => monthsUk,
+    'ru' => monthsRu,
+    'es' => monthsEs,
+    'pt' => monthsPt,
+    'nl' => monthsNl,
+    'da' => monthsDa,
+    'sv' => monthsSv,
+    'no' => monthsNo,
+    'fi' => monthsFi,
+    'et' => monthsEt,
+    'lv' => monthsLv,
+    'lt' => monthsLt,
+    'it' => monthsIt,
+    'hr' => monthsHr,
+    'sl' => monthsSl,
+    'sr' => monthsSr,
+    'ro' => monthsRo,
+    'bg' => monthsBg,
+    'tr' => monthsTr,
+    'id' => monthsId,
+    'ja' => monthsJa,
+    'ko' => monthsKo,
+    'zh' => monthsZh,
+    'hi' => monthsHi,
+    'he' => monthsHe,
+    'fa' => monthsFa,
+    'ar' => monthsAr,
+    _ => monthsEn,
+  };
+  if (copy.hu) return '${when.year}. ${names[when.month - 1]}';
+  if (copy.ja || copy.zh) return '${when.year}年${when.month}月';
+  if (copy.ko) return '${when.year}년 ${when.month}월';
   return '${names[when.month - 1]} ${when.year}';
 }
 

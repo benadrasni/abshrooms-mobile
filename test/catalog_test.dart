@@ -230,6 +230,14 @@ void main() {
       copy.cameraNeedsAccount,
     );
     expect(
+      cameraFailure(
+        _FunctionsException('unauthenticated'),
+        copy,
+        signedIn: true,
+      ),
+      copy.cameraAuthExpired,
+    );
+    expect(
       cameraFailure(_FunctionsException('not-found'), copy),
       copy.cameraUnavailable,
     );

@@ -11,7 +11,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:whats_that_mushroom/ads/ad_units.dart';
 import 'package:whats_that_mushroom/camera/outside_page.dart';
 import 'package:whats_that_mushroom/camera/plant_id.dart';
-import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/field_guide/field_guide_page.dart';
@@ -517,6 +516,10 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       final read = widget.readPhoto ?? _readPhoto;
       final bytes = await read(path);
       if (!mounted) return;
+      try {
+        await GuideAppCheck.ensure();
+      } catch (_) {}
+      if (!mounted) return;
       final identify = widget.identify ?? identifyMushroom;
       final guesses = await identify(bytes, scope.settings.language);
       final applied = Names.takeServerApply();
@@ -610,7 +613,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         _notMushroom = false;
         _limit = limit;
       });
-      if (!limit) _snack(_refusalCopy(error.reason, copy));
+      if (!limit) _snack(refusalCopy(error.reason, copy, signedIn: _signedIn));
       _releaseShot();
     } catch (error) {
       debugPrint('camera: $error');
@@ -620,7 +623,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         _naming = false;
         _notMushroom = false;
       });
-      _snack(cameraFailure(error, copy));
+      _snack(cameraFailure(error, copy, signedIn: _signedIn));
       _releaseShot();
     } finally {
       if (!mounted && path != null && _ownsShot && !keepFile) {
@@ -805,18 +808,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 }
 
-String _refusalCopy(String reason, Copy copy) {
-  switch (reason) {
-    case 'cooldown':
-      return copy.cameraTooSoon;
-    case 'repeat-photo':
-      return copy.cameraSamePhoto;
-    case 'daily-ceiling':
-      return copy.cameraPausedToday;
-    default:
-      return copy.cameraNeedsAccount;
-  }
-}
 
 String? _spoken(NameGuess guess) {
   for (final name in guess.commonNames) {

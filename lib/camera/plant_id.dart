@@ -4,8 +4,9 @@ import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:image/image.dart' as img;
 import 'package:whats_that_mushroom/copy.dart';
-import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
+import 'package:whats_that_mushroom/shell/app_check.dart';
+import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 
 /// `identifyMushroom` refused the photo before calling Plant.id.
 class NameRefused implements Exception {
@@ -76,14 +77,37 @@ String confidenceLabel(double probability, Copy copy) {
   return copy.uncertain;
 }
 
-String cameraFailure(Object error, Copy copy) {
-  if (error is NameRefused) return copy.cameraNeedsAccount;
+String refusalCopy(String reason, Copy copy, {bool signedIn = false}) {
+  switch (reason) {
+    case 'cooldown':
+      return copy.cameraTooSoon;
+    case 'repeat-photo':
+      return copy.cameraSamePhoto;
+    case 'daily-ceiling':
+      return copy.cameraPausedToday;
+    case 'no-names':
+      return copy.cameraLimitTitle;
+    case 'sign-in':
+      return signedIn ? copy.cameraAuthExpired : copy.cameraNeedsAccount;
+    default:
+      return signedIn ? copy.cameraAuthExpired : copy.cameraNeedsAccount;
+  }
+}
+
+String cameraFailure(Object error, Copy copy, {bool signedIn = false}) {
+  if (error is NameRefused) {
+    return refusalCopy(error.reason, copy, signedIn: signedIn);
+  }
   if (error is FirebaseFunctionsException) {
-    if (error.code == 'unauthenticated') return copy.cameraNeedsAccount;
+    if (error.code == 'unauthenticated') {
+      return signedIn ? copy.cameraAuthExpired : copy.cameraNeedsAccount;
+    }
     if (error.code == 'not-found' || error.code == 'unavailable') {
       return copy.cameraUnavailable;
     }
-    if (error.code == 'resource-exhausted') return copy.cameraNeedsAccount;
+    if (error.code == 'resource-exhausted') {
+      return copy.cameraLimitTitle;
+    }
   }
   return copy.cameraFailed;
 }
@@ -94,6 +118,9 @@ Future<List<NameGuess>> identifyMushroom(
   Uint8List jpeg,
   String language,
 ) async {
+  try {
+    await GuideAppCheck.ensure();
+  } catch (_) {}
   final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
   final callable = functions.httpsCallable(
     'identifyMushroom',

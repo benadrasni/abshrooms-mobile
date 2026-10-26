@@ -157,4 +157,30 @@ void main() {
       0,
     );
   });
+
+  test('nameMonthFromQuota parses photo_quota document data', () {
+    final now = DateTime.utc(2026, 10, 15);
+    expect(nameMonthFromQuota(null, now).month, '2026-10');
+    expect(nameMonthFromQuota(null, now).namesUsed, 0);
+
+    final current = {
+      'month': '2026-10',
+      'namesUsed': 3,
+      'adGrants': 2,
+    };
+    final parsed = nameMonthFromQuota(current, now);
+    expect(parsed.month, '2026-10');
+    expect(parsed.namesUsed, 3);
+    expect(parsed.adGrants, 2);
+
+    final previous = {
+      'month': '2026-09',
+      'namesUsed': 5,
+      'adGrants': 5,
+    };
+    final rolled = nameMonthFromQuota(previous, now);
+    expect(rolled.month, '2026-10');
+    expect(rolled.namesUsed, 0);
+    expect(rolled.adGrants, 0);
+  });
 }

@@ -144,6 +144,21 @@ String quotaMonth(DateTime now) {
   return '${utc.year}-$month';
 }
 
+/// Reads [NameMonth] from a `photo_quota` Firestore document snapshot.
+NameMonth nameMonthFromQuota(Object? raw, DateTime now) {
+  final currentMonth = quotaMonth(now);
+  if (raw is! Map) return NameMonth(month: currentMonth);
+  final month = raw['month']?.toString() ?? currentMonth;
+  if (month != currentMonth) return NameMonth(month: currentMonth);
+  final used = raw['namesUsed'];
+  final grants = raw['adGrants'];
+  return NameMonth(
+    month: currentMonth,
+    namesUsed: used is num && used >= 0 ? used.toInt() : 0,
+    adGrants: grants is num && grants >= 0 ? grants.toInt() : 0,
+  );
+}
+
 class Names {
   static const _key = 'photo_names';
   static const _guestKey = 'guest_free_used';

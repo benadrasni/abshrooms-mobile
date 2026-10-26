@@ -13,7 +13,7 @@ class GuideSettings extends ChangeNotifier {
   Future<void> restore() async {
     _prefs = await SharedPreferences.getInstance();
     final stored = _prefs!.getString('language');
-    language = stored == 'sk' || stored == 'en' ? stored! : _deviceLanguage();
+    language = _isSupported(stored) ? stored! : _deviceLanguage();
     themeMode = switch (_prefs!.getString('theme')) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
@@ -22,13 +22,52 @@ class GuideSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  static bool _isSupported(String? code) =>
+      code != null &&
+      const {
+        'en',
+        'sk',
+        'cs',
+        'de',
+        'fr',
+        'pl',
+        'hu',
+        'uk',
+        'ru',
+        'es',
+        'pt',
+        'nl',
+        'da',
+        'sv',
+        'no',
+        'fi',
+        'et',
+        'lv',
+        'lt',
+        'it',
+        'hr',
+        'sl',
+        'sr',
+        'ro',
+        'bg',
+        'tr',
+        'id',
+        'ja',
+        'ko',
+        'zh',
+        'hi',
+        'he',
+        'fa',
+        'ar',
+      }.contains(code);
+
   String _deviceLanguage() {
     final code = Platform.localeName.split(RegExp('[_\\.]')).first;
-    return code == 'sk' ? 'sk' : 'en';
+    return _isSupported(code) ? code : 'en';
   }
 
   Future<void> setLanguage(String code) async {
-    language = code == 'sk' ? 'sk' : 'en';
+    language = _isSupported(code) ? code : 'en';
     await _prefs?.setString('language', language);
     notifyListeners();
     unawaited(GuideAnalytics.language(language));
