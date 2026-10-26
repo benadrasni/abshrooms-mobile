@@ -303,48 +303,15 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<bool> _verifyPhone(String phone, {bool resend = false}) async {
-    final gate = PhoneVerifyGate();
-    final done = Completer<void>();
-    void finish() {
-      if (!done.isCompleted) done.complete();
-    }
-
-    void fail(Object error) {
-      if (!done.isCompleted) done.completeError(error);
-    }
-
-    await Auth.verifyPhone(
+    final result = await runPhoneVerification(
       phoneNumber: phone,
       forceResendingToken: resend ? _resendToken : null,
-      verificationCompleted: (credential) async {
-        gate.autoStarted();
-        try {
-          await Auth.signInWithCredential(credential);
-          if (gate.autoFinished(signedIn: true)) finish();
-        } catch (error) {
-          if (gate.autoFinished(signedIn: false, error: error)) fail(error);
-        }
-      },
-      verificationFailed: (error) {
-        if (gate.failed(error)) fail(error);
-      },
-      codeSent: (verificationId, token) {
-        gate.codeSent(verificationId, token);
-        _verificationId = gate.verificationId;
-        _resendToken = gate.resendToken;
-      },
-      codeAutoRetrievalTimeout: (verificationId) {
-        if (gate.autoTimedOut(verificationId)) {
-          _verificationId = gate.verificationId;
-          finish();
-        }
-      },
+      onCredential: Auth.signInWithCredential,
     );
-    await done.future.timeout(const Duration(seconds: 60));
-    _verificationId = gate.verificationId;
-    _resendToken = gate.resendToken ?? _resendToken;
-    if (gate.error != null && !gate.signedIn) throw gate.error!;
-    return gate.signedIn;
+    _verificationId = result.verificationId ?? _verificationId;
+    if (result.resendToken != null) _resendToken = result.resendToken;
+    if (result.error != null && !result.signedIn) throw result.error!;
+    return result.signedIn;
   }
 
   Future<void> _showVerify() {

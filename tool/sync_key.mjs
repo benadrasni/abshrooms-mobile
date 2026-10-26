@@ -2,13 +2,16 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-/** This repo. The script lives in `tool/`, so the root is its parent. */
+/**
+ * The script lives in `app/tool/`. The workspace is two levels up: the
+ * sibling site is `web/catalog.js`, and the key is `app/assets/key.json`.
+ */
 export function repoPaths(scriptUrl = import.meta.url) {
-  const root = join(dirname(fileURLToPath(scriptUrl)), '..');
+  const root = join(dirname(fileURLToPath(scriptUrl)), '../..');
   return {
     root,
     catalog: join(root, 'web/catalog.js'),
-    key: join(root, 'assets/key.json'),
+    key: join(root, 'app/assets/key.json'),
   };
 }
 

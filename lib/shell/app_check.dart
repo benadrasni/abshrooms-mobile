@@ -1,7 +1,7 @@
 /// App Check activation shared by the catalog load and a rewarded grant.
 ///
-/// The catalog starts activation and does not wait on it. A reward waits
-/// until that activation finishes, and retries the grant if it fails.
+/// [ensure] is the only once-gate. A failed activation is tried once more.
+/// A later callable error does not reset that gate.
 class GuideAppCheck {
   static Future<void> Function()? _start;
   static Future<void>? _pending;
@@ -17,11 +17,6 @@ class GuideAppCheck {
     _done = false;
   }
 
-  static void invalidate() {
-    _done = false;
-    _pending = null;
-  }
-
   static Future<void> ensure() async {
     if (_done) return;
     final existing = _pending;
@@ -31,7 +26,7 @@ class GuideAppCheck {
     }
     final start = _start;
     if (start == null) return;
-    final flight = start();
+    final flight = _activate(start);
     _pending = flight;
     try {
       await flight;
@@ -41,25 +36,12 @@ class GuideAppCheck {
       rethrow;
     }
   }
-}
 
-/// Awaits App Check, calls [grant], and tries both once more on failure.
-Future<bool> grantPhotoNameWhenReady(Future<bool> Function() grant) async {
-  await _appCheckReady();
-  try {
-    return await grant();
-  } catch (_) {
-    GuideAppCheck.invalidate();
-    await _appCheckReady();
-    return await grant();
-  }
-}
-
-Future<void> _appCheckReady() async {
-  try {
-    await GuideAppCheck.ensure();
-  } catch (_) {
-    GuideAppCheck.invalidate();
-    await GuideAppCheck.ensure();
+  static Future<void> _activate(Future<void> Function() start) async {
+    try {
+      await start();
+    } catch (_) {
+      await start();
+    }
   }
 }

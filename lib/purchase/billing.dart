@@ -19,9 +19,31 @@ const playMarket = 'market://details?id=sk.ab.shrooms';
 
 const storeRestoreKey = 'store_restore_done';
 
-/// Cold start restores once. Later launches wait for an explicit restore.
-bool restoreOnLaunch({required bool explicit, required bool alreadyRestored}) {
-  return explicit || !alreadyRestored;
+/// Restores on the first launch. A thrown store call still marks it done,
+/// so a later cold start does not try again. An explicit restore is
+/// [restoreFieldGuidePurchases].
+Future<void> restoreOnFirstLaunch({
+  required Future<void> Function() restorePurchases,
+  Future<SharedPreferences> Function()? preferences,
+}) async {
+  final SharedPreferences prefs;
+  try {
+    prefs = await (preferences ?? SharedPreferences.getInstance)();
+  } catch (error) {
+    debugPrint('restore: $error');
+    return;
+  }
+  if (prefs.getBool(storeRestoreKey) ?? false) return;
+  try {
+    await restorePurchases();
+  } catch (error) {
+    debugPrint('restore: $error');
+  }
+  try {
+    await prefs.setBool(storeRestoreKey, true);
+  } catch (error) {
+    debugPrint('restore: $error');
+  }
 }
 
 /// Store listing used by Rate this app.
@@ -65,33 +87,9 @@ class FieldGuideBilling {
     );
     final available = await store.isAvailable();
     if (!available) return;
-    await _restoreOnFirstLaunch(store);
-  }
-
-  Future<void> _restoreOnFirstLaunch(InAppPurchase store) async {
-    SharedPreferences prefs;
-    try {
-      prefs = await SharedPreferences.getInstance();
-    } catch (error) {
-      debugPrint('restore: $error');
-      return;
-    }
-    if (!restoreOnLaunch(
-      explicit: false,
-      alreadyRestored: prefs.getBool(storeRestoreKey) ?? false,
-    )) {
-      return;
-    }
-    try {
-      await store.restorePurchases();
-    } catch (error) {
-      debugPrint('restore: $error');
-    }
-    try {
-      await prefs.setBool(storeRestoreKey, true);
-    } catch (error) {
-      debugPrint('restore: $error');
-    }
+    await restoreOnFirstLaunch(
+      restorePurchases: () => store.restorePurchases(),
+    );
   }
 
   Future<void> dispose() async {

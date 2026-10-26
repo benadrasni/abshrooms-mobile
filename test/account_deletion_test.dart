@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/person/account_deletion.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
@@ -8,53 +9,84 @@ import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 void main() {
   test('a reauth failure is shown and a cancel stays quiet', () {
     expect(
-      deleteAccountResultForReauth(
-        reauthResultOf(
-          const GoogleSignInException(code: GoogleSignInExceptionCode.canceled),
-        ),
+      reauthResultOf(
+        const GoogleSignInException(code: GoogleSignInExceptionCode.canceled),
       ),
       DeleteAccountResult.canceled,
     );
     expect(
-      deleteAccountResultForReauth(
-        reauthResultOf(
-          const GoogleSignInException(
-            code: GoogleSignInExceptionCode.unknownError,
-          ),
+      reauthResultOf(
+        const GoogleSignInException(
+          code: GoogleSignInExceptionCode.unknownError,
         ),
       ),
       DeleteAccountResult.failed,
     );
     expect(
-      deleteAccountResultForReauth(
-        reauthResultOf(
-          const SignInWithAppleAuthorizationException(
-            code: AuthorizationErrorCode.canceled,
-            message: 'canceled',
-          ),
+      reauthResultOf(
+        const SignInWithAppleAuthorizationException(
+          code: AuthorizationErrorCode.canceled,
+          message: 'canceled',
         ),
       ),
       DeleteAccountResult.canceled,
     );
     expect(
-      deleteAccountResultForReauth(reauthResultOf(StateError('network'))),
+      reauthResultOf(StateError('network')),
       DeleteAccountResult.failed,
     );
   });
 
-  test('sign-out starts a guest when the user is gone', () {
-    expect(
-      Auth.createGuest(firebaseReady: true, hasCurrentUser: false),
-      isTrue,
+  test('sign-out starts a guest when the user is gone', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    var signedIn = 0;
+    var published = 0;
+    Future<void> signIn() async {
+      signedIn += 1;
+    }
+
+    void notify() {
+      published += 1;
+    }
+
+    await Auth.startGuest(
+      firebaseReady: false,
+      signInAnonymously: signIn,
+      notify: notify,
     );
-    expect(
-      Auth.createGuest(firebaseReady: true, hasCurrentUser: true),
-      isFalse,
+    expect(signedIn, 0);
+    expect(published, 0);
+
+    await Auth.startGuest(
+      firebaseReady: true,
+      hasCurrentUser: true,
+      signInAnonymously: signIn,
+      notify: notify,
     );
-    expect(
-      Auth.createGuest(firebaseReady: false, hasCurrentUser: false),
-      isFalse,
+    expect(signedIn, 0);
+    expect(published, 1);
+
+    await Auth.startGuest(
+      firebaseReady: true,
+      hasCurrentUser: false,
+      signInAnonymously: signIn,
+      notify: notify,
     );
+    expect(signedIn, 1);
+    expect(published, 2);
+
+    await Auth.startGuest(
+      firebaseReady: true,
+      hasCurrentUser: false,
+      signInAnonymously: () async {
+        throw StateError('offline');
+      },
+      notify: notify,
+    );
+    expect(published, 2);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('guest_created'), isNull);
   });
 
   test('a guest uid is not an analytics id', () {

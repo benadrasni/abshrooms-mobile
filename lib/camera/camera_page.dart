@@ -332,7 +332,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       return;
     }
     try {
-      final granted = await grantPhotoNameWhenReady(grantPhotoName);
+      await GuideAppCheck.ensure();
+      final granted = await grantPhotoName();
       if (!granted && mounted) {
         _snack(GuideScope.of(context).copy.cameraLimitAllBody);
       }

@@ -89,7 +89,6 @@ class GuideApp extends StatefulWidget {
 
 class _GuideAppState extends State<GuideApp> {
   var _tab = 0;
-  var _appCheckStarted = false;
   Future<void>? _curatedLists;
   final _billing = FieldGuideBilling();
 
@@ -180,22 +179,15 @@ class _GuideAppState extends State<GuideApp> {
   }
 
   Future<void> _activateAppCheck() async {
-    if (_appCheckStarted) return;
-    _appCheckStarted = true;
-    try {
-      await FirebaseAppCheck.instance.activate(
-        providerAndroid: kDebugMode
-            ? const AndroidDebugProvider()
-            : const AndroidPlayIntegrityProvider(),
-        providerApple: kDebugMode
-            ? const AppleDebugProvider()
-            : const AppleDeviceCheckProvider(),
-      );
-      await Entitlements.afterAppCheck();
-    } on Object {
-      _appCheckStarted = false;
-      rethrow;
-    }
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: kDebugMode
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode
+          ? const AppleDebugProvider()
+          : const AppleDeviceCheckProvider(),
+    );
+    await Entitlements.afterAppCheck();
   }
 
   void _onSettings() {

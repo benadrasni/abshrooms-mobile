@@ -8,13 +8,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
-
-const _guestKey = 'guest_created';
 
 const googleWebClientId =
     '968595882184-rt3pd4sgt9cr8g2qt4j6m7i3396c54bt.apps.googleusercontent.com';
@@ -91,29 +88,27 @@ class Auth {
     }
   }
 
-  /// A signed-out install needs a guest. [guestCreated] does not matter:
-  /// sign-out clears the user and the flag from the first launch would
-  /// otherwise leave the phone with no account.
-  static bool createGuest({
-    required bool firebaseReady,
-    required bool hasCurrentUser,
-  }) {
-    return firebaseReady && !hasCurrentUser;
-  }
-
   /// Creates a guest when nobody is signed in, including after sign-out.
-  static Future<void> startGuest() async {
-    final ready = Firebase.apps.isNotEmpty;
-    final hasUser = ready && firebaseAuth.currentUser != null;
-    if (!createGuest(firebaseReady: ready, hasCurrentUser: hasUser)) {
-      if (ready) publish();
+  ///
+  /// The optional arguments are the Firebase reads and writes. Production
+  /// leaves them unset.
+  static Future<void> startGuest({
+    bool? firebaseReady,
+    bool? hasCurrentUser,
+    Future<void> Function()? signInAnonymously,
+    void Function()? notify,
+  }) async {
+    final ready = firebaseReady ?? Firebase.apps.isNotEmpty;
+    if (!ready) return;
+    final signedIn = hasCurrentUser ?? firebaseAuth.currentUser != null;
+    final tell = notify ?? publish;
+    if (signedIn) {
+      tell();
       return;
     }
     try {
-      await firebaseAuth.signInAnonymously();
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_guestKey, true);
-      publish();
+      await (signInAnonymously ?? () => firebaseAuth.signInAnonymously())();
+      tell();
     } catch (error) {
       debugPrint('guest account: $error');
     }

@@ -9,7 +9,6 @@ import {
   appleNotice,
   applyVerifiedNotification,
   grantPurchase,
-  pageItems,
   playNotice,
   registerStoreAccount as registerAccount,
   releaseStorePurchases as releaseAccount,
@@ -31,7 +30,6 @@ const playPublisherJson = defineSecret('PLAY_PUBLISHER_JSON');
 const playPubsubEmail = defineString('PLAY_PUBSUB_EMAIL', { default: '' });
 const playPubsubAudience = defineString('PLAY_PUBSUB_AUDIENCE', { default: '' });
 
-const refreshPageSize = 500;
 const appStoreIssuerId = defineSecret('APP_STORE_ISSUER_ID');
 const appStoreKeyId = defineSecret('APP_STORE_KEY_ID');
 const appStorePrivateKey = defineSecret('APP_STORE_PRIVATE_KEY');
@@ -257,22 +255,20 @@ export const refreshStoreEntitlements = onSchedule(
         logger.error('refreshStoreEntitlements: play auth', { error: String(error) });
       }
     }
-    for (const page of pageItems(proofs, refreshPageSize)) {
-      for (const proof of page) {
-        try {
-          let purchase: VerifiedPurchase | null = null;
-          if (proof.store === 'app_store') {
-            if (!apple) continue;
-            const fetched = await fetchAppleSubscription(proof.token, proof.environment, apple, now, fetch);
-            purchase = purchaseIfVerified(fetched);
-          } else if (play && bearer) {
-            const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);
-            purchase = purchaseIfVerified(fetched);
-          }
-          if (purchase) await grantPurchase(db, proof.uid, purchase, now);
-        } catch (error) {
-          logger.error('refreshStoreEntitlements', { store: proof.store, error: String(error) });
+    for (const proof of proofs) {
+      try {
+        let purchase: VerifiedPurchase | null = null;
+        if (proof.store === 'app_store') {
+          if (!apple) continue;
+          const fetched = await fetchAppleSubscription(proof.token, proof.environment, apple, now, fetch);
+          purchase = purchaseIfVerified(fetched);
+        } else if (play && bearer) {
+          const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);
+          purchase = purchaseIfVerified(fetched);
         }
+        if (purchase) await grantPurchase(db, proof.uid, purchase, now);
+      } catch (error) {
+        logger.error('refreshStoreEntitlements', { store: proof.store, error: String(error) });
       }
     }
   },

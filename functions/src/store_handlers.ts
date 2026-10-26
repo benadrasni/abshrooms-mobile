@@ -124,16 +124,6 @@ export async function releaseStorePurchases(db: EntitlementDb, uid: string): Pro
   await db.remove(`store_accounts/${storeAccountToken(uid)}`);
 }
 
-/** Splits a list into pages. The daily refresh walks every page. */
-export function pageItems<T>(items: readonly T[], size: number): T[][] {
-  if (size < 1) return [];
-  const pages: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    pages.push(items.slice(index, index + size));
-  }
-  return pages;
-}
-
 export async function subscriptionProofs(db: EntitlementDb): Promise<ProofRecord[]> {
   const all = await db.get('purchase_proofs');
   if (!all || typeof all !== 'object') return [];

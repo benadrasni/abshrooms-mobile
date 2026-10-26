@@ -3,7 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { test } from 'node:test';
 import { signedJwt } from './jwt';
 import { authorizePubSub, pubSubPushAllowed, verifyRs256 } from './pubsub_auth';
-import { pageItems } from './store_handlers';
+import { subscriptionProofs, type EntitlementDb } from './store_handlers';
 import { purchaseIfVerified, type StoreFetch } from './store_fetch';
 import type { VerifiedPurchase } from './entitlements';
 
@@ -89,11 +89,31 @@ test('an unverified store lookup is not stored as revoked', () => {
   assert.equal(purchaseIfVerified(missing), null);
 });
 
-test('the daily refresh walks past the first 500 proofs', () => {
-  const ids = Array.from({ length: 501 }, (_, index) => index);
-  const pages = pageItems(ids, 500);
-  assert.equal(pages.length, 2);
-  assert.equal(pages[0].length, 500);
-  assert.deepEqual(pages[1], [500]);
-  assert.equal(pages.flat().length, 501);
+test('subscription proofs include every stored subscription', async () => {
+  const proofs: Record<string, unknown> = {};
+  for (let index = 0; index < 501; index += 1) {
+    proofs[`p${index}`] = {
+      uid: 'user',
+      store: 'play',
+      productId: 'field_guide_yearly',
+      token: `token-${index}`,
+      subscription: true,
+      active: true,
+      updatedAt: 1,
+    };
+  }
+  proofs.once = {
+    uid: 'user',
+    store: 'play',
+    productId: 'other',
+    token: 'once',
+    subscription: false,
+    active: true,
+    updatedAt: 1,
+  };
+  const db = {
+    get: async (path: string) => (path === 'purchase_proofs' ? proofs : null),
+  } as EntitlementDb;
+  const rows = await subscriptionProofs(db);
+  assert.equal(rows.length, 501);
 });

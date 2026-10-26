@@ -288,9 +288,14 @@ void main() {
     expect(_rows(species), ['||Fomes fomentarius', '||Boletus edulis']);
   });
 
-  test('permission denied is a failed read', () {
-    final denied = curatedListsOnError(
-      FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied'),
+  test('permission denied is a failed read', () async {
+    final denied = await fetchCuratedLists(
+      read: () async {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+        );
+      },
     );
     expect(denied.documents, isEmpty);
     expect(denied.failed, isTrue);

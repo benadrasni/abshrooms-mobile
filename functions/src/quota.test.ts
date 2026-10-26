@@ -9,7 +9,6 @@ import {
   adGrantGapMs,
   releaseAnonymousFree,
   releaseName,
-  releaseReservedCall,
   reserveCall,
   reserveIdentify,
   takeAdGrant,
@@ -85,12 +84,16 @@ test('a no-names refusal does not spend a daily call', () => {
     true,
   );
   if (!('state' in open)) assert.fail('expected a reserved call');
+  assert.equal(open.state.namesUsed, 2);
   assert.equal(open.state.dayCalls, 3);
   assert.equal(open.state.totalCalls, 3);
-  const released = releaseReservedCall(open.state);
-  assert.equal(released.dayCalls, 2);
-  assert.equal(released.totalCalls, 2);
-  assert.equal(released.lastCallAt, undefined);
+  assert.equal(open.state.lastCallAt, march);
+  assert.deepEqual(reserveIdentify(open.state, march + 1000, 'other', limits, true), {
+    refusal: 'cooldown',
+  });
+  assert.equal(open.state.lastCallAt, march);
+  assert.equal(open.state.dayCalls, 3);
+  assert.equal(open.state.namesUsed, 2);
 });
 
 test('an ad grant waits out the gap and then counts', () => {

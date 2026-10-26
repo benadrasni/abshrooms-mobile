@@ -158,8 +158,9 @@ export function reserveCall(
 }
 
 /**
- * Reserves a Plant.id call. When the account would be refused for having no
- * names left, the daily counter is left unchanged.
+ * Reserves a Plant.id call and, when [chargeName] is set, the monthly name,
+ * in one state. No name left returns no-names and does not count the call.
+ * A later refusal from [reserveCall] leaves the caller's document unchanged.
  */
 export function reserveIdentify(
   state: QuotaState | null,
@@ -167,20 +168,12 @@ export function reserveIdentify(
   hash: string,
   limits: CallLimits,
   chargeName: boolean,
-): { state: QuotaState } | { refusal: Refusal } {
-  if (chargeName && !takeName(state, now).taken) return { refusal: 'no-names' };
-  return reserveCall(state, now, hash, limits);
-}
-
-/** Undoes one [reserveCall] after a later no-names refusal. */
-export function releaseReservedCall(state: QuotaState | null): QuotaState {
-  const next: QuotaState = { ...(state ?? {}) };
-  const day = next.dayCalls ?? 0;
-  if (day > 0) next.dayCalls = day - 1;
-  const total = next.totalCalls ?? 0;
-  if (total > 0) next.totalCalls = total - 1;
-  delete next.lastCallAt;
-  return next;
+): { state: QuotaState; charged: boolean } | { refusal: Refusal } {
+  const named = chargeName ? takeName(state, now) : null;
+  if (named && !named.taken) return { refusal: 'no-names' };
+  const reserved = reserveCall(named ? named.state : state, now, hash, limits);
+  if ('refusal' in reserved) return reserved;
+  return { state: reserved.state, charged: named != null };
 }
 
 /**

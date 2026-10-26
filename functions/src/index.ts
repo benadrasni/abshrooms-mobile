@@ -25,7 +25,6 @@ import {
   photoHash,
   releaseAnonymousFree,
   releaseName,
-  releaseReservedCall,
   rememberPhoto,
   repeatWindowMs,
   reserveIdentify,
@@ -33,7 +32,6 @@ import {
   takeAdGrant,
   takeAnonymousFree,
   takeFreeNotMushroom,
-  takeName,
 } from './quota';
 
 initializeApp();
@@ -103,7 +101,7 @@ export const identifyMushroom = onCall(
     const now = Date.now();
 
     const chargeName = !subscribed && !guest;
-    const reserved = await updateQuota<Refusal | undefined>(uid, (current) => {
+    const reserved = await updateQuota<{ refusal: Refusal } | { charged: boolean }>(uid, (current) => {
       const result = reserveIdentify(
         current,
         now,
@@ -116,12 +114,12 @@ export const identifyMushroom = onCall(
         },
         chargeName,
       );
-      if ('refusal' in result) return { state: current ?? {}, value: result.refusal };
-      return { state: result.state, value: undefined };
+      if ('refusal' in result) return { state: current ?? {}, value: { refusal: result.refusal } };
+      return { state: result.state, value: { charged: result.charged } };
     });
-    if (reserved) {
+    if ('refusal' in reserved) {
       const state = (await quotaRef(uid).get()).data() as QuotaState | undefined;
-      throw refusalError(reserved, state ?? null, now);
+      throw refusalError(reserved.refusal, state ?? null, now);
     }
 
     const releaseFree = () =>
@@ -137,19 +135,7 @@ export const identifyMushroom = onCall(
       }
     }
 
-    let held = false;
-    if (!subscribed && !guest) {
-      const taken = await updateQuota<boolean>(uid, (current) => {
-        const result = takeName(current, now);
-        return { state: result.state, value: result.taken };
-      });
-      if (!taken) {
-        await updateQuota(uid, (current) => ({ state: releaseReservedCall(current), value: true }));
-        const state = (await quotaRef(uid).get()).data() as QuotaState | undefined;
-        throw refusalError('no-names', state ?? null, now);
-      }
-      held = true;
-    }
+    const held = reserved.charged;
 
     let body: Record<string, unknown>;
     try {
