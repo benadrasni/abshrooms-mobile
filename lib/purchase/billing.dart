@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -15,6 +16,35 @@ const appleWriteReview =
 const playListing =
     'https://play.google.com/store/apps/details?id=sk.ab.shrooms';
 const playMarket = 'market://details?id=sk.ab.shrooms';
+
+const storeRestoreKey = 'store_restore_done';
+
+/// Restores on the first launch. A thrown store call still marks it done,
+/// so a later cold start does not try again. An explicit restore is
+/// [restoreFieldGuidePurchases].
+Future<void> restoreOnFirstLaunch({
+  required Future<void> Function() restorePurchases,
+  Future<SharedPreferences> Function()? preferences,
+}) async {
+  final SharedPreferences prefs;
+  try {
+    prefs = await (preferences ?? SharedPreferences.getInstance)();
+  } catch (error) {
+    debugPrint('restore: $error');
+    return;
+  }
+  if (prefs.getBool(storeRestoreKey) ?? false) return;
+  try {
+    await restorePurchases();
+  } catch (error) {
+    debugPrint('restore: $error');
+  }
+  try {
+    await prefs.setBool(storeRestoreKey, true);
+  } catch (error) {
+    debugPrint('restore: $error');
+  }
+}
 
 /// Store listing used by Rate this app.
 String writeReviewUrl(TargetPlatform platform) {
@@ -57,11 +87,9 @@ class FieldGuideBilling {
     );
     final available = await store.isAvailable();
     if (!available) return;
-    try {
-      await store.restorePurchases();
-    } catch (error) {
-      debugPrint('restore: $error');
-    }
+    await restoreOnFirstLaunch(
+      restorePurchases: () => store.restorePurchases(),
+    );
   }
 
   Future<void> dispose() async {
@@ -72,7 +100,8 @@ class FieldGuideBilling {
     for (final purchase in purchases) {
       final id = purchase.productID;
       if (id.isEmpty) continue;
-      final granted = purchase.status == PurchaseStatus.purchased ||
+      final granted =
+          purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored;
       if (granted && FieldGuideIds.isFieldGuide(id)) {
         unawaited(_confirm(purchase));
@@ -92,7 +121,8 @@ class FieldGuideBilling {
   Future<void> _confirm(PurchaseDetails purchase) async {
     final outcome = await submitStorePurchase(purchase);
     final id = purchase.productID;
-    final confirmed = outcome.result == StoreProofResult.accepted &&
+    final confirmed =
+        outcome.result == StoreProofResult.accepted &&
         outcome.products[id] == true;
     if (confirmed) {
       Purchases.purchases[id] = purchase;

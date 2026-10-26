@@ -6,58 +6,62 @@ import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 
 void main() {
-  test('consent stays on outside the form and off when the choice is refused',
-      () {
-    final abroad = guideAnalyticsConsent(
-      umpFailed: false,
-      consentKnown: true,
-      consentRequired: false,
-      canRequestAds: true,
-      trackingAuthorized: true,
-    );
-    expect(abroad.analyticsStorage, isTrue);
-    expect(abroad.adPersonalization, isTrue);
+  test(
+    'consent stays on outside the form and off when the choice is refused',
+    () {
+      final abroad = guideAnalyticsConsent(
+        umpFailed: false,
+        consentKnown: true,
+        consentRequired: false,
+        canRequestAds: true,
+        trackingAuthorized: true,
+      );
+      expect(abroad.analyticsStorage, isTrue);
+      expect(abroad.adPersonalization, isTrue);
 
-    final refused = guideAnalyticsConsent(
-      umpFailed: false,
-      consentKnown: true,
-      consentRequired: true,
-      canRequestAds: false,
-      trackingAuthorized: true,
-    );
-    expect(refused.analyticsStorage, isFalse);
-    expect(refused.adStorage, isFalse);
+      final refused = guideAnalyticsConsent(
+        umpFailed: false,
+        consentKnown: true,
+        consentRequired: true,
+        canRequestAds: false,
+        trackingAuthorized: true,
+      );
+      expect(refused.analyticsStorage, isFalse);
+      expect(refused.adStorage, isFalse);
 
-    final trackingOff = guideAnalyticsConsent(
-      umpFailed: false,
-      consentKnown: true,
-      consentRequired: false,
-      canRequestAds: true,
-      trackingAuthorized: false,
-    );
-    expect(trackingOff.analyticsStorage, isTrue);
-    expect(trackingOff.adUserData, isFalse);
-    expect(trackingOff.adPersonalization, isFalse);
+      final trackingOff = guideAnalyticsConsent(
+        umpFailed: false,
+        consentKnown: true,
+        consentRequired: false,
+        canRequestAds: true,
+        trackingAuthorized: false,
+      );
+      expect(trackingOff.analyticsStorage, isTrue);
+      expect(trackingOff.adUserData, isFalse);
+      expect(trackingOff.adPersonalization, isFalse);
 
-    final unknown = guideAnalyticsConsent(
-      umpFailed: false,
-      consentKnown: false,
-      consentRequired: false,
-      canRequestAds: false,
-      trackingAuthorized: true,
-    );
-    expect(unknown.analyticsStorage, isFalse);
+      final unknown = guideAnalyticsConsent(
+        umpFailed: false,
+        consentKnown: false,
+        consentRequired: false,
+        canRequestAds: false,
+        trackingAuthorized: true,
+      );
+      expect(unknown.analyticsStorage, isFalse);
 
-    final failed = guideAnalyticsConsent(
-      umpFailed: true,
-      consentKnown: false,
-      consentRequired: false,
-      canRequestAds: false,
-      trackingAuthorized: false,
-    );
-    expect(failed.analyticsStorage, isTrue);
-    expect(failed.adPersonalization, isFalse);
-  });
+      final failed = guideAnalyticsConsent(
+        umpFailed: true,
+        consentKnown: false,
+        consentRequired: false,
+        canRequestAds: false,
+        trackingAuthorized: false,
+      );
+      expect(failed.analyticsStorage, isFalse);
+      expect(failed.adStorage, isFalse);
+      expect(failed.adUserData, isFalse);
+      expect(failed.adPersonalization, isFalse);
+    },
+  );
 
   test('list ids keep the last safe segment', () {
     expect(guideAnalyticsListId('deadly-poisonous'), 'deadly-poisonous');
@@ -65,8 +69,10 @@ void main() {
       guideAnalyticsListId('lists/mushroom-of-the-year-de'),
       'mushroom-of-the-year-de',
     );
-    expect(guideAnalyticsListId('lists custom/blume des jahres'),
-        'blumedesjahres');
+    expect(
+      guideAnalyticsListId('lists custom/blume des jahres'),
+      'blumedesjahres',
+    );
     expect(guideAnalyticsListId('///'), '');
     expect(guideAnalyticsListId('a' * 40), 'a' * 36);
     expect(guideListScreen('deadly-poisonous'), 'List/deadly-poisonous');

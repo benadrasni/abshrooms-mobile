@@ -14,6 +14,8 @@ export interface QuotaState {
   lastHashAt?: number;
   totalCalls?: number;
   anonymousFreeUsed?: boolean;
+  /** Milliseconds of the last accepted rewarded-ad grant. */
+  lastAdGrantAt?: number;
 }
 
 export interface CallLimits {
@@ -31,6 +33,13 @@ export const includedNamesPerMonth = 5;
 
 /** Rewarded-ad grants each UTC month. */
 export const adGrantsPerMonth = 5;
+
+/**
+ * Minimum gap between accepted ad grants. This is not proof an ad played.
+ * It stops one client from spending the month's grants in a single burst.
+ * AdMob server-side verification is the proof; see grantPhotoName.
+ */
+export const adGrantGapMs = 5_000;
 
 /** Not-a-mushroom answers that do not spend a monthly name. */
 export const freeNotMushroomPerMonth = 3;
@@ -149,6 +158,25 @@ export function reserveCall(
 }
 
 /**
+ * Reserves a Plant.id call and, when [chargeName] is set, the monthly name,
+ * in one state. No name left returns no-names and does not count the call.
+ * A later refusal from [reserveCall] leaves the caller's document unchanged.
+ */
+export function reserveIdentify(
+  state: QuotaState | null,
+  now: number,
+  hash: string,
+  limits: CallLimits,
+  chargeName: boolean,
+): { state: QuotaState; charged: boolean } | { refusal: Refusal } {
+  const named = chargeName ? takeName(state, now) : null;
+  if (named && !named.taken) return { refusal: 'no-names' };
+  const reserved = reserveCall(named ? named.state : state, now, hash, limits);
+  if ('refusal' in reserved) return reserved;
+  return { state: reserved.state, charged: named != null };
+}
+
+/**
  * A guest's one free identification. Taken before the call and given back
  * when Plant.id fails or finds no mushroom. Linking the account on sign-in
  * keeps the uid, so the name is not handed out again.
@@ -186,8 +214,12 @@ export function takeAdGrant(
   perMonth: number,
 ): { state: QuotaState; granted: boolean } {
   const next = rollOver(state, now);
+  if (next.lastAdGrantAt !== undefined && now - next.lastAdGrantAt < adGrantGapMs) {
+    return { state: next, granted: false };
+  }
   const used = next.adGrants ?? 0;
   if (used >= perMonth) return { state: next, granted: false };
   next.adGrants = used + 1;
+  next.lastAdGrantAt = now;
   return { state: next, granted: true };
 }

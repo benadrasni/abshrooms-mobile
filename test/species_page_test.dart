@@ -545,7 +545,10 @@ void main() {
 
     expect(rows.map((row) => row.id), ['new', 'old']);
     expect(rows.last.country, 'sk');
-    expect(rows.first.url, endsWith('sightings/u/new.jpg'));
+    final url = Uri.parse(rows.first.url);
+    expect(url.host, 'firebasestorage.googleapis.com');
+    expect(url.path, contains('abshrooms-a9d4c.firebasestorage.app'));
+    expect(rows.first.url, contains('sightings%2Fu%2Fnew.jpg'));
   });
 
   testWidgets('sightings sit above sources', (tester) async {

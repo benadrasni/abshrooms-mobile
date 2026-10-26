@@ -8,13 +8,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
-
-const _guestKey = 'guest_created';
 
 const googleWebClientId =
     '968595882184-rt3pd4sgt9cr8g2qt4j6m7i3396c54bt.apps.googleusercontent.com';
@@ -59,10 +56,12 @@ class Auth {
       debugPrint('analytics account: $error');
       return;
     }
+    final id = signedInAnalyticsId(
+      user?.uid,
+      anonymous: user == null || user.isAnonymous,
+    );
     if (!kDebugMode) {
-      unawaited(
-        FirebaseCrashlytics.instance.setUserIdentifier(user?.uid ?? ''),
-      );
+      unawaited(FirebaseCrashlytics.instance.setUserIdentifier(id ?? ''));
     }
     if (user == null) {
       unawaited(GuideAnalytics.syncAccount());
@@ -71,7 +70,7 @@ class Auth {
     final guide = Purchases.hasFieldGuide();
     unawaited(
       GuideAnalytics.syncAccount(
-        userId: user.uid,
+        userId: id,
         account: user.isAnonymous ? 'guest' : 'signed_in',
         plan: guide ? 'field_guide' : 'free',
         ads: Purchases.showsAds() ? 'shown' : 'hidden',
@@ -89,20 +88,27 @@ class Auth {
     }
   }
 
-  /// Creates the guest account once per install. Signing out does not create
-  /// another.
-  static Future<void> startGuest() async {
-    if (Firebase.apps.isEmpty) return;
-    if (firebaseAuth.currentUser != null) {
-      publish();
+  /// Creates a guest when nobody is signed in, including after sign-out.
+  ///
+  /// The optional arguments are the Firebase reads and writes. Production
+  /// leaves them unset.
+  static Future<void> startGuest({
+    bool? firebaseReady,
+    bool? hasCurrentUser,
+    Future<void> Function()? signInAnonymously,
+    void Function()? notify,
+  }) async {
+    final ready = firebaseReady ?? Firebase.apps.isNotEmpty;
+    if (!ready) return;
+    final signedIn = hasCurrentUser ?? firebaseAuth.currentUser != null;
+    final tell = notify ?? publish;
+    if (signedIn) {
+      tell();
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_guestKey) ?? false) return;
     try {
-      await firebaseAuth.signInAnonymously();
-      await prefs.setBool(_guestKey, true);
-      publish();
+      await (signInAnonymously ?? () => firebaseAuth.signInAnonymously())();
+      tell();
     } catch (error) {
       debugPrint('guest account: $error');
     }
@@ -197,11 +203,20 @@ class Auth {
 
   static Future<void> signOut() async {
     appUser = null;
-    if (Firebase.apps.isNotEmpty) {
-      await firebaseAuth.signOut();
+    if (Firebase.apps.isEmpty) {
+      publish();
+      return;
     }
-    publish();
+    await firebaseAuth.signOut();
+    await startGuest();
   }
+}
+
+/// Crashlytics and Analytics user id. A guest uid is not one.
+String? signedInAnalyticsId(String? uid, {required bool anonymous}) {
+  if (anonymous) return null;
+  final id = uid?.trim() ?? '';
+  return id.isEmpty ? null : id;
 }
 
 AccountView? readSignedInAccount() {

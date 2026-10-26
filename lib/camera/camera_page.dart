@@ -20,6 +20,7 @@ import 'package:whats_that_mushroom/person/sign_in_page.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
+import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -331,6 +332,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       return;
     }
     try {
+      await GuideAppCheck.ensure();
       final granted = await grantPhotoName();
       if (!granted && mounted) {
         _snack(GuideScope.of(context).copy.cameraLimitAllBody);

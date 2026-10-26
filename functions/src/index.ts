@@ -27,12 +27,11 @@ import {
   releaseName,
   rememberPhoto,
   repeatWindowMs,
-  reserveCall,
+  reserveIdentify,
   storedQuota,
   takeAdGrant,
   takeAnonymousFree,
   takeFreeNotMushroom,
-  takeName,
 } from './quota';
 
 initializeApp();
@@ -101,19 +100,26 @@ export const identifyMushroom = onCall(
     const hash = photoHash(image);
     const now = Date.now();
 
-    const reserved = await updateQuota<Refusal | undefined>(uid, (current) => {
-      const result = reserveCall(current, now, hash, {
-        dailyCeiling: subscribed ? dailyCeilingUnlimited : dailyCeilingFree,
-        cooldownMs,
-        repeatWindowMs,
-        lifetimeCeiling: guest ? anonymousLifetimeCalls : undefined,
-      });
-      if ('refusal' in result) return { state: current ?? {}, value: result.refusal };
-      return { state: result.state, value: undefined };
+    const chargeName = !subscribed && !guest;
+    const reserved = await updateQuota<{ refusal: Refusal } | { charged: boolean }>(uid, (current) => {
+      const result = reserveIdentify(
+        current,
+        now,
+        hash,
+        {
+          dailyCeiling: subscribed ? dailyCeilingUnlimited : dailyCeilingFree,
+          cooldownMs,
+          repeatWindowMs,
+          lifetimeCeiling: guest ? anonymousLifetimeCalls : undefined,
+        },
+        chargeName,
+      );
+      if ('refusal' in result) return { state: current ?? {}, value: { refusal: result.refusal } };
+      return { state: result.state, value: { charged: result.charged } };
     });
-    if (reserved) {
+    if ('refusal' in reserved) {
       const state = (await quotaRef(uid).get()).data() as QuotaState | undefined;
-      throw refusalError(reserved, state ?? null, now);
+      throw refusalError(reserved.refusal, state ?? null, now);
     }
 
     const releaseFree = () =>
@@ -129,18 +135,7 @@ export const identifyMushroom = onCall(
       }
     }
 
-    let held = false;
-    if (!subscribed && !guest) {
-      const taken = await updateQuota<boolean>(uid, (current) => {
-        const result = takeName(current, now);
-        return { state: result.state, value: result.taken };
-      });
-      if (!taken) {
-        const state = (await quotaRef(uid).get()).data() as QuotaState | undefined;
-        throw refusalError('no-names', state ?? null, now);
-      }
-      held = true;
-    }
+    const held = reserved.charged;
 
     let body: Record<string, unknown>;
     try {
@@ -207,7 +202,15 @@ export const identifyMushroom = onCall(
   },
 );
 
-/** One more monthly name after a rewarded ad. A guest has no ad names. */
+/**
+ * One more monthly name after a rewarded ad. A guest has no ad names.
+ *
+ * AdMob server-side verification is not wired. The callback URL is set in
+ * the AdMob console and Google signs it with rotating keys; requiring that
+ * callback before it is configured would refuse every legitimate reward.
+ * App Check, a signed-in account, the monthly cap, and [adGrantGapMs] are
+ * the guards this callable can enforce on its own.
+ */
 export const grantPhotoName = onCall(
   {
     region: 'us-central1',

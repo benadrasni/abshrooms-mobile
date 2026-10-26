@@ -1,13 +1,28 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // `{id}.jpg` is the Firestore document `sightings/{id}`.
+    function sightingPublic(file) {
+      return file.matches('^.+\\.jpg$')
+        && firestore.exists(/databases/(default)/documents/sightings/$(file.split('\\.jpg')[0]))
+        && firestore.get(/databases/(default)/documents/sightings/$(file.split('\\.jpg')[0])).data.status == 'public';
+    }
+
     match /sightings/{uid}/{file} {
-      allow read: if true;
-      allow create, update: if request.auth != null
-        && request.auth.uid == uid
+      allow read: if owns(uid) || sightingPublic(file);
+      allow create, update: if owns(uid)
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg';
-      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow delete: if owns(uid);
     }
   }
 }

@@ -302,11 +302,18 @@ String? sourceHost(String? url) {
   return host.startsWith('www.') ? host.substring(4) : host;
 }
 
-/// Reads `curated_lists`. Permission denied and a missing Firebase app are
-/// an empty list, not an error: the rules may not be published yet.
-Future<CuratedListsSnapshot> fetchCuratedLists() async {
-  if (Firebase.apps.isEmpty) return const CuratedListsSnapshot([]);
+/// Reads `curated_lists`. A missing Firebase app is an empty list.
+/// A denied read is a failure the tabs can retry.
+///
+/// [read] replaces the Firestore query. Tests use it to enter the catch.
+Future<CuratedListsSnapshot> fetchCuratedLists({
+  Future<List<CuratedListDoc>> Function()? read,
+}) async {
+  if (read == null && Firebase.apps.isEmpty) {
+    return const CuratedListsSnapshot([]);
+  }
   try {
+    if (read != null) return CuratedListsSnapshot(await read());
     final snap = await FirebaseFirestore.instance
         .collection(curatedListsCollection)
         .get();
@@ -314,11 +321,6 @@ Future<CuratedListsSnapshot> fetchCuratedLists() async {
       for (final doc in snap.docs)
         CuratedListDoc.fromJson(doc.data(), id: doc.id),
     ]);
-  } on FirebaseException catch (error) {
-    if (error.code == 'permission-denied') {
-      return const CuratedListsSnapshot([]);
-    }
-    return const CuratedListsSnapshot([], failed: true);
   } catch (_) {
     return const CuratedListsSnapshot([], failed: true);
   }

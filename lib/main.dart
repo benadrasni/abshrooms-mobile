@@ -21,6 +21,7 @@ import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
 import 'package:whats_that_mushroom/purchase/entitlements.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -88,7 +89,6 @@ class GuideApp extends StatefulWidget {
 
 class _GuideAppState extends State<GuideApp> {
   var _tab = 0;
-  var _appCheckStarted = false;
   Future<void>? _curatedLists;
   final _billing = FieldGuideBilling();
 
@@ -98,6 +98,7 @@ class _GuideAppState extends State<GuideApp> {
     widget.settings.addListener(_onSettings);
     widget.notebook.addListener(_onNotebook);
     Purchases.revision.addListener(_syncAnalytics);
+    GuideAppCheck.bind(_activateAppCheck);
     _load();
     unawaited(GuideAnalytics.screen(guideAnalyticsTab(0)));
     unawaited(_billing.start());
@@ -168,25 +169,25 @@ class _GuideAppState extends State<GuideApp> {
     // App Check stays off until the catalog has arrived. Activating it
     // first makes Firestore wait on a debug token, and a failed exchange
     // must not block these screens.
-    if (_appCheckStarted) return;
-    _appCheckStarted = true;
-    unawaited(_activateAppCheck());
+    unawaited(() async {
+      try {
+        await GuideAppCheck.ensure();
+      } catch (_) {
+        // A failed debug token must not block the catalog screens.
+      }
+    }());
   }
 
   Future<void> _activateAppCheck() async {
-    try {
-      await FirebaseAppCheck.instance.activate(
-        providerAndroid: kDebugMode
-            ? const AndroidDebugProvider()
-            : const AndroidPlayIntegrityProvider(),
-        providerApple: kDebugMode
-            ? const AppleDebugProvider()
-            : const AppleDeviceCheckProvider(),
-      );
-      await Entitlements.afterAppCheck();
-    } on Object {
-      // A failed debug token must not block the catalog screens.
-    }
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: kDebugMode
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode
+          ? const AppleDebugProvider()
+          : const AppleDeviceCheckProvider(),
+    );
+    await Entitlements.afterAppCheck();
   }
 
   void _onSettings() {
