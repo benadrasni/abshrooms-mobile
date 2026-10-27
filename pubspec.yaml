@@ -73,6 +73,13 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+# google_sign_in_ios 6.3.8 pins Google Sign-In 9, which cannot resolve next
+# to firebase-ios-sdk 13. Drop this when a published release depends on
+# Google Sign-In 10.1.0.
+dependency_overrides:
+  google_sign_in_ios:
+    path: third_party/google_sign_in_ios
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
