@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 
 /// One mushroom row on the statistics page.
@@ -105,19 +106,9 @@ String? statCountry(Object? value) {
   return code;
 }
 
-/// Thousands grouped for the page. Slovak uses a narrow space.
-String statGrouped(int value, {required bool slovak}) {
-  final negative = value < 0;
-  final raw = (negative ? -value : value).toString();
-  final separator = slovak ? '\u00A0' : ',';
-  final buffer = StringBuffer();
-  if (negative) buffer.write('-');
-  for (var i = 0; i < raw.length; i++) {
-    final left = raw.length - i;
-    if (i > 0 && left % 3 == 0) buffer.write(separator);
-    buffer.write(raw[i]);
-  }
-  return buffer.toString();
+/// Thousands grouped for [locale]. The separators come from [NumberFormat].
+String statGrouped(int value, {required String locale}) {
+  return NumberFormat.decimalPattern(locale).format(value);
 }
 
 /// [countryOf] reads a stored code. The notebook keeps coordinates, not a

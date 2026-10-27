@@ -35,9 +35,10 @@ export const includedNamesPerMonth = 5;
 export const adGrantsPerMonth = 5;
 
 /**
- * Minimum gap between accepted ad grants. This is not proof an ad played.
- * It stops one client from spending the month's grants in a single burst.
- * AdMob server-side verification is the proof; see grantPhotoName.
+ * Minimum gap between grants from [takeAdGrant]. The AdMob callback does not
+ * use it: a signed transaction is one view, and the monthly cap is the limit.
+ * [rollOver] clears [lastAdGrantAt], so this gap cannot refuse the first view
+ * of a new UTC month.
  */
 export const adGrantGapMs = 5_000;
 
@@ -87,6 +88,8 @@ export function rollOver(state: QuotaState | null, now: number): QuotaState {
     next.notMushroomFree = 0;
     next.adGrants = 0;
     next.namesUsed = 0;
+    // A grant from the previous month must not refuse the first view of this one.
+    next.lastAdGrantAt = undefined;
   }
   return next;
 }

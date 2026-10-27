@@ -150,28 +150,10 @@ Future<List<NameGuess>> identifyMushroom(
   }
 }
 
-/// One more monthly name after the rewarded ad. False when the month is full
-/// or the account is a guest.
-Future<bool> grantPhotoName() async {
-  final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
-  final callable = functions.httpsCallable('grantPhotoName');
-  final result = await callable.call<Object?>();
-  final data = result.data;
-  if (data is! Map) return false;
-  Names.applyServer(
-    signedIn: true,
-    charged: false,
-    anonymousFreeUsed: false,
-    namesUsed: _countOf(data['namesUsed']),
-    adGrants: _countOf(data['adGrants']),
-    fromPhoto: false,
-  );
-  return data['granted'] == true;
-}
-
 void _applyQuota(Object? data) {
   if (data is! Map) return;
-  if (!data.containsKey('namesUsed') && !data.containsKey('anonymousFreeUsed')) {
+  if (!data.containsKey('namesUsed') &&
+      !data.containsKey('anonymousFreeUsed')) {
     return;
   }
   final guest = data['guest'] == true || !photoAccountSignedIn();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -12,38 +14,50 @@ Future<void> tieRewardedAd(RewardedAd ad) async {
   await ad.setServerSideOptions(ServerSideVerificationOptions(userId: uid));
 }
 
-/// AdMob calls `admobReward` a moment after the ad closes. The meter moves
-/// when `adGrants` does.
-Future<void> waitForNameGrant(int grantsBefore) async {
+/// AdMob calls `admobReward` after the ad closes. Listen to this account's
+/// meter until this month's `adGrants` grows. The baseline is read here.
+/// A month rollover reads as zero and is not a grant. False on timeout.
+Future<bool> waitForNameGrant() async {
   final uid = Auth.appUser?.uid;
-  if (uid == null || Firebase.apps.isEmpty) return;
-  for (var i = 0; i < 6; i++) {
-    await Future<void>.delayed(const Duration(seconds: 1));
-    final next = await _loadPhotoQuota(uid);
-    if (next == null || next.adGrants == grantsBefore) continue;
-    Names.applyServer(
-      signedIn: true,
-      charged: false,
-      anonymousFreeUsed: false,
-      namesUsed: next.namesUsed,
-      adGrants: next.adGrants,
-      fromPhoto: false,
+  if (uid == null || Firebase.apps.isEmpty) return false;
+  final before = _grantsThisMonth();
+  final done = Completer<bool>();
+  final sub = FirebaseFirestore.instance
+      .collection('photo_quota')
+      .doc(uid)
+      .snapshots()
+      .listen(
+        (snap) {
+          if (done.isCompleted) return;
+          final next = nameMonthFromQuota(snap.data(), DateTime.now());
+          if (!nameGrantArrived(before, next)) return;
+          Names.applyServer(
+            signedIn: true,
+            charged: false,
+            anonymousFreeUsed: false,
+            namesUsed: next.namesUsed,
+            adGrants: next.adGrants,
+            fromPhoto: false,
+          );
+          done.complete(true);
+        },
+        onError: (Object error) {
+          debugPrint('photo quota: $error');
+        },
+      );
+  try {
+    return await done.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => false,
     );
-    return;
+  } finally {
+    await sub.cancel();
   }
 }
 
-Future<NameMonth?> _loadPhotoQuota(String uid) async {
-  try {
-    final snap = await FirebaseFirestore.instance
-        .collection('photo_quota')
-        .doc(uid)
-        .get()
-        .timeout(const Duration(seconds: 4));
-    final raw = snap.data();
-    return nameMonthFromQuota(raw, DateTime.now());
-  } catch (error) {
-    debugPrint('photo quota: $error');
-    return null;
-  }
+int _grantsThisMonth() {
+  final count = Names.count;
+  if (count.month != quotaMonth(DateTime.now())) return 0;
+  if (count.adGrants < 0) return 0;
+  return count.adGrants;
 }
