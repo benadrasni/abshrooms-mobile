@@ -1,8 +1,16 @@
 import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineSecret } from 'firebase-functions/params';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
+import {
+  type AdmobClaim,
+  adGrantAccount,
+  admobCallbackQuery,
+  applyVerifiedAdGrant,
+  settleAdmobReward,
+} from './admob';
 import { hasUnlimitedNames } from './entitlements';
 import {
   plantIdBody,
@@ -15,7 +23,6 @@ import {
 import {
   type QuotaState,
   type Refusal,
-  adGrantsPerMonth,
   anonymousLifetimeCalls,
   cooldownMs,
   dailyCeilingFree,
@@ -29,7 +36,6 @@ import {
   repeatWindowMs,
   reserveIdentify,
   storedQuota,
-  takeAdGrant,
   takeAnonymousFree,
   takeFreeNotMushroom,
 } from './quota';
@@ -203,39 +209,85 @@ export const identifyMushroom = onCall(
 );
 
 /**
- * One more monthly name after a rewarded ad. A guest has no ad names.
+ * AdMob rewarded-ad server-side verification.
  *
- * AdMob server-side verification is not wired. The callback URL is set in
- * the AdMob console and Google signs it with rotating keys; requiring that
- * callback before it is configured would refuse every legitimate reward.
- * App Check, a signed-in account, the monthly cap, and [adGrantGapMs] are
- * the guards this callable can enforce on its own.
+ * Google GETs this after a view. The callback is signed, `transaction_id`
+ * is stored so a replay cannot grant again, and `user_id` has to be that
+ * Firebase account. The monthly name is granted only for that callback.
+ * A guest has no ad names. The AdMob console callback URL has to point here.
  */
-export const grantPhotoName = onCall(
+export const admobReward = onRequest(
   {
     region: 'us-central1',
-    enforceAppCheck: true,
+    invoker: 'public',
     memory: '256MiB',
     timeoutSeconds: 30,
     maxInstances: 5,
   },
-  async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'sign-in');
-    const anonymous = request.auth?.token.firebase?.sign_in_provider === 'anonymous';
-    if (anonymous) throw new HttpsError('failed-precondition', 'sign-in');
-    const now = Date.now();
-    const granted = await updateQuota<boolean>(uid, (current) => {
-      const taken = takeAdGrant(current, now, adGrantsPerMonth);
-      return { state: taken.state, value: taken.granted };
-    });
-    const meter = meterCounts(
-      ((await quotaRef(uid).get()).data() as QuotaState | undefined) ?? null,
-      now,
-    );
-    return { granted, namesUsed: meter.namesUsed, adGrants: meter.adGrants };
+  async (req, res) => {
+    try {
+      const outcome = await settleAdmobReward(
+        req.method,
+        admobCallbackQuery(req.originalUrl, req.url),
+        claimAdmobReward,
+      );
+      if (outcome.status >= 500) {
+        logger.error('admobReward', { status: outcome.status, body: outcome.body });
+      }
+      res.status(outcome.status).send(outcome.body);
+    } catch (error) {
+      logger.error('admobReward', { error: String(error) });
+      res.status(503).send('retry');
+    }
   },
 );
+
+async function claimAdmobReward(identity: {
+  uid: string;
+  transactionId: string;
+}): Promise<AdmobClaim> {
+  const account = await rewardAccount(identity.uid);
+  if (account !== 'ok') return account;
+  const db = getFirestore();
+  const rewardRef = db.collection('admob_rewards').doc(identity.transactionId);
+  const meter = quotaRef(identity.uid);
+  return db.runTransaction(async (tx) => {
+    const reward = await tx.get(rewardRef);
+    const snap = await tx.get(meter);
+    const current = snap.exists ? (snap.data() as QuotaState) : null;
+    const now = Date.now();
+    const applied = applyVerifiedAdGrant(
+      {
+        transactionUid: reward.exists ? String(reward.get('uid') ?? '') : undefined,
+        quota: current,
+      },
+      now,
+    );
+    if (applied.result === 'replay') return 'replay';
+    tx.set(rewardRef, { uid: identity.uid, at: now });
+    tx.set(meter, storedQuota(applied.quota));
+    return applied.result;
+  });
+}
+
+async function rewardAccount(uid: string): Promise<'ok' | 'unbound' | 'unavailable'> {
+  try {
+    const user = await getAuth().getUser(uid);
+    const providers = user.providerData.map((entry) => entry.providerId);
+    return adGrantAccount({ uid: user.uid, providers }, uid) ? 'ok' : 'unbound';
+  } catch (error) {
+    const code = errorCode(error);
+    if (code === 'auth/user-not-found' || code === 'auth/invalid-uid') return 'unbound';
+    logger.error('admobReward account', { error: String(error) });
+    return 'unavailable';
+  }
+}
+
+function errorCode(error: unknown): string {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return '';
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : '';
+}
 
 export {
   appleStoreNotification,

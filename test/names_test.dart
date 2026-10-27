@@ -113,10 +113,7 @@ void main() {
     expect(Names.count.namesUsed, 0);
 
     await Names.spend(signedIn: false);
-    expect(
-      Names.allowance(fieldGuide: false, signedIn: false).namesLeft,
-      0,
-    );
+    expect(Names.allowance(fieldGuide: false, signedIn: false).namesLeft, 0);
   });
 
   test('a server count replaces the phone and is not spent twice', () {
@@ -143,19 +140,9 @@ void main() {
       charged: false,
       anonymousFreeUsed: false,
     );
-    expect(
-      Names.allowance(fieldGuide: false, signedIn: false).namesLeft,
-      1,
-    );
-    Names.applyServer(
-      signedIn: false,
-      charged: true,
-      anonymousFreeUsed: true,
-    );
-    expect(
-      Names.allowance(fieldGuide: false, signedIn: false).namesLeft,
-      0,
-    );
+    expect(Names.allowance(fieldGuide: false, signedIn: false).namesLeft, 1);
+    Names.applyServer(signedIn: false, charged: true, anonymousFreeUsed: true);
+    expect(Names.allowance(fieldGuide: false, signedIn: false).namesLeft, 0);
   });
 
   test('nameMonthFromQuota parses photo_quota document data', () {
@@ -163,24 +150,69 @@ void main() {
     expect(nameMonthFromQuota(null, now).month, '2026-10');
     expect(nameMonthFromQuota(null, now).namesUsed, 0);
 
-    final current = {
-      'month': '2026-10',
-      'namesUsed': 3,
-      'adGrants': 2,
-    };
+    final current = {'month': '2026-10', 'namesUsed': 3, 'adGrants': 2};
     final parsed = nameMonthFromQuota(current, now);
     expect(parsed.month, '2026-10');
     expect(parsed.namesUsed, 3);
     expect(parsed.adGrants, 2);
 
-    final previous = {
-      'month': '2026-09',
-      'namesUsed': 5,
-      'adGrants': 5,
-    };
+    final previous = {'month': '2026-09', 'namesUsed': 5, 'adGrants': 5};
     final rolled = nameMonthFromQuota(previous, now);
     expect(rolled.month, '2026-10');
     expect(rolled.namesUsed, 0);
     expect(rolled.adGrants, 0);
+  });
+
+  test('a month rollover is not a rewarded-ad grant', () {
+    final now = DateTime.utc(2026, 10, 15);
+    final rolled = nameMonthFromQuota({
+      'month': '2026-09',
+      'namesUsed': 5,
+      'adGrants': 4,
+    }, now);
+    expect(nameGrantArrived(4, rolled), isFalse);
+    expect(nameGrantArrived(0, rolled), isFalse);
+    expect(nameGrantArrived(3, null), isFalse);
+    expect(
+      nameGrantArrived(
+        2,
+        nameMonthFromQuota({
+          'month': '2026-10',
+          'namesUsed': 5,
+          'adGrants': 2,
+        }, now),
+      ),
+      isFalse,
+    );
+    expect(
+      nameGrantArrived(
+        2,
+        nameMonthFromQuota({
+          'month': '2026-10',
+          'namesUsed': 5,
+          'adGrants': 3,
+        }, now),
+      ),
+      isTrue,
+    );
+    expect(
+      nameGrantArrived(
+        0,
+        nameMonthFromQuota({
+          'month': '2026-10',
+          'namesUsed': 0,
+          'adGrants': 1,
+        }, now),
+      ),
+      isTrue,
+    );
+  });
+
+  test('an offline ad grant stays on the phone', () async {
+    Names.setForTest(used: 5, grants: 1, now: DateTime.utc(2026, 10, 2));
+    expect(await Names.grant(now: DateTime.utc(2026, 10, 2)), isTrue);
+    expect(Names.count.adGrants, 2);
+    expect(await Names.grant(now: DateTime.utc(2026, 10, 2)), isTrue);
+    expect(Names.count.adGrants, 3);
   });
 }

@@ -36,8 +36,8 @@ export const adGrantsPerMonth = 5;
 
 /**
  * Minimum gap between accepted ad grants. This is not proof an ad played.
- * It stops one client from spending the month's grants in a single burst.
- * AdMob server-side verification is the proof; see grantPhotoName.
+ * It stops one account from taking the month's grants in a single burst.
+ * AdMob server-side verification is the proof; see admobReward.
  */
 export const adGrantGapMs = 5_000;
 

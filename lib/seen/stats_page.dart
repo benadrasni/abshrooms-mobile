@@ -17,6 +17,10 @@ import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
 
+String _grouped(BuildContext context, int value) {
+  return statGrouped(value, locale: Localizations.localeOf(context).toString());
+}
+
 /// Your finds, and Sightings.
 ///
 /// The notebook stays on this phone. Sightings are the public Firestore
@@ -158,24 +162,17 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _findsBody(Copy copy, NotebookStats stats) {
     if (stats.finds == 0) return _Hint(copy.statsEmpty);
-    final slovak = !copy.en;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Numbers(
           counts: [
+            (_grouped(context, stats.finds), copy.statsFinds(stats.finds)),
             (
-              statGrouped(stats.finds, slovak: slovak),
-              copy.statsFinds(stats.finds),
-            ),
-            (
-              statGrouped(stats.mushrooms, slovak: slovak),
+              _grouped(context, stats.mushrooms),
               copy.statsMushrooms(stats.mushrooms),
             ),
-            (
-              statGrouped(stats.shared, slovak: slovak),
-              copy.statsShared(stats.shared),
-            ),
+            (_grouped(context, stats.shared), copy.statsShared(stats.shared)),
           ],
         ),
         _Section(copy.statsSpan),
@@ -215,9 +212,7 @@ class _StatsPageState extends State<StatsPage> {
         ],
         if (stats.countries.isNotEmpty) ...[
           _Section(
-            copy.statsByCountry(
-              statGrouped(stats.countries.length, slovak: slovak),
-            ),
+            copy.statsByCountry(_grouped(context, stats.countries.length)),
           ),
           _Countries(countries: stats.countries),
           if (stats.unplaced > 0) _Hint(copy.statsNoPlace(stats.unplaced)),
@@ -234,18 +229,17 @@ class _StatsPageState extends State<StatsPage> {
     if (headline == null || headline.count == 0) {
       return _Hint(copy.statsSightingsEmpty);
     }
-    final slovak = !copy.en;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Numbers(
           counts: [
-            (statGrouped(headline.count, slovak: slovak), copy.statsSightings),
+            (_grouped(context, headline.count), copy.statsSightings),
             (
-              statGrouped(headline.mushrooms, slovak: slovak),
+              _grouped(context, headline.mushrooms),
               copy.statsMushrooms(headline.mushrooms),
             ),
-            (statGrouped(headline.people, slovak: slovak), copy.statsPeople),
+            (_grouped(context, headline.people), copy.statsPeople),
           ],
         ),
         _Section(copy.statsSpanMost),
@@ -280,17 +274,12 @@ class _StatsPageState extends State<StatsPage> {
         ],
         if (headline.countries.isNotEmpty) ...[
           _Section(
-            copy.statsByCountry(
-              statGrouped(headline.countries.length, slovak: slovak),
-            ),
+            copy.statsByCountry(_grouped(context, headline.countries.length)),
           ),
           _Countries(countries: headline.countries),
         ],
         _Hint(
-          copy.statsPlace(
-            statGrouped(headline.people, slovak: slovak),
-            stats.shared,
-          ),
+          copy.statsPlace(_grouped(context, headline.people), stats.shared),
         ),
       ],
     );
@@ -770,8 +759,6 @@ class _YearBarsState extends State<_YearBars> {
   @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
-    final copy = GuideScope.of(context).copy;
-    final slovak = !copy.en;
     var maxCount = 0;
     for (final year in widget.years) {
       if (year.count > maxCount) maxCount = year.count;
@@ -795,7 +782,7 @@ class _YearBarsState extends State<_YearBars> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text(
-                  statGrouped(year.count, slovak: slovak),
+                  _grouped(context, year.count),
                   style: TextStyle(
                     fontFamily: GuideType.sans,
                     fontSize: 11,
@@ -838,8 +825,6 @@ class _Countries extends StatelessWidget {
   Widget build(BuildContext context) {
     if (countries.isEmpty) return const SizedBox.shrink();
     final colors = GuideColors.of(context);
-    final copy = GuideScope.of(context).copy;
-    final slovak = !copy.en;
     final rows = [...countries];
     rows.sort((a, b) {
       final byCount = b.count.compareTo(a.count);
@@ -887,7 +872,7 @@ class _Countries extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                statGrouped(row.count, slovak: slovak),
+                _grouped(context, row.count),
                 style: TextStyle(
                   fontFamily: GuideType.sans,
                   fontSize: 13,

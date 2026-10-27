@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:whats_that_mushroom/ads/ad_units.dart';
+import 'package:whats_that_mushroom/ads/rewarded_ad.dart';
 import 'package:whats_that_mushroom/camera/outside_page.dart';
 import 'package:whats_that_mushroom/camera/plant_id.dart';
 import 'package:whats_that_mushroom/data/models.dart';
@@ -93,10 +94,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
   bool get _fieldGuide => widget.fieldGuide ?? Purchases.hasFieldGuide();
 
-  NameAllowance get _allowance => Names.allowance(
-    fieldGuide: _fieldGuide,
-    signedIn: _signedIn,
-  );
+  NameAllowance get _allowance =>
+      Names.allowance(fieldGuide: _fieldGuide, signedIn: _signedIn);
 
   bool get _canName => _allowance.unlimited || _allowance.namesLeft > 0;
 
@@ -298,6 +297,14 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       _snack(GuideScope.of(context).copy.adLoading);
       return;
     }
+    final grantsBefore = _adGrantsBefore();
+    try {
+      await tieRewardedAd(ad);
+    } catch (error) {
+      debugPrint('camera ad: $error');
+      if (mounted) _snack(GuideScope.of(context).copy.adLoading);
+      return;
+    }
     final done = Completer<void>();
     var earned = false;
     var dismissed = false;
@@ -326,20 +333,29 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     await done.future;
     if (dismissed) unawaited(GuideAnalytics.adReward(earned: earned));
     if (!earned) return;
+    // No Firebase app: the notebook on this phone is the meter.
     if (Firebase.apps.isEmpty) {
       await Names.grant();
       return;
     }
     try {
       await GuideAppCheck.ensure();
-      final granted = await grantPhotoName();
+      final granted = await waitForNameGrant(grantsBefore);
       if (!granted && mounted) {
-        _snack(GuideScope.of(context).copy.cameraLimitAllBody);
+        final copy = GuideScope.of(context).copy;
+        _snack(grantsBefore >= 5 ? copy.cameraLimitAllBody : copy.adLoading);
       }
     } catch (error) {
       debugPrint('camera ad: $error');
       if (mounted) _snack(GuideScope.of(context).copy.adLoading);
     }
+  }
+
+  int _adGrantsBefore() {
+    final count = Names.count;
+    if (count.month != quotaMonth(DateTime.now())) return 0;
+    if (count.adGrants < 0) return 0;
+    return count.adGrants;
   }
 
   Future<void> _watchAd() async {
@@ -362,9 +378,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Future<void> _openSignIn() async {
-    await Navigator.of(context).push(
-      guideRoute<void>(guideScreenSignIn, (_) => const SignInPage()),
-    );
+    await Navigator.of(context)
+        .push(guideRoute<void>(guideScreenSignIn, (_) => const SignInPage()));
     if (!mounted) return;
     setState(() {
       if (_canName) _limit = false;
@@ -459,9 +474,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
   Future<void> _openSearch() async {
     if (!mounted) return;
-    await Navigator.of(context).push(
-      guideRoute(guideScreenSearch, (_) => const SearchPage()),
-    );
+    await Navigator.of(context)
+        .push(guideRoute(guideScreenSearch, (_) => const SearchPage()));
   }
 
   Future<void> _finishOutside(OutsideResult result) async {
@@ -538,10 +552,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         });
         return;
       }
-      _logPhoto(
-        source,
-        outcome.speciesName == null ? 'outside' : 'species',
-      );
+      _logPhoto(source, outcome.speciesName == null ? 'outside' : 'species');
       final id = DateTime.now().microsecondsSinceEpoch.toString();
       final saved = await scope.notebook.savePhoto(bytes, id);
       final photoPath = saved ?? path;
@@ -807,7 +818,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 }
-
 
 String? _spoken(NameGuess guess) {
   for (final name in guess.commonNames) {

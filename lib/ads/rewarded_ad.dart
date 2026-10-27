@@ -13,14 +13,15 @@ Future<void> tieRewardedAd(RewardedAd ad) async {
 }
 
 /// AdMob calls `admobReward` a moment after the ad closes. The meter moves
-/// when `adGrants` does.
-Future<void> waitForNameGrant(int grantsBefore) async {
+/// when this month's `adGrants` grows. A month rollover reads as zero and
+/// is not a grant. False when the server meter does not show a new grant.
+Future<bool> waitForNameGrant(int grantsBefore) async {
   final uid = Auth.appUser?.uid;
-  if (uid == null || Firebase.apps.isEmpty) return;
+  if (uid == null || Firebase.apps.isEmpty) return false;
   for (var i = 0; i < 6; i++) {
     await Future<void>.delayed(const Duration(seconds: 1));
     final next = await _loadPhotoQuota(uid);
-    if (next == null || next.adGrants == grantsBefore) continue;
+    if (next == null || !nameGrantArrived(grantsBefore, next)) continue;
     Names.applyServer(
       signedIn: true,
       charged: false,
@@ -29,8 +30,9 @@ Future<void> waitForNameGrant(int grantsBefore) async {
       adGrants: next.adGrants,
       fromPhoto: false,
     );
-    return;
+    return true;
   }
+  return false;
 }
 
 Future<NameMonth?> _loadPhotoQuota(String uid) async {
@@ -38,7 +40,7 @@ Future<NameMonth?> _loadPhotoQuota(String uid) async {
     final snap = await FirebaseFirestore.instance
         .collection('photo_quota')
         .doc(uid)
-        .get()
+        .get(const GetOptions(source: Source.server))
         .timeout(const Duration(seconds: 4));
     final raw = snap.data();
     return nameMonthFromQuota(raw, DateTime.now());

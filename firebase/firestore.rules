@@ -59,6 +59,22 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Photo names for the month. Cloud Functions write the meter. The
+    // signed-in owner can read it so a rewarded ad can update the phone
+    // after AdMob's callback. Clients cannot grant a name.
+    match /photo_quota/{uid} {
+      allow read: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow write: if false;
+    }
+
+    // AdMob server-side verification receipts. A replay of transaction_id
+    // finds the document and does not grant again.
+    match /admob_rewards/{id} {
+      allow read, write: if false;
+    }
+
     // A Sighting sent from Seen. The owner creates it as review and may
     // delete it. Publishing or rejecting is an admin write.
     match /sightings/{id} {

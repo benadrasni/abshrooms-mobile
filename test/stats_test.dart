@@ -4,6 +4,7 @@ import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
@@ -159,8 +160,32 @@ void main() {
   test('public rows keep the outdoor counts and drop a review document', () {
     expect(statCountry('Middle Europe'), isNull);
     expect(statCountry('gb'), 'gb');
-    expect(statGrouped(1778, slovak: false), '1,778');
-    expect(statGrouped(1778, slovak: true), '1\u00A0778');
+    expect(statGrouped(1778, locale: 'en'), '1,778');
+    expect(
+      statGrouped(1778, locale: 'en'),
+      NumberFormat.decimalPattern('en').format(1778),
+    );
+    expect(
+      statGrouped(1778, locale: 'de'),
+      NumberFormat.decimalPattern('de').format(1778),
+    );
+    expect(
+      statGrouped(1778, locale: 'sk'),
+      NumberFormat.decimalPattern('sk').format(1778),
+    );
+    expect(
+      statGrouped(1778, locale: 'fr'),
+      NumberFormat.decimalPattern('fr').format(1778),
+    );
+    expect(
+      statGrouped(1234567, locale: 'hi'),
+      NumberFormat.decimalPattern('hi').format(1234567),
+    );
+    expect(
+      statGrouped(1778, locale: 'de'),
+      isNot(statGrouped(1778, locale: 'sk')),
+    );
+    expect(statGrouped(1778, locale: 'de').contains(','), isFalse);
 
     final load = sightingsFromDocs([
       {
@@ -482,6 +507,61 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('german finds group thousands in german', (tester) async {
+    final german = statGrouped(1778, locale: 'de');
+    final slovak = statGrouped(1778, locale: 'sk');
+    await _pump(
+      tester,
+      StatsPage(
+        loadSightings: () async =>
+            const SightingsLoad(headline: null, years: []),
+        countryOf: (_) => 'de',
+      ),
+      language: 'de',
+      finds: [
+        for (var i = 0; i < 1778; i++)
+          FindRecord(
+            id: '$i',
+            millis: DateTime(2020, 6, 1).millisecondsSinceEpoch,
+            latin: 'Boletus edulis',
+            confirmed: true,
+          ),
+      ],
+    );
+    expect(find.text(german), findsWidgets);
+    expect(find.text(slovak), findsNothing);
+  });
+
+  testWidgets('german sightings group thousands in german', (tester) async {
+    final german = statGrouped(1778, locale: 'de');
+    final slovak = statGrouped(1778, locale: 'sk');
+    await _pump(
+      tester,
+      StatsPage(
+        sightings: true,
+        loadSightings: () async => const SightingsLoad(
+          headline: SightingHeadline(
+            count: 1778,
+            mushrooms: 2,
+            people: 3,
+            firstName: 'Boletus edulis',
+            firstWhen: null,
+            lastName: 'Amanita muscaria',
+            lastWhen: null,
+            mostName: 'Boletus edulis',
+            mostCount: 2,
+            countries: [StatCountry('de', 1778)],
+          ),
+          years: [StatYear(2020, 1778)],
+        ),
+      ),
+      language: 'de',
+    );
+    await tester.pump();
+    expect(find.text(german), findsWidgets);
+    expect(find.text(slovak), findsNothing);
+  });
 }
 
 Catalog _catalog(String language) {
@@ -537,7 +617,7 @@ Future<void> _pump(
       child: MaterialApp(
         theme: guideTheme(Brightness.light),
         locale: Locale(language),
-        supportedLocales: const [Locale('en'), Locale('sk')],
+        supportedLocales: const [Locale('en'), Locale('sk'), Locale('de')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
