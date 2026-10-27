@@ -782,7 +782,7 @@ class Copy {
   );
   String get underQuestion => _t(
     en: 'What is underneath?',
-    sk: 'Čo je naspodku?',
+    sk: 'Aká je zospodu?',
     cs: 'Co je vespod?',
     de: 'Was befindet sich an der Unterseite?',
     fr: 'Qu\'y a-t-il dessous ?',

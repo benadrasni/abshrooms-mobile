@@ -55,6 +55,9 @@ void main() {
     await tester.tap(find.text('Language'));
     await tester.pumpAndSettle();
     expect(find.text('The app follows this language.'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Slovenčina'), 100);
+    await tester.ensureVisible(find.text('Slovenčina'));
+    await tester.pumpAndSettle();
     expect(find.text('Slovenčina'), findsOneWidget);
     expect(find.text('Slovak'), findsOneWidget);
 
