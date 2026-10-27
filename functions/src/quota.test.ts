@@ -107,6 +107,18 @@ test('an ad grant waits out the gap and then counts', () => {
   assert.equal(later.state.adGrants, 2);
 });
 
+test('lastAdGrantAt does not cap the first view of a new month', () => {
+  const end = Date.parse('2026-03-31T23:59:59.000Z');
+  const first = takeAdGrant(null, end, adGrantsPerMonth);
+  assert.equal(first.granted, true);
+  const start = Date.parse('2026-04-01T00:00:01.000Z');
+  const next = takeAdGrant(first.state, start, adGrantsPerMonth);
+  assert.equal(next.granted, true);
+  assert.equal(next.state.adGrants, 1);
+  assert.equal(next.state.month, '2026-04');
+  assert.equal(next.state.lastAdGrantAt, start);
+});
+
 test('a failed call and a free not-a-mushroom answer give the name back', () => {
   const held = takeName(null, march);
   assert.equal(releaseName(held.state).namesUsed, 0);

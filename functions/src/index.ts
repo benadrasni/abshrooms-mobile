@@ -264,6 +264,8 @@ async function claimAdmobReward(identity: {
       now,
     );
     if (applied.result === 'replay') return 'replay';
+    // A counted grant, or a month that is already full. A temporary refusal
+    // returns before this transaction and does not answer 200.
     tx.set(rewardRef, { uid: identity.uid, at: now });
     tx.set(meter, storedQuota(applied.quota));
     return applied.result;

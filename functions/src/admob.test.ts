@@ -13,7 +13,7 @@ import {
   type AdmobClaim,
   type VerifiedAdGrant,
 } from './admob';
-import { adGrantGapMs, type QuotaState } from './quota';
+import { type QuotaState } from './quota';
 
 const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
 const pem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
@@ -136,20 +136,26 @@ test('a verified callback grants that uid once and a replay does not', async () 
   assert.equal(quotas.get('uid42')?.adGrants, 1);
 
   now = march + 1000;
-  const burst = signed(message.replace('transaction_id=abc123', 'transaction_id=soon'));
-  const capped = await settleAdmobReward('GET', burst, claim);
-  assert.equal(capped.body, 'capped');
-  assert.equal(quotas.get('uid42')?.adGrants, 1);
-
-  now = march + adGrantGapMs + 1000;
-  const late = await settleAdmobReward('GET', burst, claim);
-  assert.equal(late.body, 'replay');
-  assert.equal(quotas.get('uid42')?.adGrants, 1);
-
-  const again = signed(message.replace('transaction_id=abc123', 'transaction_id=later'));
-  const second = await settleAdmobReward('GET', again, claim);
+  const soon = signed(message.replace('transaction_id=abc123', 'transaction_id=soon'));
+  const second = await settleAdmobReward('GET', soon, claim);
+  assert.equal(second.status, 200);
   assert.equal(second.body, 'ok');
   assert.equal(quotas.get('uid42')?.adGrants, 2);
+  assert.equal(seen.get('soon'), 'uid42');
+
+  const fullState = quotas.get('uid42');
+  quotas.set('uid42', { ...fullState, adGrants: 5 });
+  const fullQuery = signed(message.replace('transaction_id=abc123', 'transaction_id=full'));
+  const full = await settleAdmobReward('GET', fullQuery, claim);
+  assert.equal(full.status, 200);
+  assert.equal(full.body, 'capped');
+  assert.equal(quotas.get('uid42')?.adGrants, 5);
+  assert.equal(seen.get('full'), 'uid42');
+
+  const fullReplay = await settleAdmobReward('GET', fullQuery, claim);
+  assert.equal(fullReplay.status, 200);
+  assert.equal(fullReplay.body, 'replay');
+  assert.equal(quotas.get('uid42')?.adGrants, 5);
   assert.equal(claims, 5);
 });
 
@@ -198,10 +204,39 @@ test('a repeated transaction does not grant a different account', () => {
   assert.equal(first.result, 'granted');
   const replay = applyVerifiedAdGrant(
     { transactionUid: 'uid42', quota: first.quota },
-    march + adGrantGapMs,
+    march + 1000,
   );
   assert.equal(replay.result, 'replay');
   assert.equal(first.quota.adGrants, 1);
+});
+
+test('two signed views a second apart both count, and a new month is not capped', () => {
+  const first = applyVerifiedAdGrant({ quota: null }, march);
+  assert.equal(first.result, 'granted');
+  const second = applyVerifiedAdGrant({ quota: first.quota }, march + 1000);
+  assert.equal(second.result, 'granted');
+  assert.equal(second.quota.adGrants, 2);
+
+  const end = Date.parse('2026-03-31T23:59:59.000Z');
+  const late = applyVerifiedAdGrant({ quota: null }, end);
+  assert.equal(late.result, 'granted');
+  const start = Date.parse('2026-04-01T00:00:01.000Z');
+  const next = applyVerifiedAdGrant({ quota: late.quota }, start);
+  assert.equal(next.result, 'granted');
+  assert.equal(next.quota.adGrants, 1);
+  assert.equal(next.quota.month, '2026-04');
+});
+
+test('a temporary refusal is not a 200', async () => {
+  installKeys();
+  let claimed = false;
+  const outcome = await settleAdmobReward('GET', signed(message), async () => {
+    claimed = true;
+    return 'unavailable';
+  });
+  assert.equal(claimed, true);
+  assert.equal(outcome.status, 503);
+  assert.equal(outcome.body, 'retry');
 });
 
 test('the client callable no longer grants a name', () => {

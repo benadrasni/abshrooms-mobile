@@ -297,7 +297,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       _snack(GuideScope.of(context).copy.adLoading);
       return;
     }
-    final grantsBefore = _adGrantsBefore();
     try {
       await tieRewardedAd(ad);
     } catch (error) {
@@ -333,29 +332,20 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     await done.future;
     if (dismissed) unawaited(GuideAnalytics.adReward(earned: earned));
     if (!earned) return;
-    // No Firebase app: the notebook on this phone is the meter.
     if (Firebase.apps.isEmpty) {
       await Names.grant();
       return;
     }
     try {
       await GuideAppCheck.ensure();
-      final granted = await waitForNameGrant(grantsBefore);
+      final granted = await waitForNameGrant();
       if (!granted && mounted) {
-        final copy = GuideScope.of(context).copy;
-        _snack(grantsBefore >= 5 ? copy.cameraLimitAllBody : copy.adLoading);
+        _snack(GuideScope.of(context).copy.cameraUnavailable);
       }
     } catch (error) {
       debugPrint('camera ad: $error');
-      if (mounted) _snack(GuideScope.of(context).copy.adLoading);
+      if (mounted) _snack(GuideScope.of(context).copy.cameraUnavailable);
     }
-  }
-
-  int _adGrantsBefore() {
-    final count = Names.count;
-    if (count.month != quotaMonth(DateTime.now())) return 0;
-    if (count.adGrants < 0) return 0;
-    return count.adGrants;
   }
 
   Future<void> _watchAd() async {

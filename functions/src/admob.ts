@@ -1,5 +1,5 @@
 import { verify } from 'node:crypto';
-import { adGrantsPerMonth, takeAdGrant, type QuotaState } from './quota';
+import { adGrantsPerMonth, rollOver, type QuotaState } from './quota';
 
 const keysUrl = 'https://www.gstatic.com/admob/reward/verifier-keys.json';
 const keysTtlMs = 24 * 60 * 60 * 1000;
@@ -112,17 +112,22 @@ export type VerifiedAdGrant =
   | { result: 'granted' | 'capped'; quota: QuotaState };
 
 /**
- * Grants one name for a verified callback. A stored transaction id is a replay
- * and does not change the meter. The first time a transaction is seen, the
- * receipt is kept even when the month is already full.
+ * Grants one name for a verified callback. There is no time gap: a second
+ * signed transaction in the same minute is a second view. A stored
+ * transaction id is a replay and does not change the meter. The receipt is
+ * written only when the grant is counted, or when this month is already full.
  */
 export function applyVerifiedAdGrant(
   prior: { transactionUid?: string; quota: QuotaState | null },
   now: number,
 ): VerifiedAdGrant {
   if (prior.transactionUid !== undefined) return { result: 'replay' };
-  const taken = takeAdGrant(prior.quota, now, adGrantsPerMonth);
-  return { result: taken.granted ? 'granted' : 'capped', quota: taken.state };
+  const next = rollOver(prior.quota, now);
+  const used = next.adGrants ?? 0;
+  if (used >= adGrantsPerMonth) return { result: 'capped', quota: next };
+  next.adGrants = used + 1;
+  next.lastAdGrantAt = now;
+  return { result: 'granted', quota: next };
 }
 
 export type AdmobClaim = 'granted' | 'replay' | 'capped' | 'unbound' | 'unavailable';
