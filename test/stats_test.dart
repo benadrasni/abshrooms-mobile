@@ -523,7 +523,11 @@ void main() {
         for (var i = 0; i < 1778; i++)
           FindRecord(
             id: '$i',
-            millis: DateTime(2020, 6, 1).millisecondsSinceEpoch,
+            millis: DateTime(
+              i < 900 ? 2019 : 2020,
+              6,
+              1,
+            ).millisecondsSinceEpoch,
             latin: 'Boletus edulis',
             confirmed: true,
           ),
@@ -553,7 +557,7 @@ void main() {
             mostCount: 2,
             countries: [StatCountry('de', 1778)],
           ),
-          years: [StatYear(2020, 1778)],
+          years: [StatYear(2020, 2)],
         ),
       ),
       language: 'de',
