@@ -196,6 +196,39 @@ void main() {
     expect(find.text('Subscribed'), findsWidgets);
     expect(find.text('Start 7 days free'), findsNothing);
   });
+
+  testWidgets('a monthly plan opens with yearly selected', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          load: () async => FieldGuideLoaded(
+            catalog: fieldGuideCatalog(
+              ids: ids,
+              storeAvailable: true,
+              yearlyPrice: r'$24.99',
+              monthlyPrice: r'$2.99',
+              owned: {ids.monthly},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_planBorderWidth(tester, fieldGuideYearlyKey), 2);
+    expect(_planBorderWidth(tester, fieldGuideMonthlyKey), 1);
+    expect(find.text('Subscribed'), findsWidgets);
+  });
+}
+
+double _planBorderWidth(WidgetTester tester, Key key) {
+  final shape = tester.widget<Material>(find.byKey(key)).shape;
+  return (shape as RoundedRectangleBorder).side.width;
 }
 
 PurchaseDetails _purchase(PurchaseStatus status, {String code = ''}) {

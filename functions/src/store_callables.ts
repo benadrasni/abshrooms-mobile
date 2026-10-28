@@ -48,9 +48,11 @@ function signedInUid(uid: string | undefined, provider: string | undefined): str
  * `users/{uid}.entitlements`. The client cannot write that field.
  * App Store notifications: `appleStoreNotification`.
  * Play real-time notifications: `playStoreNotification`.
+ * App Check is not enforced. A sideloaded release cannot mint a Play Integrity
+ * JWT, and the callable then sends a dummy token. The store proof is the check.
  */
 export const submitPurchase = onCall(
-  { region: 'us-central1', enforceAppCheck: true, secrets: [playPublisherJson] },
+  { region: 'us-central1', enforceAppCheck: false, secrets: [playPublisherJson] },
   async (request) => {
     const uid = signedInUid(request.auth?.uid, request.auth?.token.firebase?.sign_in_provider);
     const store = request.data?.store;

@@ -31,7 +31,8 @@ function obfuscatedAccount(record: Record<string, unknown>): string | null {
 }
 
 /// Subscriptions v2. A canceled plan stays active until its expiry.
-/// A license test does not grant.
+/// A Play license test grants while that subscription is active, so a tester
+/// sees Field Guide on the phone. Expiry and a held or paused plan do not.
 export function playSubscription(body: unknown, now: number): PlayPurchase | null {
   if (!body || typeof body !== 'object') return null;
   const record = body as Record<string, unknown>;
@@ -52,7 +53,7 @@ export function playSubscription(body: unknown, now: number): PlayPurchase | nul
   return {
     productId: best.productId,
     expiresAt: best.expiresAt,
-    revoked: !stateActive || best.expiresAt <= now || playLicenseTest(record),
+    revoked: !stateActive || best.expiresAt <= now,
     obfuscatedAccountId: obfuscatedAccount(record),
     subscription: true,
   };

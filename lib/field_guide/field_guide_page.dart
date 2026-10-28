@@ -128,7 +128,6 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
   }
 
   FieldGuidePlan _openingPlan(FieldGuideCatalog catalog) {
-    if (_access(catalog).upgrade) return FieldGuidePlan.yearly;
     return catalog.initialPlan;
   }
 

@@ -49,13 +49,24 @@ test('a canceled or license-test one-time Play product does not grant', () => {
   assert.equal(playOneTime({ purchaseState: 2 }, 'offline'), null);
 });
 
-test('a license-test Play subscription does not grant', () => {
+test('a license-test Play subscription grants while it is active', () => {
   const yearly = {
     subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE',
     lineItems: [{ productId: 'field_guide_yearly', expiryTime: '2027-10-06T12:00:00Z' }],
   };
   assert.equal(playSubscription(yearly, now)?.revoked, false);
-  assert.equal(playSubscription({ ...yearly, testPurchase: {} }, now)?.revoked, true);
+  assert.equal(playSubscription({ ...yearly, testPurchase: {} }, now)?.revoked, false);
+  assert.equal(
+    playSubscription(
+      {
+        subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE',
+        testPurchase: {},
+        lineItems: [{ productId: 'field_guide_monthly', expiryTime: '2026-10-01T00:00:00Z' }],
+      },
+      now,
+    )?.revoked,
+    true,
+  );
 });
 
 test('a Play notification keeps the purchase token', () => {

@@ -30,10 +30,9 @@ class FieldGuideCatalog {
     this.error,
   });
 
-  FieldGuidePlan get initialPlan {
-    if (monthly.owned && !yearly.owned) return FieldGuidePlan.monthly;
-    return FieldGuidePlan.yearly;
-  }
+  /// Yearly stays selected for a monthly subscriber. The owned monthly row
+  /// still says Subscribed.
+  FieldGuidePlan get initialPlan => FieldGuidePlan.yearly;
 
   FieldGuideOffer offer(FieldGuidePlan plan) {
     return plan == FieldGuidePlan.yearly ? yearly : monthly;
