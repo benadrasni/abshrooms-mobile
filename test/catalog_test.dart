@@ -59,6 +59,7 @@ Catalog _catalog() {
       'Boletus edulis': {
         'label': 'penny bun',
         'description': 'A bolete.',
+        'notes': 'English note.',
         'names': ['cep'],
         'sourceUrls': ['https://en.example/boletus'],
       },
@@ -113,6 +114,7 @@ void main() {
     expect(catalog.textFor(missing).description, 'English body.');
     expect(catalog.heading(missing), 'NoKey species');
     expect(catalog.textFor(bolete).description, 'A bolete.');
+    expect(catalog.textFor(bolete).notes, isNull);
     expect(catalog.textFor(bolete).names, isEmpty);
     expect(catalog.textFor(bolete).sourceUrls, ['https://sk.example/hrib']);
     expect(catalog.textFor(missing).sourceUrls, ['https://en.example/nokey']);
@@ -198,9 +200,9 @@ void main() {
     );
   });
 
-  test('the bundled key has 59 species and Boletus edulis has tubes', () async {
+  test('the bundled key has 66 species and Boletus edulis has tubes', () async {
     final key = await loadKeyAsset();
-    expect(key.length, 59);
+    expect(key.length, 66);
     expect(key['Boletus edulis']?.hymenium, 'tubes');
     expect(key['Boletus edulis']?.where, ['ground']);
     expect(key['Boletus edulis']?.added, '2026-10-22');

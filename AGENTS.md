@@ -4,7 +4,7 @@ Flutter field guide in this directory. Store id `sk.ab.shrooms` (Android applica
 
 Firebase project `abshrooms-a9d4c`. Android app `1:968595882184:android:2dd55d5fa4bba8413ca5fd`. iOS app `1:968595882184:ios:44188a55ff2c58f93ca5fd`. Do not register another app. `lib/firebase_options.dart` stays in the tree.
 
-The catalog is Firestore: `species/{Latin binomial}`, translations, synonyms, and `taxonomy/{lang}/taxa`. Do not add where, colour, hymenium code, or distribution fields to Firestore. Those key axes live in `assets/key.json`, generated from `web/catalog.js`. Fruiting months and body text come from Firestore.
+The catalog is Firestore: `species/{Latin binomial}`, translations, synonyms, and `taxonomy/{lang}/taxa`. Do not add where, colour, hymenium code, or distribution fields to Firestore. Those key axes live in `assets/key.json`, generated from `web/species.js`. Fruiting months and body text come from Firestore.
 
 English body falls back when a translation is missing. A language's own `label` and `names` never fall back to English. Slovak lowercases the first letter of a real vernacular. A missing vernacular stays Latin, capitals included.
 

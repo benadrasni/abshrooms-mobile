@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,6 +9,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:whats_that_mushroom/ads/ad_consent.dart';
@@ -27,12 +29,66 @@ import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/shell.dart';
+import 'package:whats_that_mushroom/shell/splash_plate.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
 void main() {
   runZonedGuarded(
-    () async {
+    () {
       WidgetsFlutterBinding.ensureInitialized();
+      if (Platform.isAndroid) {
+        // Keeps the plate under the system bars on Android 10–14.
+        unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+      }
+      unawaited(_boot());
+    },
+    (error, stack) {
+      if (isIgnorableGuideError(error)) return;
+      debugPrint('uncaught: $error');
+      recordGuideError(error, stack);
+    },
+  );
+}
+
+Future<void> _boot() async {
+  final plate = await SplashPlate.load();
+  runApp(_Startup(plate: plate));
+}
+
+/// The system launch screen already shows the plate. The landing is drawn
+/// underneath, and the plate fades away only after that screen is loaded.
+class _Startup extends StatefulWidget {
+  const _Startup({required this.plate});
+
+  final ui.Image? plate;
+
+  @override
+  State<_Startup> createState() => _StartupState();
+}
+
+class _StartupState extends State<_Startup>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _cover;
+  late final CurvedAnimation _coverOpacity;
+  GuideSettings? _settings;
+  Notebook? _notebook;
+  CatalogRepository? _catalog;
+  var _coverOn = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cover = AnimationController(
+      vsync: this,
+      value: 1,
+      duration: const Duration(milliseconds: 800),
+    );
+    _coverOpacity = CurvedAnimation(parent: _cover, curve: Curves.easeOut);
+    _open();
+  }
+
+  Future<void> _open() async {
+    try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
@@ -46,29 +102,75 @@ void main() {
       Auth.syncAnalytics();
       final settings = GuideSettings();
       await settings.restore();
+      if (!mounted) return;
       unawaited(GuideAnalytics.setLanguage(settings.language));
       final notebook = Notebook();
       await notebook.load();
+      if (!mounted) return;
       try {
         await OfflineBook.restore();
       } catch (error, stack) {
         debugPrint('offline: $error');
         recordGuideError(error, stack, reason: 'offline restore');
       }
-      runApp(
-        GuideApp(
-          settings: settings,
-          notebook: notebook,
-          catalog: CatalogRepository(),
-        ),
-      );
-    },
-    (error, stack) {
+      if (!mounted) return;
+      // Find and Book paint a spinner until this read finishes. Do it under
+      // the plate, then draw the landing before the fade starts.
+      final catalog = CatalogRepository();
+      final lists = catalog.loadCuratedLists();
+      await catalog.load(settings.language);
+      await lists;
+      if (!mounted) return;
+      setState(() {
+        _settings = settings;
+        _notebook = notebook;
+        _catalog = catalog;
+      });
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      await _cover.reverse();
+      if (!mounted) return;
+      setState(() => _coverOn = false);
+    } catch (error, stack) {
       if (isIgnorableGuideError(error)) return;
-      debugPrint('uncaught: $error');
+      debugPrint('startup: $error');
       recordGuideError(error, stack);
-    },
-  );
+    }
+  }
+
+  @override
+  void dispose() {
+    _coverOpacity.dispose();
+    _cover.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = _settings;
+    final notebook = _notebook;
+    final catalog = _catalog;
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Stack(
+        children: [
+          if (settings != null && notebook != null && catalog != null)
+            GuideApp(
+              settings: settings,
+              notebook: notebook,
+              catalog: catalog,
+            ),
+          if (_coverOn)
+            Positioned.fill(
+              child: FadeTransition(
+                opacity: _coverOpacity,
+                child: SplashPlate(image: widget.plate),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class GuideApp extends StatefulWidget {
@@ -99,7 +201,13 @@ class _GuideAppState extends State<GuideApp> {
     widget.notebook.addListener(_onNotebook);
     Purchases.revision.addListener(_syncAnalytics);
     GuideAppCheck.bind(_activateAppCheck);
-    _load();
+    // Startup already read the catalog under the plate. A second read would
+    // not block the fade, but it would fetch the book twice.
+    if (widget.catalog.data == null && widget.catalog.error == null) {
+      _load();
+    } else {
+      unawaited(_armAppCheck());
+    }
     unawaited(GuideAnalytics.screen(guideAnalyticsTab(0)));
     unawaited(_billing.start());
     unawaited(_startAds());
@@ -166,16 +274,18 @@ class _GuideAppState extends State<GuideApp> {
     await widget.catalog.load(widget.settings.language);
     await lists;
     if (mounted) setState(() {});
-    // App Check stays off until the catalog has arrived. Activating it
-    // first makes Firestore wait on a debug token, and a failed exchange
-    // must not block these screens.
-    unawaited(() async {
-      try {
-        await GuideAppCheck.ensure();
-      } catch (_) {
-        // A failed debug token must not block the catalog screens.
-      }
-    }());
+    unawaited(_armAppCheck());
+  }
+
+  /// App Check stays off until the catalog has been read. Activating it
+  /// first makes Firestore wait on a debug token, and a failed exchange
+  /// must not block these screens.
+  Future<void> _armAppCheck() async {
+    try {
+      await GuideAppCheck.ensure();
+    } catch (_) {
+      // A failed debug token must not block the catalog screens.
+    }
   }
 
   Future<void> _activateAppCheck() async {

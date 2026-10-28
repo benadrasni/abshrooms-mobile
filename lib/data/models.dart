@@ -222,6 +222,12 @@ class Catalog {
     }
 
     final urls = own?.sourceUrls ?? const <String>[];
+    final localNotes = own?.notes;
+    final notes = own == null
+        ? body((text) => text.notes)
+        : (localNotes != null && localNotes.trim().isNotEmpty
+            ? localNotes
+            : null);
     return SpeciesText(
       label: own?.label,
       names: own?.names ?? const [],
@@ -234,7 +240,7 @@ class Catalog {
       habitat: body((text) => text.habitat),
       uses: body((text) => text.uses),
       confusion: body((text) => text.confusion),
-      notes: body((text) => text.notes),
+      notes: notes,
       sourceUrls: urls.isNotEmpty ? urls : (en?.sourceUrls ?? const []),
     );
   }

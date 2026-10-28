@@ -500,7 +500,7 @@
           "year": 2015
         },
         {
-          "name": "Lepista personata",
+          "name": "Collybia personata",
           "year": 2016
         },
         {
@@ -596,7 +596,40 @@
         "*"
       ],
       "titles": {
-        "en": "Deadly poisonous"
+        "ar": "سامة قاتلة",
+        "bg": "Смъртоносно отровни",
+        "zh": "致命剧毒",
+        "hr": "Smrtno otrovne",
+        "cs": "Smrtelně jedovaté",
+        "da": "Dødeligt giftige",
+        "nl": "Dodelijk giftig",
+        "en": "Deadly poisonous",
+        "et": "Surmavalt mürgised",
+        "fi": "Tappavan myrkylliset",
+        "fr": "Mortellement vénéneux",
+        "de": "Tödlich giftig",
+        "he": "רעילות קטלנית",
+        "hi": "घातक विषैले",
+        "hu": "Halálosan mérgező",
+        "id": "Beracun mematikan",
+        "it": "Mortalmente velenosi",
+        "ja": "猛毒",
+        "ko": "맹독성",
+        "lv": "Nāvējoši indīgas",
+        "lt": "Mirtinai nuodingi",
+        "no": "Dødelig giftige",
+        "fa": "سمی کشنده",
+        "pl": "Śmiertelnie trujące",
+        "pt": "Mortalmente venenosos",
+        "ro": "Mortal de otrăvitoare",
+        "ru": "Смертельно ядовитые",
+        "sr": "Смртно отровне",
+        "sk": "Smrteľne jedovaté",
+        "sl": "Smrtno strupene",
+        "es": "Mortalmente venenosos",
+        "sv": "Dödligt giftiga",
+        "tr": "Ölümcül zehirli",
+        "uk": "Смертельно отруйні"
       },
       "descriptions": {
         "en": "Species this guide classifies as deadly."

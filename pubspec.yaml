@@ -90,6 +90,7 @@ flutter:
   assets:
     - assets/key.json
     - assets/go-logo.png
+    - assets/splash_plate.jpg
     - assets/sources/
 
   fonts:

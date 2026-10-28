@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { repoPaths } from './sync_key.mjs';
 
-test('the key script reads the sibling catalog', () => {
+test('the key script reads where and color from the species module', async () => {
   const paths = repoPaths(new URL('./sync_key.mjs', import.meta.url));
-  assert.equal(paths.catalog, join(paths.root, 'web/catalog.js'));
+  assert.equal(paths.species, join(paths.root, 'web/species.js'));
   assert.equal(paths.key, join(paths.root, 'app/assets/key.json'));
-  const source = readFileSync(paths.catalog, 'utf8');
-  assert.match(source, /var KEY = /);
+  const { CATALOG } = await import(pathToFileURL(paths.species).href);
+  const edulis = CATALOG.find((species) => species.name === 'Boletus edulis');
+  assert.equal(edulis.hymenium, 'tubes');
+  assert.deepEqual(edulis.where, ['ground']);
+  assert.deepEqual(edulis.color, ['brown']);
+  assert.equal(edulis.added, '2026-10-22');
 });

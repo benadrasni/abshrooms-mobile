@@ -671,5 +671,84 @@
       "white"
     ],
     "added": "2026-10-24"
+  },
+  "Leccinum duriusculum": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-24"
+  },
+  "Pleurocybella porrigens": {
+    "hymenium": "gills",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow"
+    ],
+    "added": "2026-10-24"
+  },
+  "Amanita bisporigera": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white"
+    ],
+    "added": "2026-10-24"
+  },
+  "Lepiota brunneoincarnata": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass"
+    ],
+    "color": [
+      "brown",
+      "white",
+      "red"
+    ],
+    "added": "2026-10-26"
+  },
+  "Amanita verna": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white"
+    ],
+    "added": "2026-10-26"
+  },
+  "Russula subnigricans": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-26"
+  },
+  "Trichoderma cornu-damae": {
+    "hymenium": "smooth",
+    "where": [
+      "wood",
+      "ground"
+    ],
+    "color": [
+      "red",
+      "yellow"
+    ],
+    "added": "2026-10-27"
   }
 }
