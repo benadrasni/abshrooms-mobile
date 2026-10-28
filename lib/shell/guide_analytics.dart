@@ -16,6 +16,7 @@ class GuideMushroomSource {
   static const favorite = 'favorite';
   static const seen = 'seen';
   static const outside = 'outside';
+  static const notification = 'notification';
 }
 
 const guideScreenFind = 'Find';
@@ -267,6 +268,16 @@ class GuideAnalytics {
       'content_type': 'mushroom',
       'item_id': guideAnalyticsText(name),
       'source': guideAnalyticsText(source, max: 24),
+    });
+  }
+
+  static Future<void> notificationOpen({
+    required String action,
+    required bool accepted,
+  }) {
+    return _event('notification_open', {
+      'action': guideAnalyticsText(action, max: 24),
+      'accepted': accepted ? 'true' : 'false',
     });
   }
 

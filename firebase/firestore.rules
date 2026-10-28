@@ -46,11 +46,32 @@ service cloud.firestore {
     // Checked Field Guide plans. Cloud Functions write them after Apple or
     // Google confirms the receipt. The owner can read them. A purchase on
     // either store unlocks the other phone from this document.
+    // The signed-in owner may also store or clear the push token. No other
+    // field is writable from the client.
     match /users/{uid} {
       allow read: if request.auth != null
         && request.auth.uid == uid
         && request.auth.token.firebase.sign_in_provider != 'anonymous';
-      allow write: if false;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['token'])
+        && request.resource.data.token is string
+        && request.resource.data.token.size() > 0
+        && request.resource.data.token.size() < 4096;
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['token'])
+        && (
+          !request.resource.data.keys().hasAll(['token'])
+          || (
+            request.resource.data.token is string
+            && request.resource.data.token.size() > 0
+            && request.resource.data.token.size() < 4096
+          )
+        );
+      allow delete: if false;
     }
     match /purchase_proofs/{id} {
       allow read, write: if false;

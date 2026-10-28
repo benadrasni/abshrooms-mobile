@@ -61,6 +61,7 @@ dependencies:
   firebase_analytics: ^13.0.1
   firebase_crashlytics: ^6.0.1
   app_tracking_transparency: ^2.0.7
+  firebase_messaging: ^17.0.1
 
 dev_dependencies:
   flutter_test:
@@ -91,6 +92,7 @@ flutter:
     - assets/key.json
     - assets/go-logo.png
     - assets/splash_plate.jpg
+    - assets/app_icon.png
     - assets/sources/
 
   fonts:

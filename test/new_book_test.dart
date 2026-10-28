@@ -144,6 +144,7 @@ void main() {
     expect(find.text('List of mushrooms'), findsOneWidget);
     expect(find.text('New in the book'), findsOneWidget);
     expect(find.text('Favorite mushrooms'), findsNothing);
+    _expectPhotoCard(tester, GuideColors.light);
 
     notebook.finds = [
       FindRecord(
@@ -181,14 +182,63 @@ void main() {
     );
     expect(find.textContaining("you've seen 1"), findsOneWidget);
   });
+
+  testWidgets('Name it from a photo uses the plants moss fill in dark mode', (
+    tester,
+  ) async {
+    final repository = CatalogRepository()
+      ..data = buildCatalog(
+        language: 'en',
+        speciesDocs: const [],
+        local: const {},
+        english: const {},
+        synonyms: const {},
+        taxa: const {},
+        key: const {},
+      )
+      ..loading = false;
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _harness(
+        repository,
+        Notebook(),
+        () async {},
+        (_) {},
+        brightness: Brightness.dark,
+      ),
+    );
+    _expectPhotoCard(tester, GuideColors.dark);
+  });
+}
+
+void _expectPhotoCard(WidgetTester tester, GuideColors colors) {
+  final card = tester.widget<Material>(
+    find
+        .ancestor(
+          of: find.text('Name it from a photo'),
+          matching: find.byType(Material),
+        )
+        .first,
+  );
+  expect(card.color, colors.mossFill);
+  final title = tester.widget<Text>(find.text('Name it from a photo'));
+  expect(title.style?.color, GuideColors.light.onMoss);
+  expect(
+    tester.widget<Icon>(find.byIcon(Icons.photo_camera_outlined)).color,
+    colors.mossFill,
+  );
 }
 
 Widget _harness(
   CatalogRepository repository,
   Notebook notebook,
   Future<void> Function() reload,
-  void Function(int index) selectTab,
-) {
+  void Function(int index) selectTab, {
+  Brightness brightness = Brightness.light,
+}) {
   return GuideScope(
     catalog: repository,
     notebook: notebook,
@@ -196,7 +246,7 @@ Widget _harness(
     reload: reload,
     selectTab: selectTab,
     child: MaterialApp(
-      theme: guideTheme(Brightness.light),
+      theme: guideTheme(brightness),
       locale: const Locale('en'),
       localizationsDelegates: const [
         DefaultMaterialLocalizations.delegate,

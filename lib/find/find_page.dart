@@ -238,11 +238,13 @@ class _CameraCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onCard = colors.onMoss;
+    // Cream on mossFill in both themes, matching the plants photo card.
+    // Dark onMoss is for controls painted with the light moss token.
+    final onCard = GuideColors.light.onMoss;
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(20, 14, 20, 0),
       child: Material(
-        color: colors.moss,
+        color: colors.mossFill,
         borderRadius: BorderRadius.circular(18),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -291,7 +293,7 @@ class _CameraCard extends StatelessWidget {
                     height: 58,
                     child: Icon(
                       Icons.photo_camera_outlined,
-                      color: colors.moss,
+                      color: colors.mossFill,
                       size: 28,
                     ),
                   ),

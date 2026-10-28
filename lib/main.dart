@@ -26,6 +26,7 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
+import 'package:whats_that_mushroom/shell/push.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/shell.dart';
@@ -155,11 +156,7 @@ class _StartupState extends State<_Startup>
       child: Stack(
         children: [
           if (settings != null && notebook != null && catalog != null)
-            GuideApp(
-              settings: settings,
-              notebook: notebook,
-              catalog: catalog,
-            ),
+            GuideApp(settings: settings, notebook: notebook, catalog: catalog),
           if (_coverOn)
             Positioned.fill(
               child: FadeTransition(
@@ -193,10 +190,17 @@ class _GuideAppState extends State<GuideApp> {
   var _tab = 0;
   Future<void>? _curatedLists;
   final _billing = FieldGuideBilling();
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  late final GuidePush _push;
 
   @override
   void initState() {
     super.initState();
+    _push = GuidePush(
+      navigatorKey: _navigatorKey,
+      catalog: widget.catalog,
+      language: widget.settings.language,
+    );
     widget.settings.addListener(_onSettings);
     widget.notebook.addListener(_onNotebook);
     Purchases.revision.addListener(_syncAnalytics);
@@ -211,6 +215,7 @@ class _GuideAppState extends State<GuideApp> {
     unawaited(GuideAnalytics.screen(guideAnalyticsTab(0)));
     unawaited(_billing.start());
     unawaited(_startAds());
+    unawaited(_push.start());
   }
 
   void _syncAnalytics() {
@@ -264,6 +269,7 @@ class _GuideAppState extends State<GuideApp> {
     widget.settings.removeListener(_onSettings);
     widget.notebook.removeListener(_onNotebook);
     Purchases.revision.removeListener(_syncAnalytics);
+    _push.dispose();
     unawaited(_billing.dispose());
     super.dispose();
   }
@@ -301,6 +307,7 @@ class _GuideAppState extends State<GuideApp> {
   }
 
   void _onSettings() {
+    unawaited(_push.setLanguage(widget.settings.language));
     if (widget.settings.language != widget.catalog.language ||
         widget.catalog.data == null) {
       _load();
@@ -330,6 +337,7 @@ class _GuideAppState extends State<GuideApp> {
       reloadLists: _reloadLists,
       selectTab: _selectTab,
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
         title: copy.app,
         debugShowCheckedModeBanner: false,
         theme: guideTheme(Brightness.light),
