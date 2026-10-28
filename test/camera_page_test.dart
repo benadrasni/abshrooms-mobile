@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -221,9 +222,7 @@ void main() {
           ),
         ];
       },
-      onWatchAd: () async {
-        await Names.grant();
-      },
+      onWatchAd: () async {},
       onOpenSpecies: (_) {},
     );
     expect(find.text('0 names left'), findsOneWidget);
@@ -326,10 +325,7 @@ void main() {
     await _open(tester, identify: (_, _) async => const []);
     await tester.tap(find.byKey(const Key('guide-camera-shutter')));
     await tester.pumpAndSettle();
-    expect(
-      find.text("This photo didn't count. 1 name left."),
-      findsOneWidget,
-    );
+    expect(find.text("This photo didn't count. 1 name left."), findsOneWidget);
     expect(find.text('1 name left'), findsWidgets);
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
@@ -403,6 +399,63 @@ void main() {
     expect(find.text('Watch a short ad'), findsOneWidget);
     expect(find.text('The photo could not be named.'), findsNothing);
   });
+
+  testWidgets(
+    'a reward that lands after 30 seconds closes the sheet without an error',
+    (tester) async {
+      final snapshots = StreamController<Object?>();
+      addTearDown(snapshots.close);
+      Names.setForTest(used: 5);
+      Names.applyServer(
+        signedIn: true,
+        charged: true,
+        anonymousFreeUsed: false,
+        namesUsed: 5,
+        adGrants: 0,
+        fromPhoto: false,
+      );
+      Names.quotaUidForTest = 'account';
+      Names.quotaSnapshotsForTest = (_) => snapshots.stream;
+
+      await _open(tester, signedIn: true, onWatchAd: () async {});
+      await tester.tap(find.byKey(const Key('guide-camera-shutter')));
+      await tester.pumpAndSettle();
+      expect(find.text('No names left'), findsOneWidget);
+      expect(Names.lastCharged, isTrue);
+
+      await tester.tap(find.text('Watch a short ad'));
+      await tester.pump();
+      expect(find.text('Photo names are not available yet.'), findsNothing);
+      expect(find.text('No names left'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 31));
+      expect(find.text('Photo names are not available yet.'), findsNothing);
+      expect(find.text('No names left'), findsOneWidget);
+      expect(Names.count.adGrants, 0);
+
+      snapshots.add({
+        'month': quotaMonth(DateTime.now()),
+        'namesUsed': 5,
+        'adGrants': 1,
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.text('Photo names are not available yet.'), findsNothing);
+      expect(find.text('No names left'), findsNothing);
+      expect(find.text('1 name left'), findsOneWidget);
+      expect(Names.count.adGrants, 1);
+      expect(Names.lastCharged, isTrue);
+
+      snapshots.add({
+        'month': quotaMonth(DateTime.now()),
+        'namesUsed': 5,
+        'adGrants': 1,
+      });
+      await tester.pumpAndSettle();
+      expect(Names.count.adGrants, 1);
+      expect(find.text('1 name left'), findsOneWidget);
+    },
+  );
 
   testWidgets('a photo that is too soon asks to wait', (tester) async {
     await _open(

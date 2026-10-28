@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <!-- Android 12 splash stays on the cream plate in dark mode. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowSplashScreenBackground">@color/splash_color</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_color</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/android12splash</item>
     </style>
 </resources>

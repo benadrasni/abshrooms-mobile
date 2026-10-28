@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -54,7 +53,8 @@ class CameraPage extends StatefulWidget {
   final VoidCallback? onKey;
   final VoidCallback? onClose;
 
-  /// When set, the limit sheet calls this instead of loading a rewarded ad.
+  /// When set, the limit sheet calls this instead of showing a rewarded ad.
+  /// The view counts as earned. Production leaves it empty.
   final Future<void> Function()? onWatchAd;
 
   const CameraPage({
@@ -110,6 +110,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     Names.revision.addListener(_onAllowance);
     Auth.revision.addListener(_onAllowance);
     Ads.ready.addListener(_onAllowance);
+    Purchases.revision.addListener(_onAllowance);
     unawaited(Names.restore());
     unawaited(_startPreview());
     _ensureAd();
@@ -121,6 +122,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     Names.revision.removeListener(_onAllowance);
     Auth.revision.removeListener(_onAllowance);
     Ads.ready.removeListener(_onAllowance);
+    Purchases.revision.removeListener(_onAllowance);
     _previewEpoch++;
     final camera = _camera;
     _camera = null;
@@ -139,7 +141,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       _adLoading = false;
     }
     _ensureAd();
-    setState(() {});
+    setState(() {
+      if (_limit && _canName) _limit = false;
+    });
   }
 
   @override
@@ -288,21 +292,22 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _showRewardedAd() async {
+  /// True when the rewarded view was earned.
+  Future<bool> _showRewardedAd() async {
     final ad = _rewarded;
     if (ad == null) {
       _adAttempts = 0;
       _ensureAd();
-      if (!mounted) return;
+      if (!mounted) return false;
       _snack(GuideScope.of(context).copy.adLoading);
-      return;
+      return false;
     }
     try {
       await tieRewardedAd(ad);
     } catch (error) {
       debugPrint('camera ad: $error');
       if (mounted) _snack(GuideScope.of(context).copy.adLoading);
-      return;
+      return false;
     }
     final done = Completer<void>();
     var earned = false;
@@ -331,49 +336,50 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
     await done.future;
     if (dismissed) unawaited(GuideAnalytics.adReward(earned: earned));
-    if (!earned) return;
-    if (Firebase.apps.isEmpty) {
-      await Names.grant();
-      return;
-    }
+    return earned;
+  }
+
+  /// The earned view is on the meter. A slow `admobReward` stays quiet.
+  /// The snack is only for a watch that cannot run.
+  Future<void> _claimReward() async {
     try {
       await GuideAppCheck.ensure();
-      final granted = await waitForNameGrant();
-      if (!granted && mounted) {
-        _snack(GuideScope.of(context).copy.cameraUnavailable);
-      }
     } catch (error) {
       debugPrint('camera ad: $error');
       if (mounted) _snack(GuideScope.of(context).copy.cameraUnavailable);
+      return;
+    }
+    switch (Names.watchPhotoQuota()) {
+      case QuotaWatch.watching:
+        return;
+      case QuotaWatch.noAccount:
+        if (mounted) _snack(GuideScope.of(context).copy.cameraUnavailable);
+        return;
+      case QuotaWatch.offline:
+        await Names.grant();
     }
   }
 
   Future<void> _watchAd() async {
-    final action = widget.onWatchAd ?? _showRewardedAd;
-    await action();
+    if (widget.onWatchAd != null) {
+      await widget.onWatchAd!();
+    } else {
+      final earned = await _showRewardedAd();
+      if (!earned) return;
+    }
     if (!mounted) return;
-    setState(() {
-      if (_canName) _limit = false;
-    });
+    await _claimReward();
   }
 
-  Future<void> _openFieldGuide() async {
-    await Navigator.of(context).push(
+  Future<void> _openFieldGuide() {
+    return Navigator.of(context).push(
       guideRoute<void>(guideScreenFieldGuide, (_) => const FieldGuidePage()),
     );
-    if (!mounted) return;
-    setState(() {
-      if (_canName) _limit = false;
-    });
   }
 
-  Future<void> _openSignIn() async {
-    await Navigator.of(context)
+  Future<void> _openSignIn() {
+    return Navigator.of(context)
         .push(guideRoute<void>(guideScreenSignIn, (_) => const SignInPage()));
-    if (!mounted) return;
-    setState(() {
-      if (_canName) _limit = false;
-    });
   }
 
   void _close() {

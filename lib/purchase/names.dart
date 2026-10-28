@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -90,6 +91,18 @@ bool nameNeedsSignIn(NameAllowance allowance) {
   return allowance.guest && allowance.namesLeft <= 0;
 }
 
+/// Result of starting the `photo_quota` watch after a rewarded ad.
+enum QuotaWatch {
+  /// This account's meter is being watched.
+  watching,
+
+  /// No signed-in account, so the watch cannot run.
+  noAccount,
+
+  /// No Firestore. The grant stays on the phone.
+  offline,
+}
+
 /// A signed-in account. A guest, and a test with no Firebase app, is not one.
 bool photoAccountSignedIn() {
   if (Firebase.apps.isEmpty) return false;
@@ -176,6 +189,18 @@ class Names {
   static var _serverApplied = false;
   static var lastCharged = false;
   static final revision = ValueNotifier<int>(0);
+
+  /// Signed-in account for the quota watch. Tests set this.
+  @visibleForTesting
+  static String? quotaUidForTest;
+
+  /// Replaces the Firestore snapshot stream. Tests push `photo_quota` maps.
+  @visibleForTesting
+  static Stream<Object?> Function(String uid)? quotaSnapshotsForTest;
+
+  static StreamSubscription<Object?>? _quotaSub;
+  static String? _quotaUid;
+  static var _accountBound = false;
 
   static NameMonth get count => _count;
 
@@ -280,6 +305,77 @@ class Names {
     return applied;
   }
 
+  /// Listens to this account's `photo_quota` after a rewarded view.
+  ///
+  /// One watch. A higher `adGrants` is copied onto the meter, which notifies
+  /// [revision]. The same count is not applied again. The watch stops when
+  /// the account changes. A second earned view keeps this listen.
+  static QuotaWatch watchPhotoQuota() {
+    final snapshots = quotaSnapshotsForTest;
+    if (snapshots == null && Firebase.apps.isEmpty) return QuotaWatch.offline;
+    final uid = _quotaAccount();
+    if (uid == null) return QuotaWatch.noAccount;
+    if (_quotaUid == uid && _quotaSub != null) return QuotaWatch.watching;
+    _stopQuota();
+    _quotaUid = uid;
+    _bindAccount();
+    final stream = snapshots?.call(uid) ?? _photoQuota(uid);
+    _quotaSub = stream.listen(
+      _onQuota,
+      onError: (Object error) {
+        debugPrint('photo quota: $error');
+      },
+    );
+    return QuotaWatch.watching;
+  }
+
+  static String? _quotaAccount() => quotaUidForTest ?? Auth.appUser?.uid;
+
+  static void _bindAccount() {
+    if (_accountBound) return;
+    _accountBound = true;
+    Auth.revision.addListener(_onAccount);
+  }
+
+  static void _onAccount() {
+    if (_quotaUid == null) return;
+    if (_quotaAccount() == _quotaUid) return;
+    _stopQuota();
+  }
+
+  static void _onQuota(Object? raw) {
+    if (_quotaAccount() != _quotaUid) {
+      _stopQuota();
+      return;
+    }
+    final next = nameMonthFromQuota(raw, DateTime.now());
+    final before = _for(DateTime.now()).adGrants;
+    if (!nameGrantArrived(before < 0 ? 0 : before, next)) return;
+    _epoch++;
+    _count = NameMonth(
+      month: next.month,
+      namesUsed: next.namesUsed,
+      adGrants: next.adGrants,
+    );
+    revision.value++;
+    unawaited(_save());
+  }
+
+  static Stream<Object?> _photoQuota(String uid) {
+    return FirebaseFirestore.instance
+        .collection('photo_quota')
+        .doc(uid)
+        .snapshots()
+        .map((snap) => snap.data());
+  }
+
+  static void _stopQuota() {
+    final sub = _quotaSub;
+    _quotaSub = null;
+    _quotaUid = null;
+    if (sub != null) unawaited(sub.cancel());
+  }
+
   /// One more name after a rewarded ad. False when the month already has five.
   static Future<bool> grant({DateTime? now}) async {
     _epoch++;
@@ -308,6 +404,13 @@ class Names {
     _guestFree = true;
     _serverApplied = false;
     lastCharged = false;
+    quotaUidForTest = null;
+    quotaSnapshotsForTest = null;
+    _stopQuota();
+    if (_accountBound) {
+      Auth.revision.removeListener(_onAccount);
+      _accountBound = false;
+    }
   }
 
   static NameMonth _for(DateTime now) {
