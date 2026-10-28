@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:app_links/app_links.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:country_picker/country_picker.dart';
@@ -26,12 +27,14 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
+import 'package:whats_that_mushroom/shell/guide_links.dart';
 import 'package:whats_that_mushroom/shell/push.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/shell.dart';
 import 'package:whats_that_mushroom/shell/splash_plate.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
+import 'package:whats_that_mushroom/species/species_page.dart';
 
 void main() {
   runZonedGuarded(
@@ -192,6 +195,11 @@ class _GuideAppState extends State<GuideApp> {
   final _billing = FieldGuideBilling();
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final GuidePush _push;
+  StreamSubscription<Uri>? _sharedLinks;
+  String? _pendingSharedMushroom;
+  String? _openedSharedLink;
+  DateTime? _openedSharedAt;
+  var _sharedLinkFrames = 0;
 
   @override
   void initState() {
@@ -216,6 +224,76 @@ class _GuideAppState extends State<GuideApp> {
     unawaited(_billing.start());
     unawaited(_startAds());
     unawaited(_push.start());
+    _listenForSharedLinks();
+  }
+
+  /// A shared encyclopedia URL opens that species. Cold start is the initial
+  /// link. A link opened while the guide is already running arrives on the
+  /// stream. The same URL twice in a moment is one open.
+  void _listenForSharedLinks() {
+    final links = AppLinks();
+    _sharedLinks = links.uriLinkStream.listen(
+      _onSharedLink,
+      onError: (Object error) {
+        debugPrint('guide link: $error');
+      },
+    );
+    unawaited(_openInitialSharedLink(links));
+  }
+
+  Future<void> _openInitialSharedLink(AppLinks links) async {
+    try {
+      final uri = await links.getInitialLink();
+      if (uri != null) _onSharedLink(uri);
+    } catch (error) {
+      debugPrint('guide link: $error');
+    }
+  }
+
+  void _onSharedLink(Uri uri) {
+    final name = mushroomNameFromSharedUrl(uri);
+    if (name == null) return;
+    final key = uri.toString();
+    final now = DateTime.now();
+    if (_openedSharedLink == key &&
+        _openedSharedAt != null &&
+        now.difference(_openedSharedAt!) < const Duration(seconds: 2)) {
+      return;
+    }
+    _openedSharedLink = key;
+    _openedSharedAt = now;
+    final context = _navigatorKey.currentContext;
+    if (!mounted || context == null) {
+      _pendingSharedMushroom = name;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _openPendingSharedMushroom();
+      });
+      return;
+    }
+    _openSharedMushroom(context, name);
+  }
+
+  void _openPendingSharedMushroom() {
+    final name = _pendingSharedMushroom;
+    final context = _navigatorKey.currentContext;
+    if (name == null) return;
+    if (context == null) {
+      if (_sharedLinkFrames >= 8) return;
+      _sharedLinkFrames++;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _openPendingSharedMushroom();
+      });
+      return;
+    }
+    _pendingSharedMushroom = null;
+    _sharedLinkFrames = 0;
+    _openSharedMushroom(context, name);
+  }
+
+  void _openSharedMushroom(BuildContext context, String name) {
+    openSpecies(context, name, source: GuideMushroomSource.link);
   }
 
   void _syncAnalytics() {
@@ -270,6 +348,7 @@ class _GuideAppState extends State<GuideApp> {
     widget.notebook.removeListener(_onNotebook);
     Purchases.revision.removeListener(_syncAnalytics);
     _push.dispose();
+    _sharedLinks?.cancel();
     unawaited(_billing.dispose());
     super.dispose();
   }

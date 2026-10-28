@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
+import 'package:whats_that_mushroom/seen/share.dart';
 import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
 
@@ -51,8 +52,11 @@ Future<bool> deleteSighting(FindRecord find) async {
   return _removeSighting(find.id);
 }
 
-/// Copies review, public, and rejected onto the notebook. A sent find whose
-/// document is gone returns to [FindShare.none].
+/// Copies this account's Sightings onto the notebook.
+///
+/// A document that is not already on the phone is added, with its photo
+/// URL, so Find and Seen show it after sign-in. A sent find whose document
+/// is gone returns to [FindShare.none]. The same list is not written again.
 Future<void> syncSightings(Notebook notebook) async {
   try {
     final user = _account();
@@ -61,25 +65,99 @@ Future<void> syncSightings(Notebook notebook) async {
         .collection('sightings')
         .where('uid', isEqualTo: user.uid)
         .get();
-    final remote = <String, FindShare>{
-      for (final doc in snap.docs) doc.id: findShareFrom(doc.data()['status']),
-    };
-    final next = <FindRecord>[];
-    var changed = false;
-    for (final find in notebook.finds) {
-      final share = remote[find.id] ?? FindShare.none;
-      if (share == find.share) {
-        next.add(find);
-      } else {
-        changed = true;
-        next.add(find.copyWith(share: share));
-      }
-    }
-    if (!changed) return;
+    final next = mergeAccountSightings(notebook.finds, [
+      for (final doc in snap.docs) (id: doc.id, data: doc.data()),
+    ]);
+    if (identical(next, notebook.finds)) return;
     await notebook.replaceAll(next);
   } catch (error) {
     debugPrint('seen share sync: $error');
   }
+}
+
+/// One Sighting document, as `id` plus its fields.
+typedef SightingRow = ({String id, Map<String, dynamic> data});
+
+/// The notebook plus this account's Sightings. Returns [local] unchanged
+/// when nothing was added or updated.
+List<FindRecord> mergeAccountSightings(
+  List<FindRecord> local,
+  Iterable<SightingRow> remote,
+) {
+  final byId = <String, Map<String, dynamic>>{};
+  final order = <SightingRow>[];
+  for (final row in remote) {
+    if (row.id.isEmpty || byId.containsKey(row.id)) continue;
+    byId[row.id] = row.data;
+    order.add(row);
+  }
+  final seen = <String>{};
+  final next = <FindRecord>[];
+  var changed = false;
+  for (final find in local) {
+    seen.add(find.id);
+    final data = byId[find.id];
+    if (data == null) {
+      if (find.share == FindShare.none) {
+        next.add(find);
+      } else {
+        changed = true;
+        next.add(find.copyWith(share: FindShare.none));
+      }
+      continue;
+    }
+    final merged = _withSighting(find, data);
+    if (identical(merged, find)) {
+      next.add(find);
+    } else {
+      changed = true;
+      next.add(merged);
+    }
+  }
+  for (final row in order) {
+    if (seen.contains(row.id)) continue;
+    final added = _importedSighting(row.id, row.data);
+    if (added == null) continue;
+    changed = true;
+    next.add(added);
+  }
+  if (!changed) return local;
+  next.sort((a, b) {
+    final byWhen = b.millis.compareTo(a.millis);
+    if (byWhen != 0) return byWhen;
+    return b.id.compareTo(a.id);
+  });
+  return next;
+}
+
+FindRecord _withSighting(FindRecord find, Map<String, dynamic> data) {
+  final share = findShareFrom(data['status']);
+  final photo = _sightingPhoto(find, data);
+  if (share == find.share && photo == find.photoPath) return find;
+  return find.copyWith(share: share, photoPath: photo);
+}
+
+/// Keeps a file on this phone. Otherwise uses the Sighting download URL.
+String? _sightingPhoto(FindRecord find, Map<String, dynamic> data) {
+  if (seenPhotoOnPhone(find.photoPath)) return find.photoPath;
+  final url = sightingPhotoUrl(data['photo']?.toString() ?? '');
+  if (url.isEmpty) return find.photoPath;
+  return url;
+}
+
+FindRecord? _importedSighting(String id, Map<String, dynamic> data) {
+  final latin = data['latin']?.toString().trim() ?? '';
+  final millis = data['millis'];
+  if (latin.isEmpty || millis is! num || millis <= 0) return null;
+  final url = sightingPhotoUrl(data['photo']?.toString() ?? '');
+  return FindRecord(
+    id: id,
+    millis: millis.round(),
+    latin: latin,
+    photoPath: url.isEmpty ? null : url,
+    confirmed: true,
+    share: findShareFrom(data['status']),
+  );
 }
 
 String _objectPath(String uid, String id) => 'sightings/$uid/$id.jpg';

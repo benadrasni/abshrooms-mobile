@@ -102,6 +102,7 @@ class FindRecord {
     String? spoken,
     bool dropSpoken = false,
     double? probability,
+    String? photoPath,
     List<FindName>? others,
     FindShare? share,
   }) {
@@ -112,7 +113,7 @@ class FindRecord {
       outsideName: dropOutside ? null : (outsideName ?? this.outsideName),
       spoken: dropSpoken ? null : (spoken ?? this.spoken),
       probability: probability ?? this.probability,
-      photoPath: photoPath,
+      photoPath: photoPath ?? this.photoPath,
       confirmed: confirmed ?? this.confirmed,
       latitude: latitude,
       longitude: longitude,

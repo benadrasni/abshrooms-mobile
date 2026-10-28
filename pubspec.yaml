@@ -33,6 +33,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
+  app_links: 7.2.2
   firebase_core: ^5.1.0
   cloud_firestore: ^7.1.0
   firebase_auth: ^7.0.1

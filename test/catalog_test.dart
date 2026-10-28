@@ -200,9 +200,9 @@ void main() {
     );
   });
 
-  test('the bundled key has 67 species and Boletus edulis has tubes', () async {
+  test('the bundled key has 81 species and Boletus edulis has tubes', () async {
     final key = await loadKeyAsset();
-    expect(key.length, 67);
+    expect(key.length, 81);
     expect(key['Boletus edulis']?.hymenium, 'tubes');
     expect(key['Boletus edulis']?.where, ['ground']);
     expect(key['Boletus edulis']?.added, '2026-10-22');
@@ -211,8 +211,44 @@ void main() {
     expect(key['Collybia personata']?.where, ['grass', 'ground']);
     expect(key['Collybia personata']?.color, ['white', 'brown', 'dark', 'purple']);
     expect(key['Collybia personata']?.added, '2026-10-27');
+    expect(key['Serpula lacrymans']?.hymenium, 'pits');
+    expect(key['Serpula lacrymans']?.added, '2026-10-28');
     expect(key.values.where((row) => row.hymenium.isEmpty), isEmpty);
     expect(key.values.where((row) => addedDate(row.added) == null), isEmpty);
+  });
+
+  test('the species document day replaces the bundled day', () {
+    Catalog day(Object? added, {bool keyed = true}) {
+      return buildCatalog(
+        language: 'en',
+        speciesDocs: [
+          Doc('Serpula lacrymans', {
+            'name': 'Serpula lacrymans',
+            'id': 80,
+            if (added != null) 'added': added,
+          }),
+        ],
+        local: const {},
+        english: const {},
+        synonyms: const {},
+        taxa: const {},
+        key: keyed
+            ? const {
+                'Serpula lacrymans': KeyFacts(
+                  hymenium: 'pits',
+                  where: ['wood'],
+                  color: ['brown'],
+                  added: '2026-10-22',
+                ),
+              }
+            : const {},
+      );
+    }
+
+    expect(day('2026-10-28').species.single.added, '2026-10-28');
+    expect(day('not-a-date').species.single.added, '2026-10-22');
+    expect(day(null).species.single.added, '2026-10-22');
+    expect(day('2026-10-28', keyed: false).species.single.added, '2026-10-28');
   });
 
   test('closed Firestore rules are named as permission-denied', () {

@@ -17,6 +17,7 @@ class GuideMushroomSource {
   static const seen = 'seen';
   static const outside = 'outside';
   static const notification = 'notification';
+  static const link = 'link';
 }
 
 const guideScreenFind = 'Find';

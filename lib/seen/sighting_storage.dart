@@ -8,6 +8,12 @@ FirebaseStorage sightingStorage() {
   return FirebaseStorage.instanceFor(bucket: 'gs://$sightingStorageBucket');
 }
 
+/// A Sighting photo stored as its download URL, not a file on this phone.
+bool sightingPhotoIsRemote(String? path) {
+  if (path == null) return false;
+  return path.startsWith('https://') || path.startsWith('http://');
+}
+
 /// Download URL for one object in [sightingStorageBucket].
 ///
 /// The host is the Firebase Storage API, so `firebase/storage.rules` applies.

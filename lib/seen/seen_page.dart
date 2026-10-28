@@ -14,10 +14,12 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
+import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/seen/stats_page.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
+import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
 
 const _hideSharedKey = 'seen_hide_shared';
@@ -62,7 +64,14 @@ class _SeenPageState extends State<SeenPage> {
   void initState() {
     super.initState();
     Purchases.revision.addListener(_onChange);
+    Auth.revision.addListener(_onAccount);
     if (widget.hideShared == null) unawaited(_loadHide());
+  }
+
+  /// Sign-in happens after the first sync, which finds no account and
+  /// would otherwise leave this account's Sightings off the phone.
+  void _onAccount() {
+    unawaited(_syncShares());
   }
 
   @override
@@ -81,6 +90,7 @@ class _SeenPageState extends State<SeenPage> {
   @override
   void dispose() {
     Purchases.revision.removeListener(_onChange);
+    Auth.revision.removeListener(_onAccount);
     _notebook?.removeListener(_onChange);
     super.dispose();
   }
@@ -350,12 +360,7 @@ class _SeenPageState extends State<SeenPage> {
       final monthLabel = copy.hu
           ? '${month.month.year}. ${copy.monthName(month.month.month)}'
           : '${copy.monthName(month.month.month)} ${month.month.year}';
-      tiles.add(
-        _Tile(
-          _Kind.month,
-          text: monthLabel.toUpperCase(),
-        ),
-      );
+      tiles.add(_Tile(_Kind.month, text: monthLabel.toUpperCase()));
       for (final find in month.finds) {
         tiles.add(_Tile(_Kind.find, find: find));
       }
@@ -1865,7 +1870,22 @@ class _Photo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
-    final file = path == null || path!.isEmpty ? null : File(path!);
+    final stored = path;
+    if (stored != null && sightingPhotoIsRemote(stored)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: GuidePhoto(
+            url: stored,
+            fit: BoxFit.cover,
+            background: colors.photoWell,
+          ),
+        ),
+      );
+    }
+    final file = stored == null || stored.isEmpty ? null : File(stored);
     final ready = file != null && file.existsSync();
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),

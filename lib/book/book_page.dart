@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:whats_that_mushroom/book/favorites_page.dart';
 import 'package:whats_that_mushroom/book/new_page.dart';
 import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
@@ -198,7 +199,7 @@ class _BookPageState extends State<BookPage> {
           onTap: () => Navigator.of(context).push(
             guideRoute(
               guideScreenFavorites,
-              (_) => const TaxonPage(kind: 'favorites', name: ''),
+              (_) => FavoritesPage(backLabel: copy.book),
             ),
           ),
         ),

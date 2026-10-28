@@ -13,6 +13,7 @@ import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
+import 'package:whats_that_mushroom/shell/guide_links.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/seen/species_sightings.dart';
@@ -429,9 +430,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
 
   Future<void> _share(String title, String latin) async {
     final copy = GuideScope.of(context).copy;
-    final name = Uri.encodeComponent(latin);
-    final prefix = copy.code == 'en' ? '' : '/${copy.code}';
-    final url = 'https://whatsthatmushroom.app$prefix/mushroom/$name/';
+    final url = webMushroomUrl(latin, copy.code);
     await SharePlus.instance.share(ShareParams(text: url, subject: title));
   }
 }

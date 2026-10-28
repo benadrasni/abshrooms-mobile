@@ -19,20 +19,6 @@ class NewDay {
   });
 }
 
-/// `YYYY-MM-DD` as a UTC calendar day. A time zone must not move the day.
-DateTime? addedDate(String value) {
-  final parts = value.split('-');
-  if (parts.length != 3) return null;
-  final year = int.tryParse(parts[0]);
-  final month = int.tryParse(parts[1]);
-  final day = int.tryParse(parts[2]);
-  if (year == null || month == null || day == null) return null;
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  final date = DateTime.utc(year, month, day);
-  if (date.year != year || date.month != month || date.day != day) return null;
-  return date;
-}
-
 bool _sameDay(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
 }

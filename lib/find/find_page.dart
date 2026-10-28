@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/book_page.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
@@ -309,14 +311,42 @@ class _CameraCard extends StatelessWidget {
 
 /// The same allowance as the camera. A guest shows one free name, a
 /// signed-in account shows the month, and Field Guide shows unlimited.
-class _NameMeter extends StatelessWidget {
+class _NameMeter extends StatefulWidget {
   final Copy copy;
   final Color onCard;
 
   const _NameMeter({required this.copy, required this.onCard});
 
   @override
+  State<_NameMeter> createState() => _NameMeterState();
+}
+
+class _NameMeterState extends State<_NameMeter> {
+  @override
+  void initState() {
+    super.initState();
+    Auth.revision.addListener(_syncQuota);
+    _syncQuota();
+  }
+
+  @override
+  void dispose() {
+    Auth.revision.removeListener(_syncQuota);
+    super.dispose();
+  }
+
+  /// The card reads `photo_quota` for this account. The phone tally starts
+  /// empty, so a fresh launch would otherwise paint five names.
+  void _syncQuota() {
+    if (!photoAccountSignedIn()) return;
+    unawaited(Names.restore());
+    Names.watchPhotoQuota();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final copy = widget.copy;
+    final onCard = widget.onCard;
     return ListenableBuilder(
       listenable: Listenable.merge([
         Names.revision,

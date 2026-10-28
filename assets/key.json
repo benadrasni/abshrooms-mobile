@@ -751,6 +751,172 @@
     ],
     "added": "2026-10-27"
   },
+  "Amanita exitialis": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white"
+    ],
+    "added": "2026-10-27"
+  },
+  "Amanita fuliginea": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "dark",
+      "brown"
+    ],
+    "added": "2026-10-27"
+  },
+  "Amanita rimosa": {
+    "hymenium": "gills",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-27"
+  },
+  "Trogia venenata": {
+    "hymenium": "gills",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "red",
+      "brown"
+    ],
+    "added": "2026-10-27"
+  },
+  "Laccaria amethystina": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "wood"
+    ],
+    "color": [
+      "purple",
+      "brown",
+      "white"
+    ],
+    "added": "2026-10-27"
+  },
+  "Hygrocybe conica": {
+    "hymenium": "gills",
+    "where": [
+      "grass",
+      "ground"
+    ],
+    "color": [
+      "red",
+      "yellow",
+      "green",
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-27"
+  },
+  "Marasmius oreades": {
+    "hymenium": "gills",
+    "where": [
+      "grass"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "red",
+      "brown"
+    ],
+    "added": "2026-10-27"
+  },
+  "Cordyceps militaris": {
+    "hymenium": "smooth",
+    "where": [
+      "grass",
+      "ground",
+      "wood"
+    ],
+    "color": [
+      "yellow",
+      "red"
+    ],
+    "added": "2026-10-27"
+  },
+  "Hericium erinaceus": {
+    "hymenium": "teeth",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-27"
+  },
+  "Ganoderma lucidum": {
+    "hymenium": "tubes",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "red",
+      "brown",
+      "purple",
+      "dark"
+    ],
+    "added": "2026-10-27"
+  },
+  "Gomphus clavatus": {
+    "hymenium": "ridges",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "purple",
+      "brown",
+      "yellow",
+      "dark"
+    ],
+    "added": "2026-10-27"
+  },
+  "Gliophorus psittacinus": {
+    "hymenium": "gills",
+    "where": [
+      "grass",
+      "ground"
+    ],
+    "color": [
+      "green",
+      "yellow",
+      "red",
+      "brown",
+      "purple",
+      "white"
+    ],
+    "added": "2026-10-27"
+  },
+  "Boletus aereus": {
+    "hymenium": "tubes",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "brown",
+      "dark"
+    ],
+    "added": "2026-10-27"
+  },
   "Collybia personata": {
     "hymenium": "gills",
     "where": [
@@ -764,5 +930,45 @@
       "purple"
     ],
     "added": "2026-10-27"
+  },
+  "Serpula lacrymans": {
+    "hymenium": "pits",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "brown",
+      "red",
+      "dark"
+    ],
+    "added": "2026-10-28"
+  },
+  "Choiromyces meandriformis": {
+    "hymenium": "gleba",
+    "where": [
+      "ground"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "brown",
+      "red",
+      "dark"
+    ],
+    "added": "2026-10-28"
+  },
+  "Hericium coralloides": {
+    "hymenium": "teeth",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "white",
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-28"
   }
 }

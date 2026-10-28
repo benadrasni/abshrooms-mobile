@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:whats_that_mushroom/data/notebook.dart';
+import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 
 /// The control at the end of a confirmed row.
 enum SeenChip { share, review, shared, rejected, outside }
@@ -29,8 +30,9 @@ SeenChip? seenChip(
 }
 
 /// The file is on this phone. A stored path from another install is not.
+/// A Sighting download URL is not a file.
 bool seenPhotoOnPhone(String? path) {
-  if (path == null || path.isEmpty) return false;
+  if (path == null || path.isEmpty || sightingPhotoIsRemote(path)) return false;
   return File(path).existsSync();
 }
 

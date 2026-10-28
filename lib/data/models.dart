@@ -18,7 +18,7 @@ class KeyFacts {
   final List<String> where;
   final List<String> color;
 
-  /// Day the species joined the book, `YYYY-MM-DD`, from web/catalog.js.
+  /// Bundled day, `YYYY-MM-DD`. The species document's `added` wins.
   final String added;
 
   const KeyFacts({
@@ -145,6 +145,7 @@ class Species {
   final List<Synonym> synonyms;
 
   /// Day the species joined the book, `YYYY-MM-DD`. Empty when unknown.
+  /// A real `added` field on the species document wins over the key.
   final String added;
 
   const Species({
@@ -324,8 +325,29 @@ Species speciesFromMap(String id, Map<String, dynamic> data, KeyFacts? key) {
     illustrationUrl: _blank(data['illustrationUrl']) ?? '',
     photoUrls: stringList(data['photoUrls']),
     synonyms: const [],
-    added: key?.added ?? '',
+    added: catalogAdded(data['added']) ?? key?.added ?? '',
   );
+}
+
+/// `YYYY-MM-DD` as a UTC calendar day. A time zone must not move the day.
+DateTime? addedDate(String value) {
+  final parts = value.split('-');
+  if (parts.length != 3) return null;
+  final year = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final day = int.tryParse(parts[2]);
+  if (year == null || month == null || day == null) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  final date = DateTime.utc(year, month, day);
+  if (date.year != year || date.month != month || date.day != day) return null;
+  return date;
+}
+
+/// The catalog day stored on a species document, or null when it is absent
+/// or not a real day.
+String? catalogAdded(Object? value) {
+  final text = value?.toString().trim() ?? '';
+  return addedDate(text) == null ? null : text;
 }
 
 List<Synonym> synonymsFromMap(Map<String, dynamic>? data) {

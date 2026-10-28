@@ -10,8 +10,8 @@ import 'package:whats_that_mushroom/person/auth.dart';
 ///
 /// A guest has one name. A signed-in account has five each UTC month, and a
 /// rewarded ad can add five more. Field Guide does not spend a name.
-/// [identifyMushroom] counts the name before it calls Plant.id. This meter
-/// mirrors that count between calls.
+/// [identifyMushroom] counts the name before it calls Plant.id. Find copies
+/// `photo_quota` onto this meter so the card shows the names still left.
 class NameMonth {
   final String month;
   final int namesUsed;
@@ -104,7 +104,11 @@ enum QuotaWatch {
 }
 
 /// A signed-in account. A guest, and a test with no Firebase app, is not one.
+///
+/// [Names.quotaUidForTest] stands in for the account so Find can show the
+/// month without a Firebase app.
 bool photoAccountSignedIn() {
+  if (Names.quotaUidForTest != null) return true;
   if (Firebase.apps.isEmpty) return false;
   return Auth.appUser != null;
 }
@@ -187,8 +191,12 @@ class Names {
   static var holdForTest = false;
   static var _epoch = 0;
   static var _serverApplied = false;
+  static var _quotaSynced = false;
   static var lastCharged = false;
   static final revision = ValueNotifier<int>(0);
+
+  /// A cached miss. The server snapshot is the one that can zero the month.
+  static const _quotaPending = Object();
 
   /// Signed-in account for the quota watch. Tests set this.
   @visibleForTesting
@@ -238,9 +246,14 @@ class Names {
     if (epoch != _epoch || holdForTest) return;
     final wasFree = _guestFree;
     _guestFree = !(prefs.getBool(_guestKey) ?? false);
+    if (_quotaSynced) {
+      if (wasFree != _guestFree) revision.value++;
+      return;
+    }
     final parsed = _parse(prefs.getString(_key));
     final month = quotaMonth(DateTime.now());
     final next = parsed.month == month ? parsed : NameMonth(month: month);
+    if (epoch != _epoch || _quotaSynced) return;
     if (next.month == _count.month &&
         next.namesUsed == _count.namesUsed &&
         next.adGrants == _count.adGrants) {
@@ -305,11 +318,12 @@ class Names {
     return applied;
   }
 
-  /// Listens to this account's `photo_quota` after a rewarded view.
+  /// Listens to this account's `photo_quota`.
   ///
-  /// One watch. A higher `adGrants` is copied onto the meter, which notifies
-  /// [revision]. The same count is not applied again. The watch stops when
-  /// the account changes. A second earned view keeps this listen.
+  /// Find starts the listen so the card shows the names still left. The
+  /// camera starts it again after a rewarded view. One listen. A changed
+  /// `namesUsed` or `adGrants` is copied onto the meter. The same count is
+  /// not applied again. The listen stops when the account changes.
   static QuotaWatch watchPhotoQuota() {
     final snapshots = quotaSnapshotsForTest;
     if (snapshots == null && Firebase.apps.isEmpty) return QuotaWatch.offline;
@@ -341,6 +355,11 @@ class Names {
     if (_quotaUid == null) return;
     if (_quotaAccount() == _quotaUid) return;
     _stopQuota();
+    // The phone tally is not stored per account. Drop it until this account's
+    // document arrives, and do not write that gap over the saved month.
+    _epoch++;
+    _count = NameMonth(month: quotaMonth(DateTime.now()));
+    revision.value++;
   }
 
   static void _onQuota(Object? raw) {
@@ -348,10 +367,17 @@ class Names {
       _stopQuota();
       return;
     }
+    if (identical(raw, _quotaPending)) return;
     final next = nameMonthFromQuota(raw, DateTime.now());
-    final before = _for(DateTime.now()).adGrants;
-    if (!nameGrantArrived(before < 0 ? 0 : before, next)) return;
+    final current = _for(DateTime.now());
+    if (current.month == next.month &&
+        current.namesUsed == next.namesUsed &&
+        current.adGrants == next.adGrants) {
+      _quotaSynced = true;
+      return;
+    }
     _epoch++;
+    _quotaSynced = true;
     _count = NameMonth(
       month: next.month,
       namesUsed: next.namesUsed,
@@ -366,7 +392,12 @@ class Names {
         .collection('photo_quota')
         .doc(uid)
         .snapshots()
-        .map((snap) => snap.data());
+        .map((snap) {
+          // Cache can report a missing document before the server answers.
+          // That must not paint a full month over names already used.
+          if (!snap.exists && snap.metadata.isFromCache) return _quotaPending;
+          return snap.data();
+        });
   }
 
   static void _stopQuota() {
@@ -403,6 +434,7 @@ class Names {
     _count = NameMonth.empty;
     _guestFree = true;
     _serverApplied = false;
+    _quotaSynced = false;
     lastCharged = false;
     quotaUidForTest = null;
     quotaSnapshotsForTest = null;

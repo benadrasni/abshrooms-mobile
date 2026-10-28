@@ -3,6 +3,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { defineSecret } from 'firebase-functions/params';
+import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import {
   type AdmobClaim,
@@ -38,7 +39,17 @@ import {
   storedQuota,
   takeAnonymousFree,
   takeFreeNotMushroom,
+  utcMonth,
 } from './quota';
+import {
+  foldedSearchKey,
+  leadingScientificName,
+  nextNameTally,
+  photoLookupKey,
+  photoNameTallyCollection,
+  removePhotoNameTally,
+  synonymScientificNames,
+} from './tally';
 
 initializeApp();
 
@@ -183,6 +194,12 @@ export const identifyMushroom = onCall(
     }
     if (guest && suggestions.length === 0) await releaseFree();
 
+    try {
+      await tallyOutsideName(suggestions, now);
+    } catch (error) {
+      logger.error('identifyMushroom tally', { error: String(error) });
+    }
+
     const meter = meterCounts(
       ((await quotaRef(uid).get()).data() as QuotaState | undefined) ?? null,
       now,
@@ -205,6 +222,78 @@ export const identifyMushroom = onCall(
         };
       }),
     };
+  },
+);
+
+/**
+ * Counts the leading Plant.id name when it is not already in the book.
+ * A `species/{name}` document or a `search/la/names` row for that Latin
+ * name or synonym means it is in the book. The document is
+ * `photo_name_tally/{yyyy-mm}/names/{key}` with the Latin spelling and
+ * the month's count. `{key}` is the name in lower case with dots removed.
+ * No photo, place, or account is stored. A missing mushroom is not counted.
+ */
+async function tallyOutsideName(
+  suggestions: Record<string, unknown>[],
+  now: number,
+): Promise<void> {
+  const name = leadingScientificName(suggestions);
+  const key = name === null ? null : photoLookupKey(name);
+  if (name === null || key === null) return;
+  const db = getFirestore();
+  const species = await db.collection('species').doc(name).get();
+  if (species.exists) return;
+  const folded = foldedSearchKey(name);
+  if (folded) {
+    const known = await db.collection('search').doc('la').collection('names').doc(folded).get();
+    if (known.exists) return;
+  }
+  const ref = db
+    .collection(photoNameTallyCollection)
+    .doc(utcMonth(now))
+    .collection('names')
+    .doc(key);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    tx.set(ref, nextNameTally(snap.exists ? snap.data() : null, name));
+  });
+}
+
+async function clearSpeciesTally(latin: string, synonyms: unknown): Promise<void> {
+  const result = await removePhotoNameTally(getFirestore(), [
+    latin,
+    ...synonymScientificNames(synonyms),
+  ]);
+  if (result.removed.length > 0) {
+    logger.info('photo_name_tally cleared', { latin, removed: result.removed });
+  }
+}
+
+/** A new species document drops that Latin name from the photo tally. */
+export const clearPhotoNameTally = onDocumentCreated(
+  { document: 'species/{latin}', region: 'us-central1' },
+  async (event) => {
+    const latin = event.params.latin;
+    if (!latin) return;
+    const synonyms = await getFirestore().collection('synonyms').doc(latin).get();
+    await clearSpeciesTally(latin, synonyms.data());
+  },
+);
+
+/**
+ * Synonyms are written after the species document. Once that document
+ * exists, each MycoBank name is dropped from the tally too.
+ */
+export const clearPhotoNameTallySynonyms = onDocumentWritten(
+  { document: 'synonyms/{latin}', region: 'us-central1' },
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const latin = event.params.latin;
+    if (!latin) return;
+    const species = await getFirestore().collection('species').doc(latin).get();
+    if (!species.exists) return;
+    await clearSpeciesTally(latin, after.data());
   },
 );
 

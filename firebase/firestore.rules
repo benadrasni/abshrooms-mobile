@@ -96,6 +96,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Leading Plant.id names that are not in the book, one document per
+    // UTC month and Latin key. identifyMushroom writes { name, count }.
+    // Clients cannot read or write the tally.
+    match /photo_name_tally/{month} {
+      allow read, write: if false;
+      match /names/{key} {
+        allow read, write: if false;
+      }
+    }
+
     // A Sighting sent from Seen. The owner creates it as review and may
     // delete it. Publishing or rejecting is an admin write.
     match /sightings/{id} {

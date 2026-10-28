@@ -8,6 +8,9 @@
         android:label="What's that mushroom?"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/asset_statements" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,6 +29,11 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- The guide opens the species itself. Flutter must not also
+                 push the URL path as a route. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -33,6 +41,50 @@
             <intent-filter>
                 <action android:name="FLUTTER_NOTIFICATION_CLICK" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Species pages only. Each host pairs with each prefix. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="whatsthatmushroom.app" />
+                <data android:host="abshrooms-a9d4c.web.app" />
+                <data android:pathPrefix="/mushroom/" />
+                <data android:pathPrefix="/ar/mushroom/" />
+                <data android:pathPrefix="/bg/mushroom/" />
+                <data android:pathPrefix="/zh/mushroom/" />
+                <data android:pathPrefix="/hr/mushroom/" />
+                <data android:pathPrefix="/cs/mushroom/" />
+                <data android:pathPrefix="/da/mushroom/" />
+                <data android:pathPrefix="/nl/mushroom/" />
+                <data android:pathPrefix="/et/mushroom/" />
+                <data android:pathPrefix="/fi/mushroom/" />
+                <data android:pathPrefix="/fr/mushroom/" />
+                <data android:pathPrefix="/de/mushroom/" />
+                <data android:pathPrefix="/he/mushroom/" />
+                <data android:pathPrefix="/hi/mushroom/" />
+                <data android:pathPrefix="/hu/mushroom/" />
+                <data android:pathPrefix="/id/mushroom/" />
+                <data android:pathPrefix="/it/mushroom/" />
+                <data android:pathPrefix="/ja/mushroom/" />
+                <data android:pathPrefix="/ko/mushroom/" />
+                <data android:pathPrefix="/lv/mushroom/" />
+                <data android:pathPrefix="/lt/mushroom/" />
+                <data android:pathPrefix="/no/mushroom/" />
+                <data android:pathPrefix="/fa/mushroom/" />
+                <data android:pathPrefix="/pl/mushroom/" />
+                <data android:pathPrefix="/pt/mushroom/" />
+                <data android:pathPrefix="/ro/mushroom/" />
+                <data android:pathPrefix="/ru/mushroom/" />
+                <data android:pathPrefix="/sr/mushroom/" />
+                <data android:pathPrefix="/sk/mushroom/" />
+                <data android:pathPrefix="/sl/mushroom/" />
+                <data android:pathPrefix="/es/mushroom/" />
+                <data android:pathPrefix="/sv/mushroom/" />
+                <data android:pathPrefix="/tr/mushroom/" />
+                <data android:pathPrefix="/uk/mushroom/" />
+                <data android:pathPrefix="/en/mushroom/" />
             </intent-filter>
         </activity>
         <meta-data

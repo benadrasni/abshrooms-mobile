@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -29,10 +28,8 @@ class TaxonPage extends StatelessWidget {
         ),
       );
     }
-    final rows = _rows(catalog, scope.notebook.favorites);
-    final title = kind == 'favorites'
-        ? copy.favorites
-        : catalog.taxonTitle(name);
+    final rows = catalog.speciesIn(kind, name);
+    final title = catalog.taxonTitle(name);
     final lede = switch (kind) {
       'family' => copy.familyLede,
       'genus' => copy.genusLede,
@@ -60,7 +57,7 @@ class TaxonPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(copy.count(rows.length), style: GuideType.body(colors)),
           ),
-          if (kind != 'favorites' && title != name)
+          if (title != name)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(name, style: GuideType.latin(colors, size: 16)),
@@ -72,25 +69,11 @@ class TaxonPage extends StatelessWidget {
               onTap: () => openSpecies(
                 context,
                 species.name,
-                source: kind == 'favorites'
-                    ? GuideMushroomSource.favorite
-                    : GuideMushroomSource.list,
+                source: GuideMushroomSource.list,
               ),
             ),
         ],
       ),
     );
-  }
-
-  List<Species> _rows(Catalog catalog, Set<String> favorites) {
-    if (kind != 'favorites') return catalog.speciesIn(kind, name);
-    final rows = [
-      for (final latin in favorites)
-        if (catalog.byName(latin) != null) catalog.byName(latin)!,
-    ];
-    rows.sort(
-      (a, b) => catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
-    );
-    return rows;
   }
 }

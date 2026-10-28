@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   tearDown(Names.resetForTest);
 
   test('five names are included and an ad adds one', () {
@@ -206,6 +210,44 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('a photo_quota snapshot keeps names already used this month', () async {
+    SharedPreferences.setMockInitialValues({});
+    final snapshots = StreamController<Object?>(sync: true);
+    addTearDown(snapshots.close);
+    Names.quotaUidForTest = 'account';
+    Names.quotaSnapshotsForTest = (_) => snapshots.stream;
+    expect(Names.watchPhotoQuota(), QuotaWatch.watching);
+
+    final month = quotaMonth(DateTime.now());
+    snapshots.add({'month': month, 'namesUsed': 2, 'adGrants': 0});
+    expect(Names.count.namesUsed, 2);
+    expect(Names.count.adGrants, 0);
+    expect(Names.allowance(fieldGuide: false).namesLeft, 3);
+
+    final revision = Names.revision.value;
+    snapshots.add({'month': month, 'namesUsed': 2, 'adGrants': 0});
+    expect(Names.revision.value, revision);
+
+    snapshots.add({'month': '2020-01', 'namesUsed': 5, 'adGrants': 5});
+    expect(Names.count.namesUsed, 0);
+    expect(Names.allowance(fieldGuide: false).namesLeft, 5);
+  });
+
+  test('a saved phone tally does not wipe the server count', () async {
+    final month = quotaMonth(DateTime.now());
+    SharedPreferences.setMockInitialValues({'photo_names': '$month:0:0'});
+    final snapshots = StreamController<Object?>(sync: true);
+    addTearDown(snapshots.close);
+    Names.quotaUidForTest = 'account';
+    Names.quotaSnapshotsForTest = (_) => snapshots.stream;
+    expect(Names.watchPhotoQuota(), QuotaWatch.watching);
+    snapshots.add({'month': month, 'namesUsed': 2, 'adGrants': 0});
+    expect(Names.count.namesUsed, 2);
+    await Names.restore();
+    expect(Names.count.namesUsed, 2);
+    expect(Names.allowance(fieldGuide: false).namesLeft, 3);
   });
 
   test('an offline ad grant stays on the phone', () async {

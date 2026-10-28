@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:whats_that_mushroom/book/favorites_page.dart';
 import 'package:whats_that_mushroom/book/new_page.dart';
-import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
@@ -10,6 +10,7 @@ import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/lists/curated_list_page.dart';
+import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -228,7 +229,7 @@ class ListStrip extends StatelessWidget {
           onTap: () => Navigator.of(context).push(
             guideRoute(
               guideScreenFavorites,
-              (_) => const TaxonPage(kind: 'favorites', name: ''),
+              (_) => FavoritesPage(backLabel: copy.find),
             ),
           ),
         ),
@@ -244,9 +245,8 @@ class ListStrip extends StatelessWidget {
           photo: speciesPhoto(fresh.first.species.first),
           gold: true,
           onTap: () =>
-              Navigator.of(context).push(
-                guideRoute(guideScreenNew, (_) => const NewPage()),
-              ),
+              Navigator.of(context)
+                  .push(guideRoute(guideScreenNew, (_) => const NewPage())),
         ),
       for (final list in curated)
         _cover(
@@ -381,7 +381,22 @@ class _SightPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
-    final file = path == null || path!.isEmpty ? null : File(path!);
+    final stored = path;
+    if (stored != null && sightingPhotoIsRemote(stored)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: edge,
+          height: edge,
+          child: GuidePhoto(
+            url: stored,
+            fit: BoxFit.cover,
+            background: colors.photoWell,
+          ),
+        ),
+      );
+    }
+    final file = stored == null || stored.isEmpty ? null : File(stored);
     if (file != null && file.existsSync()) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -414,6 +429,8 @@ String _curatedSubtitle(Copy copy, CuratedListView list) {
 String _when(BuildContext context, int millis) {
   final when = DateTime.fromMillisecondsSinceEpoch(millis);
   final localizations = MaterialLocalizations.of(context);
+  if (when.year != DateTime.now().year)
+    return localizations.formatShortDate(when);
   final date = localizations.formatMediumDate(when);
   final time = localizations.formatTimeOfDay(TimeOfDay.fromDateTime(when));
   return '$date, $time';

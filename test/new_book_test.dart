@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/book/book_page.dart';
@@ -6,6 +8,7 @@ import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/find/find_page.dart';
+import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
@@ -146,10 +149,17 @@ void main() {
     expect(find.text('Favorite mushrooms'), findsNothing);
     _expectPhotoCard(tester, GuideColors.light);
 
+    final priorWhen = DateTime(2023, 6, 25, 15, 33);
     notebook.finds = [
       FindRecord(
         id: 'one',
         millis: DateTime(2026, 10, 24, 9).millisecondsSinceEpoch,
+        latin: 'Boletus edulis',
+        confirmed: true,
+      ),
+      FindRecord(
+        id: 'older',
+        millis: priorWhen.millisecondsSinceEpoch,
         latin: 'Boletus edulis',
         confirmed: true,
       ),
@@ -162,6 +172,23 @@ void main() {
     );
     await tester.pump();
     expect(find.text('Seen lately'), findsOneWidget);
+    final seen = MaterialLocalizations.of(
+      tester.element(find.text('Seen lately')),
+    );
+    final recentWhen = DateTime(2026, 10, 24, 9);
+    expect(
+      find.text(
+        '${seen.formatMediumDate(recentWhen)}, ${seen.formatTimeOfDay(TimeOfDay.fromDateTime(recentWhen))}',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(seen.formatShortDate(priorWhen)), findsOneWidget);
+    expect(
+      find.textContaining(
+        seen.formatTimeOfDay(TimeOfDay.fromDateTime(priorWhen)),
+      ),
+      findsNothing,
+    );
     expect(find.text('All finds'), findsOneWidget);
     expect(find.text('All lists'), findsOneWidget);
     expect(find.text('Boletus edulis'), findsWidgets);
@@ -211,6 +238,44 @@ void main() {
       ),
     );
     _expectPhotoCard(tester, GuideColors.dark);
+  });
+
+  testWidgets('Find shows the names still left this month', (tester) async {
+    final snapshots = StreamController<Object?>(sync: true);
+    addTearDown(snapshots.close);
+    addTearDown(Names.resetForTest);
+    Names.quotaUidForTest = 'account';
+    Names.quotaSnapshotsForTest = (_) => snapshots.stream;
+    final repository = CatalogRepository()
+      ..data = buildCatalog(
+        language: 'en',
+        speciesDocs: const [],
+        local: const {},
+        english: const {},
+        synonyms: const {},
+        taxa: const {},
+        key: const {},
+      )
+      ..loading = false;
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _harness(repository, Notebook(), () async {}, (_) {}),
+    );
+    expect(find.text('5 free per month'), findsOneWidget);
+
+    snapshots.add({
+      'month': quotaMonth(DateTime.now()),
+      'namesUsed': 2,
+      'adGrants': 0,
+    });
+    await tester.pump();
+    expect(find.text('3 names left'), findsOneWidget);
+    expect(find.text('5 free per month'), findsNothing);
+    expect(find.text('1 free'), findsNothing);
   });
 }
 

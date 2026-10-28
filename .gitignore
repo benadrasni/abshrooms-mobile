@@ -95,4 +95,6 @@ docs/ACCESS.md
 *.keystore
 functions/node_modules/
 functions/lib/
+functions/.env*
+functions/.secret.local
 coverage/
