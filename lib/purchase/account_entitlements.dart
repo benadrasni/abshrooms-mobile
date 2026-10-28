@@ -20,10 +20,15 @@ class EntitlementWatch {
   }
 }
 
-/// The soonest Field Guide expiry still ahead of [now]. Person and Field
-/// Guide drop the plan then, without waiting for another account write.
-/// A yearly plan is rechecked within [entitlementExpiryWait].
+/// The soonest Field Guide expiry still ahead of [now]. The timer fires then
+/// so a plan that will not renew can leave. A later expiry is re-armed
+/// within [entitlementExpiryWait].
 const entitlementExpiryWait = Duration(hours: 12);
+
+/// How long the phone waits after a stored Field Guide expiry before asking
+/// the server to read that purchase token again. The pages follow `active`.
+/// A plan marked `willNotRenew` leaves at `expiresAt` without this wait.
+const entitlementRecheckDelay = Duration(minutes: 2);
 
 DateTime? nextFieldGuideExpiry(Object? userValue, DateTime now) {
   if (userValue is! Map) return null;
@@ -52,15 +57,40 @@ DateTime? nextFieldGuideExpiry(Object? userValue, DateTime now) {
   return DateTime.fromMillisecondsSinceEpoch(soonest);
 }
 
-/// A checked product is on only while the server still counts it.
-/// Subscriptions follow [expiresAt], same as `hasUnlimitedNames`: a missing
-/// expiry stays on the active flag, and the expiry instant itself is off.
+/// The latest Field Guide expiry that is already due, while the server still
+/// says the plan is active. Null when nothing needs a receipt check.
+int? fieldGuideExpiryDueAt(Object? userValue, DateTime now) {
+  if (userValue is! Map) return null;
+  final node = userValue['entitlements'];
+  if (node is! Map) return null;
+  final raw = node['products'];
+  if (raw is! Map) return null;
+  final nowMs = now.millisecondsSinceEpoch;
+  int? due;
+  raw.forEach((key, value) {
+    if (key is! String || !FieldGuideIds.isFieldGuide(key) || value is! Map) {
+      return;
+    }
+    if (value['active'] != true) return;
+    final expiresAt = value['expiresAt'];
+    if (expiresAt is! num) return;
+    final at = expiresAt.toInt();
+    if (at > nowMs) return;
+    if (due == null || at > due!) due = at;
+  });
+  return due;
+}
+
+/// The server `active` flag keeps the plan, including past [expiresAt] while
+/// a renewal is still posting. A plan marked `willNotRenew` leaves at
+/// [expiresAt]. A missing expiry stays on the active flag.
 bool entitlementRowActive(String id, Map value, int nowMs) {
   if (value['active'] != true) return false;
   if (!FieldGuideIds.isFieldGuide(id)) return true;
+  if (value['willNotRenew'] != true) return true;
   final expiresAt = value['expiresAt'];
   if (expiresAt is! num) return true;
-  return expiresAt > nowMs;
+  return expiresAt.toInt() > nowMs;
 }
 
 /// Active and inactive products under `users/{uid}.entitlements`.

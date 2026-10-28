@@ -383,6 +383,7 @@ function errorCode(error: unknown): string {
 export {
   appleStoreNotification,
   playStoreNotification,
+  refreshEntitlements,
   refreshStoreEntitlements,
   registerStoreAccount,
   releaseStorePurchases,

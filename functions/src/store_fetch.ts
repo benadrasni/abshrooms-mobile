@@ -46,6 +46,7 @@ export function verifiedPlay(purchase: PlayPurchase, token: string): VerifiedPur
     token,
     expiresAt: purchase.expiresAt,
     revoked: purchase.revoked,
+    willNotRenew: purchase.willNotRenew,
     accountToken: purchase.obfuscatedAccountId,
     environment: null,
     subscription: purchase.subscription,

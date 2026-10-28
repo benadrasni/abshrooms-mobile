@@ -96,6 +96,28 @@ Future<StoreProofOutcome> submitStoreProof({
   }
 }
 
+/// Asks the server to read this account's stored purchase tokens.
+/// Returns false when that lookup should be tried again. An empty or
+/// unverified result does not clear the plan.
+Future<bool> refreshStoredEntitlements() async {
+  if (Auth.appUser == null) return false;
+  try {
+    final response = await FirebaseFunctions.instanceFor(region: 'us-central1')
+        .httpsCallable(
+          'refreshEntitlements',
+          options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+        )
+        .call();
+    final data = response.data;
+    applyCheckedProducts(checkedProductsOf(data));
+    if (data is Map && data['retry'] == true) return false;
+    return true;
+  } catch (error) {
+    debugPrint('entitlement refresh: $error');
+    return false;
+  }
+}
+
 Future<void> registerStoreAccount() async {
   if (Auth.appUser == null) return;
   try {

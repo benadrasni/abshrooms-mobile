@@ -10,6 +10,7 @@ import {
   applyVerifiedNotification,
   grantPurchase,
   playNotice,
+  refreshAccountProofs,
   registerStoreAccount as registerAccount,
   releaseStorePurchases as releaseAccount,
   subscriptionProofs,
@@ -230,6 +231,61 @@ export const playStoreNotification = onRequest(
       return;
     }
     res.status(200).send('ok');
+  },
+);
+
+/**
+ * Reads this account's stored subscription tokens and writes the current
+ * Play or App Store state. The phone calls this when a stored expiry is due,
+ * because a restore often returns nothing for an ended test subscription.
+ * App Check is not enforced, matching submitPurchase, so a sideloaded release
+ * can run the check. An unverified lookup is returned as retry and is not
+ * written.
+ */
+export const refreshEntitlements = onCall(
+  {
+    region: 'us-central1',
+    // Cloud Run must accept the callable. Sign-in is checked in the function.
+    invoker: 'public',
+    enforceAppCheck: false,
+    secrets: [playPublisherJson, appStoreIssuerId, appStoreKeyId, appStorePrivateKey],
+  },
+  async (request) => {
+    const uid = signedInUid(request.auth?.uid, request.auth?.token.firebase?.sign_in_provider);
+    const now = Date.now();
+    const play = playCredentialsOf(playPublisherJson.value());
+    const issuer = appStoreIssuerId.value();
+    const keyId = appStoreKeyId.value();
+    const privateKey = appStorePrivateKey.value();
+    const apple: AppStoreCredentials | null =
+      issuer && keyId && privateKey ? { issuerId: issuer, keyId, privateKey } : null;
+    let bearer: string | undefined;
+    if (play) {
+      try {
+        bearer = await playBearer(play, fetch, now);
+      } catch (error) {
+        logger.error('refreshEntitlements: play auth', { error: String(error) });
+      }
+    }
+    return refreshAccountProofs(firestoreEntitlements(), uid, now, async (proof) => {
+      try {
+        if (proof.store === 'app_store') {
+          if (!apple) return { status: 'unavailable' };
+          const fetched = await fetchAppleSubscription(proof.token, proof.environment, apple, now, fetch);
+          return fetched.status === 'verified'
+            ? { status: 'verified', purchase: fetched.purchase }
+            : { status: 'unknown' };
+        }
+        if (!play || !bearer) return { status: 'unavailable' };
+        const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);
+        return fetched.status === 'verified'
+          ? { status: 'verified', purchase: fetched.purchase }
+          : { status: 'unknown' };
+      } catch (error) {
+        if (error instanceof StoreUnavailable) return { status: 'unavailable' };
+        throw error;
+      }
+    });
   },
 );
 

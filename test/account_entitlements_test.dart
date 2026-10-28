@@ -111,22 +111,56 @@ void main() {
     );
   });
 
-  test('an expired subscription is not active', () {
+  test('a plan that will not renew leaves at expiry and a renewal stays active', () {
     const now = 1_700_000_000_000;
     final clock = DateTime.fromMillisecondsSinceEpoch(now);
-    final expired = accountEntitlementsOf({
+    final parsed = accountEntitlementsOf({
       'entitlements': {
         'products': {
-          'field_guide_yearly': {'active': true, 'expiresAt': now},
-          'shrooms_field_guide_monthly': {'active': true, 'expiresAt': now + 1},
-          'field_guide_monthly': {'active': true},
+          'field_guide_yearly': {
+            'active': true,
+            'expiresAt': now + 5_000,
+            'willNotRenew': true,
+          },
+          'shrooms_field_guide_monthly': {
+            'active': true,
+            'expiresAt': now,
+            'willNotRenew': true,
+          },
+          'field_guide_monthly': {'active': true, 'expiresAt': now - 1},
+          'shrooms_field_guide_yearly': {
+            'active': false,
+            'expiresAt': now + 1,
+            'willNotRenew': true,
+          },
           'other_product': {'active': true, 'expiresAt': now - 1},
         },
       },
     }, now: clock);
-    expect(expired.products['field_guide_yearly'], isFalse);
-    expect(expired.products['shrooms_field_guide_monthly'], isTrue);
-    expect(expired.products['field_guide_monthly'], isTrue);
-    expect(expired.products['other_product'], isTrue);
+    expect(parsed.products['field_guide_yearly'], isTrue);
+    expect(parsed.products['shrooms_field_guide_monthly'], isFalse);
+    expect(parsed.products['field_guide_monthly'], isTrue);
+    expect(parsed.products['shrooms_field_guide_yearly'], isFalse);
+    expect(parsed.products['other_product'], isTrue);
+    expect(fieldGuideExpiryDueAt({
+      'entitlements': {
+        'products': {
+          'field_guide_yearly': {
+            'active': true,
+            'expiresAt': now - 5,
+            'willNotRenew': true,
+          },
+          'field_guide_monthly': {'active': true, 'expiresAt': now},
+          'shrooms_field_guide_yearly': {'active': false, 'expiresAt': now - 1},
+        },
+      },
+    }, clock), now);
+    expect(fieldGuideExpiryDueAt({
+      'entitlements': {
+        'products': {
+          'field_guide_monthly': {'active': true, 'expiresAt': now + 1, 'willNotRenew': true},
+        },
+      },
+    }, clock), isNull);
   });
 }

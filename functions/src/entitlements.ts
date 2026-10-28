@@ -22,6 +22,8 @@ export type VerifiedPurchase = {
   token: string;
   expiresAt: number | null;
   revoked: boolean;
+  /** Play CANCELED while the paid period is still ahead. Absent means it will renew. */
+  willNotRenew?: boolean;
   accountToken: string | null;
   environment: string | null;
   subscription: boolean;
@@ -30,6 +32,8 @@ export type VerifiedPurchase = {
 export type EntitlementRow = {
   active: boolean;
   expiresAt?: number;
+  /** True only while a canceled plan's expiry is still ahead. A renewal writes false. */
+  willNotRenew?: boolean;
   store: StoreName;
   originalId: string;
   updatedAt: number;
@@ -72,6 +76,7 @@ export function knownPurchase(purchase: VerifiedPurchase): boolean {
 function row(purchase: VerifiedPurchase, key: string, active: boolean, now: number): EntitlementRow {
   const value: EntitlementRow = {
     active,
+    willNotRenew: purchase.willNotRenew === true,
     store: purchase.store,
     originalId: key,
     updatedAt: now,
@@ -200,6 +205,7 @@ export function entitlementRows(value: unknown): Record<string, EntitlementRow> 
     rows[id] = {
       active: record.active === true,
       expiresAt: typeof record.expiresAt === 'number' ? record.expiresAt : undefined,
+      willNotRenew: record.willNotRenew === true,
       store: record.store,
       originalId: record.originalId,
       updatedAt: typeof record.updatedAt === 'number' ? record.updatedAt : 0,
@@ -231,13 +237,14 @@ export function proofRecordOf(value: unknown): ProofRecord | null {
 
 function rowStillActive(id: string, row: EntitlementRow, now: number): boolean {
   if (!row.active) return false;
-  if (!subscriptionProducts.has(id) || row.expiresAt == null) return true;
-  return purchaseActive({ revoked: false, expiresAt: row.expiresAt }, now);
+  if (!subscriptionProducts.has(id)) return true;
+  if (row.willNotRenew === true && row.expiresAt != null && row.expiresAt <= now) return false;
+  return true;
 }
 
-/// Product ids the server has checked and still considers active.
-/// A subscription with expiresAt counts only while that time is still ahead.
-/// A missing expiresAt stays on the active flag, same as purchaseActive.
+/// Product ids that still grant. `active` is the grant, including a renewal
+/// whose expiry has passed and has not been cleared yet. A plan that will
+/// not renew ends at its stored expiry.
 export function activeEntitlementIds(user: Record<string, unknown> | null, now = Date.now()): string[] {
   if (!user) return [];
   return Object.entries(entitlementRows(user.entitlements))

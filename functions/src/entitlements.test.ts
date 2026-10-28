@@ -9,7 +9,7 @@ import {
   type EntitlementRow,
   type VerifiedPurchase,
 } from './entitlements';
-import { grantPurchase, releaseStorePurchases, type EntitlementDb } from './store_handlers';
+import { grantPurchase, refreshAccountProofs, releaseStorePurchases, type EntitlementDb } from './store_handlers';
 import { storeAccountToken } from './store_account';
 
 const now = Date.parse('2026-10-06T12:00:00Z');
@@ -186,10 +186,11 @@ function putPath(root: Record<string, unknown>, path: string, value: unknown): v
   cursor[parts[parts.length - 1]] = value;
 }
 
-test('a subscription counts only while expiresAt is ahead', () => {
-  const row = (expiresAt?: number, active = true): EntitlementRow => ({
+test('a renewal follows the active flag and a canceled plan ends at its expiry', () => {
+  const row = (expiresAt?: number, active = true, willNotRenew = false): EntitlementRow => ({
     active,
     ...(expiresAt == null ? {} : { expiresAt }),
+    ...(willNotRenew ? { willNotRenew: true } : {}),
     store: 'app_store',
     originalId: 'app_store_1000',
     updatedAt: now,
@@ -198,11 +199,16 @@ test('a subscription counts only while expiresAt is ahead', () => {
     entitlements: { products: { [id]: value } },
   });
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now + 1)), now), ['field_guide_yearly']);
-  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now)), now), []);
-  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now - 1)), now), []);
+  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now)), now), ['field_guide_yearly']);
+  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now - 3_600_000)), now), ['field_guide_yearly']);
+  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now + 1, true, true)), now), ['field_guide_yearly']);
+  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now, true, true)), now), []);
+  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now - 1, true, true)), now), []);
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row()), now), ['field_guide_yearly']);
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now + 1, false)), now), []);
-  assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now - 1)), now), false);
+  assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now - 1)), now), true);
+  assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now - 1, true, true)), now), false);
+  assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now + 1, true, true)), now), true);
   assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now + 1)), now), true);
   assert.equal(hasUnlimitedNames(user('shrooms_field_guide_yearly', row(now + 1)), now), true);
   assert.equal(hasUnlimitedNames(user('search_by_photo', row(now + 1)), now), false);
@@ -300,4 +306,88 @@ test('two concurrent claims of a token-less receipt cannot both win', async () =
   assert.ok(users[owner]?.entitlements);
   const other = owner === uid ? 'user-2' : uid;
   assert.equal(users[other]?.entitlements, undefined);
+});
+
+type StoredRow = { active?: boolean; willNotRenew?: boolean; expiresAt?: number };
+
+function storedProduct(db: { tree: Record<string, unknown> }, owner: string, productId: string): StoredRow {
+  const users = db.tree.users as Record<string, { entitlements?: { products?: Record<string, StoredRow> } }>;
+  return users[owner]?.entitlements?.products?.[productId] ?? {};
+}
+
+test('a stored token is read again and an unverified lookup is not a cancel', async () => {
+  const db = memoryDb();
+  const purchase = yearly({
+    store: 'play',
+    token: 'play-token-1',
+    productId: 'field_guide_monthly',
+    accountToken: token,
+  });
+  const granted = await grantPurchase(db, uid, purchase, now);
+  assert.equal('products' in granted && granted.products.field_guide_monthly, true);
+  await grantPurchase(
+    db,
+    'user-2',
+    yearly({
+      store: 'play',
+      token: 'play-token-2',
+      productId: 'field_guide_yearly',
+      accountToken: storeAccountToken('user-2'),
+    }),
+    now,
+  );
+
+  let seen = '';
+  let calls = 0;
+  const unknown = await refreshAccountProofs(db, uid, now + 1, async (proof) => {
+    calls += 1;
+    seen = proof.token;
+    return { status: 'unknown' };
+  });
+  assert.equal(calls, 1);
+  assert.equal(seen, 'play-token-1');
+  assert.equal(unknown.retry, true);
+  assert.deepEqual(unknown.products, {});
+  assert.equal(storedProduct(db, uid, 'field_guide_monthly').active, true);
+
+  const unavailable = await refreshAccountProofs(db, uid, now + 1, async () => {
+    throw new Error('play down');
+  });
+  assert.equal(unavailable.retry, true);
+  assert.equal(storedProduct(db, uid, 'field_guide_monthly').active, true);
+
+  const ending = await refreshAccountProofs(db, uid, now + 2, async () => ({
+    status: 'verified',
+    purchase: yearly({
+      store: 'play',
+      token: 'play-token-1',
+      productId: 'field_guide_monthly',
+      expiresAt: now + 300_000,
+      revoked: false,
+      willNotRenew: true,
+      accountToken: token,
+    }),
+  }));
+  assert.equal(ending.retry, false);
+  assert.equal(ending.products.field_guide_monthly, true);
+  assert.equal(storedProduct(db, uid, 'field_guide_monthly').willNotRenew, true);
+  assert.equal(storedProduct(db, uid, 'field_guide_monthly').expiresAt, now + 300_000);
+  assert.equal(storedProduct(db, 'user-2', 'field_guide_yearly').active, true);
+
+  const ended = await refreshAccountProofs(db, uid, now + 3, async () => ({
+    status: 'verified',
+    purchase: yearly({
+      store: 'play',
+      token: 'play-token-1',
+      productId: 'field_guide_monthly',
+      expiresAt: now - 1,
+      revoked: true,
+      willNotRenew: false,
+      accountToken: token,
+    }),
+  }));
+  assert.equal(ended.retry, false);
+  assert.equal(ended.products.field_guide_monthly, false);
+  assert.equal(storedProduct(db, uid, 'field_guide_monthly').active, false);
+  assert.equal(storedProduct(db, uid, 'field_guide_monthly').willNotRenew, false);
 });

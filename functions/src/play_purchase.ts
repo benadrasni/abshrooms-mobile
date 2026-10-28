@@ -10,6 +10,8 @@ export type PlayPurchase = {
   productId: string;
   expiresAt: number | null;
   revoked: boolean;
+  /** Play CANCELED while expiryTime is still ahead. A later renewal omits it. */
+  willNotRenew: boolean;
   obfuscatedAccountId: string | null;
   subscription: boolean;
 };
@@ -30,9 +32,18 @@ function obfuscatedAccount(record: Record<string, unknown>): string | null {
   return typeof direct === 'string' && direct.length > 0 ? direct : null;
 }
 
-/// Subscriptions v2. A canceled plan stays active until its expiry.
-/// A Play license test grants while that subscription is active, so a tester
-/// sees Field Guide on the phone. Expiry and a held or paused plan do not.
+/// How long an in-progress renewal keeps its grant after expiryTime.
+/// Anchored to that expiry, so a later check does not push it forward.
+/// Only SUBSCRIPTION_STATE_ACTIVE and SUBSCRIPTION_STATE_IN_GRACE_PERIOD
+/// use it. A canceled or expired plan is not held.
+export const playRenewalHoldMs = 15 * 60 * 1000;
+
+/// Subscriptions v2. A canceled plan stays active until expiryTime and is
+/// marked will-not-renew. Once that time has passed, or Play says expired,
+/// the grant ends immediately. Active and in-grace plans stay granted for
+/// [playRenewalHoldMs] after expiryTime. A held or paused state does not
+/// grant. testPurchase means the tester was not charged. It does not end a
+/// period Play still says is open. A license test follows the same states.
 export function playSubscription(body: unknown, now: number): PlayPurchase | null {
   if (!body || typeof body !== 'object') return null;
   const record = body as Record<string, unknown>;
@@ -49,11 +60,19 @@ export function playSubscription(body: unknown, now: number): PlayPurchase | nul
     if (!best || expiresAt > best.expiresAt) best = { productId: row.productId, expiresAt };
   }
   if (!best) return null;
+  const renewing =
+    state === 'SUBSCRIPTION_STATE_ACTIVE' ||
+    state === 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD';
+  const canceled = state === 'SUBSCRIPTION_STATE_CANCELED';
+  const lapsed = best.expiresAt <= now;
+  const heldUntil = best.expiresAt + playRenewalHoldMs;
+  const inHold = renewing && lapsed && heldUntil > now;
   const stateActive = activeSubscriptionStates.has(state);
   return {
     productId: best.productId,
-    expiresAt: best.expiresAt,
-    revoked: !stateActive || best.expiresAt <= now,
+    expiresAt: inHold ? heldUntil : best.expiresAt,
+    revoked: inHold ? false : !stateActive || lapsed,
+    willNotRenew: canceled && !lapsed,
     obfuscatedAccountId: obfuscatedAccount(record),
     subscription: true,
   };
@@ -71,6 +90,7 @@ export function playOneTime(body: unknown, productId: string): PlayPurchase | nu
     productId,
     expiresAt: null,
     revoked: state === 1 || playLicenseTest(record),
+    willNotRenew: false,
     obfuscatedAccountId: obfuscatedAccount(record),
     subscription: false,
   };

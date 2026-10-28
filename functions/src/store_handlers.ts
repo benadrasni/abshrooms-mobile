@@ -135,6 +135,43 @@ export async function subscriptionProofs(db: EntitlementDb): Promise<ProofRecord
   return proofs;
 }
 
+export type ProofLookup =
+  | { status: 'verified'; purchase: VerifiedPurchase }
+  | { status: 'unknown' }
+  | { status: 'unavailable' };
+
+/// Re-reads this account's stored subscription tokens. A verified result is
+/// written. An unknown or unavailable lookup is left unchanged and reported
+/// as retry, so a failed Play read is not stored as a cancellation.
+export async function refreshAccountProofs(
+  db: EntitlementDb,
+  uid: string,
+  now: number,
+  lookup: (proof: ProofRecord) => Promise<ProofLookup>,
+): Promise<{ products: Record<string, boolean>; retry: boolean }> {
+  const products: Record<string, boolean> = {};
+  let retry = false;
+  for (const proof of await subscriptionProofs(db)) {
+    if (proof.uid !== uid) continue;
+    try {
+      const fetched = await lookup(proof);
+      if (fetched.status !== 'verified') {
+        retry = true;
+        continue;
+      }
+      const result = await grantPurchase(db, uid, fetched.purchase, now);
+      if ('error' in result) {
+        retry = true;
+        continue;
+      }
+      Object.assign(products, result.products);
+    } catch {
+      retry = true;
+    }
+  }
+  return { products, retry };
+}
+
 export type AppleNotice = { kind: 'transaction'; purchase: VerifiedPurchase } | { kind: 'ignore' } | { kind: 'bad' };
 
 export function appleNotice(

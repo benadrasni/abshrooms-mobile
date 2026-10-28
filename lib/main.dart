@@ -62,8 +62,8 @@ Future<void> _boot() async {
   runApp(_Startup(plate: plate));
 }
 
-/// The system launch screen already shows the plate. The landing is drawn
-/// underneath, and the plate fades away only after that screen is loaded.
+/// Android 12 shows the launcher icon first. This plate is the next frame.
+/// The landing is drawn underneath, and the plate fades only after it loads.
 class _Startup extends StatefulWidget {
   const _Startup({required this.plate});
 
@@ -241,6 +241,8 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     unawaited(_checkVersion());
+    Entitlements.applyIfLoaded();
+    unawaited(Entitlements.recheckIfDue(force: true));
   }
 
   /// A failed read keeps a remembered floor closed. The shell only shows
