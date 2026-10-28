@@ -14,6 +14,8 @@ import 'package:whats_that_mushroom/purchase/store_proof.dart';
 class Entitlements {
   static StreamSubscription<User?>? _authSub;
   static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
+  static Timer? _expiry;
+  static Object? _user;
   static String? _uid;
 
   static void start() {
@@ -43,11 +45,8 @@ class Entitlements {
     _docSub = FirebaseFirestore.instance.collection('users').doc(uid).snapshots().listen(
       (snapshot) {
         if (_uid != uid) return;
-        final raw = snapshot.data();
-        final parsed = accountEntitlementsOf(raw);
-        if (!watch.shouldApply(parsed)) return;
-        applyAccountEntitlements(parsed);
-        Auth.syncAnalytics();
+        _user = snapshot.data();
+        _apply(watch);
       },
       onError: (Object error) {
         debugPrint('entitlements: $error');
@@ -55,7 +54,35 @@ class Entitlements {
     );
   }
 
+  /// The plants guide rewrites `active` from the store. This guide also
+  /// follows [expiresAt] on the open account, so a canceled plan leaves
+  /// the page when that time passes and Firestore has not written again.
+  static void _apply(EntitlementWatch watch) {
+    final parsed = accountEntitlementsOf(_user);
+    if (!watch.shouldApply(parsed)) return;
+    applyAccountEntitlements(parsed);
+    Auth.syncAnalytics();
+    _armExpiry(watch);
+  }
+
+  static void _armExpiry(EntitlementWatch watch) {
+    _expiry?.cancel();
+    _expiry = null;
+    final when = nextFieldGuideExpiry(_user, DateTime.now());
+    if (when == null) return;
+    var delay = when.difference(DateTime.now());
+    if (delay > entitlementExpiryWait) delay = entitlementExpiryWait;
+    if (delay < Duration.zero) delay = Duration.zero;
+    _expiry = Timer(delay, () {
+      if (_uid == null) return;
+      _apply(watch);
+    });
+  }
+
   static void _stopDoc() {
+    _expiry?.cancel();
+    _expiry = null;
+    _user = null;
     final sub = _docSub;
     _docSub = null;
     if (sub != null) unawaited(sub.cancel());

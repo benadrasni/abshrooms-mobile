@@ -77,6 +77,31 @@ void main() {
     expect(Purchases.hasFieldGuide(), isFalse);
   });
 
+  test('the next Field Guide expiry is the soonest time still ahead', () {
+    const now = 1_700_000_000_000;
+    final clock = DateTime.fromMillisecondsSinceEpoch(now);
+    final when = nextFieldGuideExpiry({
+      'entitlements': {
+        'products': {
+          'field_guide_yearly': {'active': true, 'expiresAt': now + 5_000},
+          'field_guide_monthly': {'active': true, 'expiresAt': now + 1_000},
+          'shrooms_field_guide_yearly': {'active': false, 'expiresAt': now + 1},
+        },
+      },
+    }, clock);
+    expect(when?.millisecondsSinceEpoch, now + 1_000);
+    expect(
+      nextFieldGuideExpiry({
+        'entitlements': {
+          'products': {
+            'field_guide_monthly': {'active': true, 'expiresAt': now},
+          },
+        },
+      }, clock),
+      isNull,
+    );
+  });
+
   test('an expired subscription is not active', () {
     const now = 1_700_000_000_000;
     final clock = DateTime.fromMillisecondsSinceEpoch(now);

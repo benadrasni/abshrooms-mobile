@@ -20,6 +20,38 @@ class EntitlementWatch {
   }
 }
 
+/// The soonest Field Guide expiry still ahead of [now]. Person and Field
+/// Guide drop the plan then, without waiting for another account write.
+/// A yearly plan is rechecked within [entitlementExpiryWait].
+const entitlementExpiryWait = Duration(hours: 12);
+
+DateTime? nextFieldGuideExpiry(Object? userValue, DateTime now) {
+  if (userValue is! Map) return null;
+  final node = userValue['entitlements'];
+  if (node is! Map) return null;
+  final raw = node['products'];
+  if (raw is! Map) return null;
+  final nowMs = now.millisecondsSinceEpoch;
+  var found = false;
+  var soonest = 0;
+  raw.forEach((key, value) {
+    if (key is! String || !FieldGuideIds.isFieldGuide(key) || value is! Map) {
+      return;
+    }
+    if (value['active'] != true) return;
+    final expiresAt = value['expiresAt'];
+    if (expiresAt is! num) return;
+    final at = expiresAt.toInt();
+    if (at <= nowMs) return;
+    if (!found || at < soonest) {
+      found = true;
+      soonest = at;
+    }
+  });
+  if (!found) return null;
+  return DateTime.fromMillisecondsSinceEpoch(soonest);
+}
+
 /// A checked product is on only while the server still counts it.
 /// Subscriptions follow [expiresAt], same as `hasUnlimitedNames`: a missing
 /// expiry stays on the active flag, and the expiry instant itself is off.

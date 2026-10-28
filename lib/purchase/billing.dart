@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,35 +16,6 @@ const appleListing = 'https://apps.apple.com/app/id6826707489';
 const playListing =
     'https://play.google.com/store/apps/details?id=sk.ab.shrooms';
 const playMarket = 'market://details?id=sk.ab.shrooms';
-
-const storeRestoreKey = 'store_restore_done';
-
-/// Restores on the first launch. A thrown store call still marks it done,
-/// so a later cold start does not try again. An explicit restore is
-/// [restoreFieldGuidePurchases].
-Future<void> restoreOnFirstLaunch({
-  required Future<void> Function() restorePurchases,
-  Future<SharedPreferences> Function()? preferences,
-}) async {
-  final SharedPreferences prefs;
-  try {
-    prefs = await (preferences ?? SharedPreferences.getInstance)();
-  } catch (error) {
-    debugPrint('restore: $error');
-    return;
-  }
-  if (prefs.getBool(storeRestoreKey) ?? false) return;
-  try {
-    await restorePurchases();
-  } catch (error) {
-    debugPrint('restore: $error');
-  }
-  try {
-    await prefs.setBool(storeRestoreKey, true);
-  } catch (error) {
-    debugPrint('restore: $error');
-  }
-}
 
 /// Store listing used by Rate this app.
 String writeReviewUrl(TargetPlatform platform) {
@@ -88,9 +58,13 @@ class FieldGuideBilling {
     );
     final available = await store.isAvailable();
     if (!available) return;
-    await restoreOnFirstLaunch(
-      restorePurchases: () => store.restorePurchases(),
-    );
+    // Plants asks the store on every launch. A canceled plan is sent again,
+    // and the account write is what takes Subscribed off the page.
+    try {
+      await store.restorePurchases();
+    } catch (error) {
+      debugPrint('restore: $error');
+    }
   }
 
   Future<void> dispose() async {
