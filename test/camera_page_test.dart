@@ -326,10 +326,7 @@ void main() {
     await _open(tester, identify: (_, _) async => const []);
     await tester.tap(find.byKey(const Key('guide-camera-shutter')));
     await tester.pumpAndSettle();
-    expect(
-      find.text("This photo didn't count. 1 name left."),
-      findsOneWidget,
-    );
+    expect(find.text("This photo didn't count. 1 name left."), findsOneWidget);
     expect(find.text('1 name left'), findsWidgets);
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
@@ -402,6 +399,35 @@ void main() {
     expect(find.text('No names left'), findsOneWidget);
     expect(find.text('Watch a short ad'), findsOneWidget);
     expect(find.text('The photo could not be named.'), findsNothing);
+  });
+
+  testWidgets('a later name grant closes the limit sheet', (tester) async {
+    await _open(
+      tester,
+      signedIn: true,
+      onWatchAd: () async {},
+      identify: (_, _) async {
+        Names.setForTest(used: 5);
+        throw const NameRefused('no-names');
+      },
+    );
+    await tester.tap(find.byKey(const Key('guide-camera-shutter')));
+    await tester.pumpAndSettle();
+    expect(find.text('No names left'), findsOneWidget);
+
+    Names.applyServer(
+      signedIn: true,
+      charged: false,
+      anonymousFreeUsed: false,
+      namesUsed: 5,
+      adGrants: 1,
+      fromPhoto: false,
+    );
+    await tester.pump();
+
+    expect(find.text('No names left'), findsNothing);
+    expect(find.text('1 name left'), findsOneWidget);
+    expect(Names.count.adGrants, 1);
   });
 
   testWidgets('a photo that is too soon asks to wait', (tester) async {

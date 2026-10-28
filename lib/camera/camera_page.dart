@@ -139,7 +139,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       _adLoading = false;
     }
     _ensureAd();
-    setState(() {});
+    setState(() {
+      // A late admobReward still moves the meter. The sheet can leave
+      // without another identify call.
+      if (_limit && _canName) _limit = false;
+    });
   }
 
   @override
