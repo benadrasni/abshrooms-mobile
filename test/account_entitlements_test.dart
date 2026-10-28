@@ -42,6 +42,15 @@ void main() {
     },
   );
 
+  test('a purchase just made shows before the server answers', () {
+    Purchases.grantStorePurchase('not-a-plan');
+    expect(Purchases.hasFieldGuide(), isFalse);
+    Purchases.grantStorePurchase(fieldGuideMonthlyPlay);
+    expect(Purchases.hasFieldGuide(), isTrue);
+    Purchases.revokeStorePurchase(fieldGuideMonthlyPlay);
+    expect(Purchases.hasFieldGuide(), isFalse);
+  });
+
   test('an account plan is not a receipt on this phone', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

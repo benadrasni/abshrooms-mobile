@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -195,6 +196,46 @@ void main() {
     expect(find.text('You already have Field Guide.'), findsOneWidget);
     expect(find.text('Subscribed'), findsWidgets);
     expect(find.text('Start 7 days free'), findsNothing);
+  });
+
+  testWidgets('a purchase shows subscribed before the server answers', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    try {
+      await tester.pumpWidget(
+        _host(
+          FieldGuidePage(
+            plate: (_) => const SizedBox.shrink(),
+            load: () async => FieldGuideLoaded(
+              catalog: fieldGuideCatalog(
+                ids: ids,
+                storeAvailable: true,
+                yearlyPrice: r'$24.99',
+                monthlyPrice: r'$2.99',
+                owned: const {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Start 7 days free'), findsOneWidget);
+
+      Purchases.grantStorePurchase(ids.yearly);
+      await tester.pump();
+      expect(find.text('Subscribed'), findsWidgets);
+
+      Purchases.revokeStorePurchase(ids.yearly);
+      await tester.pump();
+      expect(find.text('Start 7 days free'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('a monthly plan opens with yearly selected', (tester) async {

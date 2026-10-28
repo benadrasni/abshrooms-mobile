@@ -94,6 +94,18 @@ class Purchases {
     replaceAccountProducts(<String>{});
   }
 
+  /// A purchase just made. The page can show it before the server answers.
+  static void grantStorePurchase(String id) {
+    if (!FieldGuideIds.isFieldGuide(id)) return;
+    replaceAccountProducts({...accountProducts, id});
+  }
+
+  /// The server did not accept [grantStorePurchase].
+  static void revokeStorePurchase(String id) {
+    if (!accountProducts.contains(id)) return;
+    replaceAccountProducts(Set<String>.of(accountProducts)..remove(id));
+  }
+
   /// The in-memory store receipt changed. The grant did not.
   static void noteStoreReceipt() {
     revision.value++;

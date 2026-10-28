@@ -94,21 +94,24 @@ class FieldGuideBilling {
   }
 
   Future<void> _confirm(PurchaseDetails purchase) async {
-    final outcome = await submitStorePurchase(purchase);
     final id = purchase.productID;
+    final bought = purchase.status == PurchaseStatus.purchased;
+    // Plants flips the page when the store purchase arrives. The check still
+    // runs, and a refusal takes the plan back off. A restore waits for it,
+    // so a canceled plan does not flash on launch.
+    if (bought) Purchases.grantStorePurchase(id);
+    final outcome = await submitStorePurchase(purchase);
     final confirmed =
         outcome.result == StoreProofResult.accepted &&
         outcome.products[id] == true;
     if (confirmed) {
       Purchases.purchases[id] = purchase;
       Purchases.noteStoreReceipt();
-      if (purchase.status == PurchaseStatus.purchased) {
-        unawaited(GuideAnalytics.purchase(id));
-      }
+      if (bought) unawaited(GuideAnalytics.purchase(id));
       return;
     }
-    if (purchase.status != PurchaseStatus.purchased ||
-        outcome.result == StoreProofResult.deferred) {
+    if (bought) Purchases.revokeStorePurchase(id);
+    if (!bought || outcome.result == StoreProofResult.deferred) {
       return;
     }
     Purchases.noteFailure();
