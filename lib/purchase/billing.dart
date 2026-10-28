@@ -13,6 +13,7 @@ import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 
 const appleWriteReview =
     'https://apps.apple.com/app/id6826707489?action=write-review';
+const appleListing = 'https://apps.apple.com/app/id6826707489';
 const playListing =
     'https://play.google.com/store/apps/details?id=sk.ab.shrooms';
 const playMarket = 'market://details?id=sk.ab.shrooms';

@@ -25,6 +25,8 @@ import 'package:whats_that_mushroom/purchase/billing.dart';
 import 'package:whats_that_mushroom/purchase/entitlements.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/app_check.dart';
+import 'package:whats_that_mushroom/shell/app_version.dart';
+import 'package:whats_that_mushroom/shell/app_version_check.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/guide_links.dart';
@@ -34,6 +36,7 @@ import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/shell.dart';
 import 'package:whats_that_mushroom/shell/splash_plate.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
+import 'package:whats_that_mushroom/shell/version_gate.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
 
 void main() {
@@ -101,6 +104,7 @@ class _StartupState extends State<_Startup>
       FirebaseFirestore.instance.settings = const Settings(
         persistenceEnabled: true,
       );
+      await applyRememberedVersionBlock();
       await Auth.startGuest();
       Entitlements.start();
       Auth.syncAnalytics();
@@ -189,8 +193,12 @@ class GuideApp extends StatefulWidget {
   State<GuideApp> createState() => _GuideAppState();
 }
 
-class _GuideAppState extends State<GuideApp> {
+class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
   var _tab = 0;
+  VersionPrompt _versionPrompt = VersionPrompt.none;
+  int? _storeBuild;
+  var _dismissedStore = 0;
+  var _versionBusy = false;
   Future<void>? _curatedLists;
   final _billing = FieldGuideBilling();
   final _navigatorKey = GlobalKey<NavigatorState>();
@@ -225,6 +233,60 @@ class _GuideAppState extends State<GuideApp> {
     unawaited(_startAds());
     unawaited(_push.start());
     _listenForSharedLinks();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_checkVersion());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    unawaited(_checkVersion());
+  }
+
+  /// A failed read keeps a remembered floor closed. The shell only shows
+  /// the soft banner. The hard page is drawn over the navigator.
+  Future<void> _checkVersion() async {
+    if (_versionBusy) return;
+    _versionBusy = true;
+    try {
+      final build = await readAppBuildNumber();
+      if (!mounted) return;
+      final facts = await readFreshVersionFacts(build);
+      final fresh = decideVersion(facts);
+      await persistVersionDecision(fresh, cacheFloor: facts.fetchedFloor);
+      VersionGateController.instance.apply(
+        fresh.prompt == VersionPrompt.block
+            ? VersionPrompt.block
+            : VersionPrompt.none,
+      );
+      if (!mounted) return;
+      var prompt = fresh.prompt == VersionPrompt.block
+          ? VersionPrompt.none
+          : fresh.prompt;
+      final store = fresh.storeBuild;
+      if (prompt == VersionPrompt.banner &&
+          store != null &&
+          store == _dismissedStore) {
+        prompt = VersionPrompt.none;
+      }
+      setState(() {
+        _versionPrompt = prompt;
+        _storeBuild = store;
+      });
+    } catch (error) {
+      debugPrint('version check: $error');
+    } finally {
+      _versionBusy = false;
+    }
+  }
+
+  void _dismissVersionBanner() {
+    final store = _storeBuild;
+    if (store != null) {
+      _dismissedStore = store;
+      unawaited(rememberDismissedStore(store));
+    }
+    setState(() => _versionPrompt = VersionPrompt.none);
   }
 
   /// A shared encyclopedia URL opens that species. Cold start is the initial
@@ -347,6 +409,7 @@ class _GuideAppState extends State<GuideApp> {
     widget.settings.removeListener(_onSettings);
     widget.notebook.removeListener(_onNotebook);
     Purchases.revision.removeListener(_syncAnalytics);
+    WidgetsBinding.instance.removeObserver(this);
     _push.dispose();
     _sharedLinks?.cancel();
     unawaited(_billing.dispose());
@@ -419,6 +482,38 @@ class _GuideAppState extends State<GuideApp> {
         navigatorKey: _navigatorKey,
         title: copy.app,
         debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          return ListenableBuilder(
+            listenable: VersionGateController.instance,
+            builder: (context, navigator) {
+              final blocked =
+                  VersionGateController.instance.prompt == VersionPrompt.block;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  IgnorePointer(
+                    ignoring: blocked,
+                    child: ExcludeFocus(
+                      excluding: blocked,
+                      child: ExcludeSemantics(
+                        excluding: blocked,
+                        child: navigator ?? const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                  if (blocked)
+                    Positioned.fill(
+                      child: VersionRequiredPage(
+                        copy: GuideScope.of(context).copy,
+                        onUpdate: () => openAppUpdate(requiredUpdate: true),
+                      ),
+                    ),
+                ],
+              );
+            },
+            child: child,
+          );
+        },
         theme: guideTheme(Brightness.light),
         darkTheme: guideTheme(Brightness.dark),
         themeMode: widget.settings.themeMode,
@@ -468,7 +563,14 @@ class _GuideAppState extends State<GuideApp> {
         navigatorObservers: [
           GuideAnalyticsObserver(shellName: () => guideAnalyticsTab(_tab)),
         ],
-        home: GuideShell(index: _tab, onSelect: _selectTab),
+        home: GuideShell(
+          index: _tab,
+          onSelect: _selectTab,
+          versionPrompt: _versionPrompt,
+          onVersionUpdate: () =>
+              unawaited(openAppUpdate(requiredUpdate: false)),
+          onVersionDismiss: _dismissVersionBanner,
+        ),
       ),
     );
   }
