@@ -111,7 +111,8 @@
           "year": 2015
         },
         {
-          "name": "Lepista saeva",
+          "name": "Collybia personata",
+          "speciesId": 79,
           "year": 2016
         },
         {
@@ -501,6 +502,7 @@
         },
         {
           "name": "Collybia personata",
+          "speciesId": 79,
           "year": 2016
         },
         {

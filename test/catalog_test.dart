@@ -200,13 +200,17 @@ void main() {
     );
   });
 
-  test('the bundled key has 66 species and Boletus edulis has tubes', () async {
+  test('the bundled key has 67 species and Boletus edulis has tubes', () async {
     final key = await loadKeyAsset();
-    expect(key.length, 66);
+    expect(key.length, 67);
     expect(key['Boletus edulis']?.hymenium, 'tubes');
     expect(key['Boletus edulis']?.where, ['ground']);
     expect(key['Boletus edulis']?.added, '2026-10-22');
     expect(key['Amanita muscaria']?.color, ['red', 'yellow']);
+    expect(key['Collybia personata']?.hymenium, 'gills');
+    expect(key['Collybia personata']?.where, ['grass', 'ground']);
+    expect(key['Collybia personata']?.color, ['white', 'brown', 'dark', 'purple']);
+    expect(key['Collybia personata']?.added, '2026-10-27');
     expect(key.values.where((row) => row.hymenium.isEmpty), isEmpty);
     expect(key.values.where((row) => addedDate(row.added) == null), isEmpty);
   });

@@ -750,5 +750,19 @@
       "yellow"
     ],
     "added": "2026-10-27"
+  },
+  "Collybia personata": {
+    "hymenium": "gills",
+    "where": [
+      "grass",
+      "ground"
+    ],
+    "color": [
+      "white",
+      "brown",
+      "dark",
+      "purple"
+    ],
+    "added": "2026-10-27"
   }
 }

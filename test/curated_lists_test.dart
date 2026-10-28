@@ -44,6 +44,7 @@ const _catalogIds = {
   'Auricularia auricula-judae': 43,
   'Tricholoma equestre': 47,
   'Calvatia gigantea': 52,
+  'Collybia personata': 79,
 };
 
 Catalog _catalog({String photoFor = ''}) {
@@ -147,6 +148,7 @@ void main() {
         '2019||Amanita phalloides',
         '2018||Agaricus campestris',
         '2017||Auricularia auricula-judae',
+        '2016||Collybia personata',
         '2015||Artomyces pyxidatus',
         '1999||Rubroboletus satanas',
         '1997||Russula cyanoxantha',
@@ -334,7 +336,9 @@ void main() {
       ),
     );
     expect(find.text('Mushroom of the Year — Germany'), findsOneWidget);
-    expect(find.textContaining('12 mushrooms'), findsOneWidget);
+    expect(find.textContaining('13 mushrooms'), findsOneWidget);
+    expect(find.text('2016'), findsOneWidget);
+    expect(find.text('Collybia personata'), findsOneWidget);
     expect(find.text('dgfm-ev.de ↗'), findsOneWidget);
     expect(find.text('2024'), findsOneWidget);
     expect(find.text('Coprinus comatus'), findsOneWidget);
