@@ -3,11 +3,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// Boletus reticulatus plate shown while the guide starts.
+/// Boletus reticulatus plate shown after the launcher icon.
 ///
 /// The mushrooms sit on flat paper. The plate's dark edge is not
-/// part of the picture, so it does not show as a frame. The system
-/// launch screens use this same sheet.
+/// part of the picture, so it does not show as a frame. Android 12
+/// shows the app icon on this paper first. iOS opens on this sheet.
 class SplashPlate extends StatelessWidget {
   const SplashPlate({super.key, this.image});
 
