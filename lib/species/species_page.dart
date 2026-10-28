@@ -14,6 +14,7 @@ import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/guide_links.dart';
+import 'package:whats_that_mushroom/shell/review_prompt.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/seen/species_sightings.dart';
@@ -60,6 +61,7 @@ class SpeciesPage extends StatefulWidget {
 class _SpeciesPageState extends State<SpeciesPage> {
   final Map<String, GlobalKey> _sectionKeys = {};
   var _saving = false;
+  var _namedNoted = false;
   List<SpeciesSighting> _sightings = const [];
   var _sightingsReady = false;
   var _sightingsFailed = false;
@@ -69,6 +71,34 @@ class _SpeciesPageState extends State<SpeciesPage> {
     super.initState();
     unawaited(GuideAnalytics.mushroom(widget.latin, source: widget.source));
     unawaited(_loadSightings());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _noteNamed();
+  }
+
+  /// The page is still the one on screen. A mushroom pushed on top, or a
+  /// page the person already left, is not a place for the sheet.
+  bool _reviewStillHere() {
+    if (!mounted) return false;
+    final route = ModalRoute.of(context);
+    return route?.isCurrent ?? false;
+  }
+
+  /// A named photo stays on this page. The sheet waits out the pause, and
+  /// only if the page is still the one on screen.
+  void _noteNamed() {
+    if (_namedNoted) return;
+    if (widget.source != GuideMushroomSource.photo &&
+        widget.source != GuideMushroomSource.outside) {
+      return;
+    }
+    final species = GuideScope.of(context).catalog.data?.byName(widget.latin);
+    if (species == null) return;
+    _namedNoted = true;
+    unawaited(ReviewPrompt.note(stillHere: _reviewStillHere));
   }
 
   Future<void> _loadSightings() async {
@@ -407,6 +437,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
           content: Text(photo.fromPhoto ? copy.addedSeenPhoto : copy.addedSeen),
         ),
       );
+      unawaited(ReviewPrompt.note(stillHere: _reviewStillHere));
     } catch (error) {
       debugPrint('add seen ${widget.latin}: $error');
       _showFailure();

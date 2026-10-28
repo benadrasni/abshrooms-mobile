@@ -10,6 +10,7 @@ import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/find/key_glyph.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
+import 'package:whats_that_mushroom/shell/review_prompt.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
@@ -660,7 +661,23 @@ class _ResultsPageState extends State<ResultsPage> {
   late KeySelection _selection = widget.selection;
   var _seasonOpen = false;
   var _plates = false;
+  var _reviewNoted = false;
   String? _filterStamp;
+
+  /// The page is still the one on screen. A mushroom pushed on top, or a
+  /// page the person already left, is not a place for the sheet.
+  bool _reviewStillHere() {
+    if (!mounted) return false;
+    final route = ModalRoute.of(context);
+    return route?.isCurrent ?? false;
+  }
+
+  /// The key's list is on screen. An empty list is not a finished key.
+  void _noteKeySuccess(int count) {
+    if (_reviewNoted || count <= 0) return;
+    _reviewNoted = true;
+    unawaited(ReviewPrompt.note(stillHere: _reviewStillHere));
+  }
 
   void _noteFilter(int count) {
     final stamp =
@@ -708,6 +725,7 @@ class _ResultsPageState extends State<ResultsPage> {
         if (matchesSelection(item, _selection)) item,
     ];
     _noteFilter(matches.length);
+    _noteKeySuccess(matches.length);
     int byName(Species a, Species b) =>
         catalog.compareTitles(catalog.heading(a), catalog.heading(b));
     final now = [
