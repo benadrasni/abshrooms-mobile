@@ -1,5 +1,25 @@
 import 'package:whats_that_mushroom/data/text.dart';
 
+const underChoices = [
+  'gills',
+  'tubes',
+  'ridges',
+  'teeth',
+  'pits',
+  'smooth',
+  'gleba',
+];
+const whereChoices = ['wood', 'ground', 'grass'];
+const colorChoices = [
+  'white',
+  'yellow',
+  'red',
+  'brown',
+  'green',
+  'purple',
+  'dark',
+];
+
 const rankOrder = [
   'kingdom',
   'subkingdom',
@@ -332,9 +352,9 @@ Species speciesFromMap(String id, Map<String, dynamic> data, KeyFacts? key) {
     order: taxonomy['order'] ?? '',
     taxonomy: taxonomy,
     edibility: _blank(data['edibility']) ?? '',
-    hymenium: key?.hymenium ?? '',
-    where: key?.where ?? const [],
-    colors: key?.color ?? const [],
+    hymenium: catalogHymenium(data['hymenium']) ?? key?.hymenium ?? '',
+    where: catalogKeyList(data['where'], whereChoices) ?? key?.where ?? const [],
+    colors: catalogKeyList(data['color'], colorChoices) ?? key?.color ?? const [],
     fruitingFrom: asInt(data['fruitingFrom']),
     fruitingTo: asInt(data['fruitingTo']),
     capFrom: asDouble(data['capWidthFromCm']),
@@ -362,6 +382,25 @@ DateTime? addedDate(String value) {
   final date = DateTime.utc(year, month, day);
   if (date.year != year || date.month != month || date.day != day) return null;
   return date;
+}
+
+/// An allowed underside code on the species document, or null.
+String? catalogHymenium(Object? value) {
+  final text = value?.toString().trim() ?? '';
+  return underChoices.contains(text) ? text : null;
+}
+
+/// Allowed place or cap-colour codes, in stored order. Null when the
+/// field is missing or contains none of [allowed].
+List<String>? catalogKeyList(Object? value, List<String> allowed) {
+  if (value is! List) return null;
+  final out = <String>[];
+  for (final item in value) {
+    final text = item?.toString().trim() ?? '';
+    if (!allowed.contains(text) || out.contains(text)) continue;
+    out.add(text);
+  }
+  return out.isEmpty ? null : out;
 }
 
 /// The catalog day stored on a species document, or null when it is absent

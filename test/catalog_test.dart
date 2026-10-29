@@ -199,9 +199,9 @@ void main() {
     );
   });
 
-  test('the bundled key has 81 species and Boletus edulis has tubes', () async {
+  test('the bundled key has 85 species and Boletus edulis has tubes', () async {
     final key = await loadKeyAsset();
-    expect(key.length, 81);
+    expect(key.length, 85);
     expect(key['Boletus edulis']?.hymenium, 'tubes');
     expect(key['Boletus edulis']?.where, ['ground']);
     expect(key['Boletus edulis']?.added, '2026-10-22');
@@ -248,6 +248,55 @@ void main() {
     expect(day('not-a-date').species.single.added, '2026-10-22');
     expect(day(null).species.single.added, '2026-10-22');
     expect(day('2026-10-28', keyed: false).species.single.added, '2026-10-28');
+  });
+
+  test('the species document key replaces the bundled key', () {
+    Catalog keyed({
+      Object? hymenium = 'smooth',
+      Object? where = const ['ground', 'petal'],
+      Object? color = const ['white'],
+      bool bundled = true,
+    }) {
+      return buildCatalog(
+        language: 'en',
+        speciesDocs: [
+          Doc('Serpula lacrymans', {
+            'name': 'Serpula lacrymans',
+            if (hymenium != null) 'hymenium': hymenium,
+            if (where != null) 'where': where,
+            if (color != null) 'color': color,
+          }),
+        ],
+        local: const {},
+        english: const {},
+        synonyms: const {},
+        taxa: const {},
+        key: bundled
+            ? const {
+                'Serpula lacrymans': KeyFacts(
+                  hymenium: 'pits',
+                  where: ['wood'],
+                  color: ['brown'],
+                ),
+              }
+            : const {},
+      );
+    }
+
+    final replaced = keyed().species.single;
+    expect(replaced.hymenium, 'smooth');
+    expect(replaced.where, ['ground']);
+    expect(replaced.colors, ['white']);
+
+    final fallback = keyed(hymenium: 'pores', where: const [], color: 'brown');
+    expect(fallback.species.single.hymenium, 'pits');
+    expect(fallback.species.single.where, ['wood']);
+    expect(fallback.species.single.colors, ['brown']);
+
+    final stored = keyed(bundled: false).species.single;
+    expect(stored.hymenium, 'smooth');
+    expect(stored.where, ['ground']);
+    expect(stored.colors, ['white']);
   });
 
   test('closed Firestore rules are named as permission-denied', () {

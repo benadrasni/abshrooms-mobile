@@ -1,25 +1,9 @@
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 
-const underChoices = [
-  'gills',
-  'tubes',
-  'ridges',
-  'teeth',
-  'pits',
-  'smooth',
-  'gleba',
-];
-const whereChoices = ['wood', 'ground', 'grass'];
-const colorChoices = [
-  'white',
-  'yellow',
-  'red',
-  'brown',
-  'green',
-  'purple',
-  'dark',
-];
+export 'package:whats_that_mushroom/data/models.dart'
+    show colorChoices, underChoices, whereChoices;
+
 const seasonChoices = ['spring', 'summer', 'autumn', 'winter'];
 
 const seasonMonths = {
