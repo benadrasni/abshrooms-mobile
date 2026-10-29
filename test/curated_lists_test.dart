@@ -83,7 +83,7 @@ CuratedListDoc _doc(String id) {
 List<String> _rows(CuratedListView view) {
   return [
     for (final entry in view.entries)
-      '${entry.year ?? ''}|${entry.region ?? ''}|${entry.species.name}',
+      '${entry.year ?? ''}|${entry.region ?? ''}|${entry.genus ?? entry.species?.name ?? ''}',
   ];
 }
 
@@ -116,6 +116,10 @@ void main() {
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'sk').map((list) => list.id).toList(), [
+        'deadly-poisonous',
+      ]);
+      expect(selectCuratedLists(lists, 'et').map((list) => list.id).toList(), [
+        'mushroom-of-the-year-et',
         'deadly-poisonous',
       ]);
       expect(
@@ -210,6 +214,67 @@ void main() {
       );
     },
   );
+
+  test('a genus row stays a genus and one species supplies the picture', () {
+    final catalog = buildCatalog(
+      language: 'en',
+      speciesDocs: [
+        Doc('Cantharellus cibarius', {
+          'name': 'Cantharellus cibarius',
+          'id': 2,
+          'taxonomy': {'family': 'Hydnaceae', 'genus': 'Cantharellus'},
+          'photoUrls': ['covers/chanterelle.webp'],
+        }),
+        Doc('Boletus edulis', {
+          'name': 'Boletus edulis',
+          'id': 0,
+          'taxonomy': {'family': 'Boletaceae', 'genus': 'Boletus'},
+        }),
+      ],
+      local: const {},
+      english: const {},
+      synonyms: const {},
+      taxa: const {'Cantharellus': 'Chanterelle'},
+    );
+    final view = presentCuratedList(
+      CuratedListDoc.fromJson({
+        'id': 'genus-year',
+        'type': 'year',
+        'titles': {'en': 'Year'},
+        'entries': [
+          {
+            'genus': 'Cantharellus',
+            'name': 'Cantharellus cibarius',
+            'year': 2017,
+          },
+          {'name': 'Boletus edulis', 'year': 2023},
+          {'genus': 'Heterobasidion', 'year': 2025},
+        ],
+      }),
+      catalog,
+      'en',
+      now: now,
+    );
+    expect(_rows(view), [
+      '2025||Heterobasidion',
+      '2023||Boletus edulis',
+      '2017||Cantharellus',
+    ]);
+    final genus = view.entries.firstWhere(
+      (entry) => entry.genus == 'Cantharellus',
+    );
+    expect(genus.title, 'Chanterelle');
+    expect(genus.titleIsLatin, isFalse);
+    expect(genus.species?.name, 'Cantharellus cibarius');
+    expect(genus.opens, isTrue);
+    final missing = view.entries.firstWhere(
+      (entry) => entry.genus == 'Heterobasidion',
+    );
+    expect(missing.species, isNull);
+    expect(missing.titleIsLatin, isTrue);
+    expect(missing.opens, isFalse);
+    expect(view.coverPhotoUrl, mediaUrl('covers/chanterelle.webp'));
+  });
 
   test('a Latin name wins, a bare id still resolves, and both years stay', () {
     final catalog = _catalog();
@@ -346,6 +411,55 @@ void main() {
 
     await tester.tap(find.text('Coprinus comatus'));
     expect(opened, ['Coprinus comatus']);
+
+    final genusCatalog = buildCatalog(
+      language: 'en',
+      speciesDocs: [
+        Doc('Cantharellus cibarius', {
+          'name': 'Cantharellus cibarius',
+          'id': 2,
+          'taxonomy': {'genus': 'Cantharellus', 'family': 'Hydnaceae'},
+        }),
+      ],
+      local: const {},
+      english: const {},
+      synonyms: const {},
+      taxa: const {},
+    );
+    final estonia = presentCuratedList(
+      CuratedListDoc.fromJson({
+        'type': 'year',
+        'titles': {'en': 'Mushroom of the year — Estonia'},
+        'entries': [
+          {'genus': 'Cantharellus', 'year': 2017},
+          {'genus': 'Heterobasidion', 'year': 2025},
+        ],
+      }),
+      genusCatalog,
+      'en',
+      now: now,
+    );
+    final openedGenus = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: guideTheme(Brightness.light),
+        home: CuratedListPage(
+          list: estonia,
+          backLabel: 'Find',
+          onOpenSpecies: (_, latin) => opened.add(latin),
+          onOpenGenus: (_, genus) => openedGenus.add(genus),
+        ),
+      ),
+    );
+    expect(find.text('Cantharellus'), findsOneWidget);
+    expect(find.text('Genus'), findsNWidgets(2));
+    expect(find.text('Cantharellus cibarius'), findsNothing);
+    expect(find.text('Heterobasidion'), findsOneWidget);
+    await tester.tap(find.text('Cantharellus'));
+    expect(openedGenus, ['Cantharellus']);
+    expect(opened, ['Coprinus comatus']);
+    await tester.tap(find.text('Heterobasidion'));
+    expect(openedGenus, ['Cantharellus']);
 
     final austria = presentCuratedList(
       _doc('mushroom-of-the-year-at'),

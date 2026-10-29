@@ -219,9 +219,8 @@ class _BookPageState extends State<BookPage> {
           favorite: false,
           gold: true,
           onTap: () =>
-              Navigator.of(context).push(
-                guideRoute(guideScreenNew, (_) => const NewPage()),
-              ),
+              Navigator.of(context)
+                  .push(guideRoute(guideScreenNew, (_) => const NewPage())),
         ),
       );
     }
@@ -233,7 +232,7 @@ class _BookPageState extends State<BookPage> {
     )) {
       final photos = <String>[
         for (final entry in list.entries.take(4))
-          curatedImage(entry.species, plate: false),
+          if (entry.species != null) curatedImage(entry.species!, plate: false),
       ].where((url) => url.isNotEmpty).toList();
       final parameter = list.parameter?.trim() ?? '';
       cards.add(

@@ -26,12 +26,13 @@ An entry:
 
 | Field | Meaning |
 | --- | --- |
-| `name` | Latin binomial. This is the species document id. It wins when the catalog has that name. |
-| `speciesId` | Numeric id from `species.id`. Used when `name` is missing or not in the catalog. |
+| `name` | Latin binomial. This is the species document id. It wins when the catalog has that name. Ignored when `genus` is set. |
+| `genus` | Latin genus. The row stays a genus. It is not replaced by a species. One species in that genus supplies the picture, and a tap opens the genus. A genus the book does not list still shows its Latin name, with no picture and no tap. |
+| `speciesId` | Numeric id from `species.id`. Used when `name` is missing or not in the catalog, and `genus` is empty. |
 | `year` | Optional. Year lists show the newest year first. A missing year sorts last. The same species in two years stays as two rows. |
 | `region` | Optional state or region. Region lists sort A–Z. A missing region sorts last. `state` is accepted as an alias. |
 
-A species that is in neither the name index nor the numeric id is skipped. The list still opens.
+A species that is in neither the name index nor the numeric id is skipped. A genus row is kept. The list still opens.
 
 The cover is `coverUrl` when set, otherwise the cover species photo, otherwise the first resolved entry photo.
 
@@ -43,15 +44,17 @@ A list is shown only when `locales` contains the guide language, or `*`. Another
 
 Adding a translation string does not change which lists appear. Adding the language code to `locales` does.
 
-The sample tags each mushroom-of-the-year list with one language: `de` for Germany and Austria, `nl` for the Netherlands, `lv` for Latvia, and `hu` for Hungary. US state mushrooms are `en` only. Deadly poisonous is `*`, so every guide language sees it, including English and Slovak.
+The sample tags each mushroom-of-the-year list with one language: `de` for Germany and Austria, `nl` for the Netherlands, `lv` for Latvia, `hu` for Hungary, and `et` for Estonia. US state mushrooms are `en` only. Deadly poisonous is `*`, so every guide language sees it, including English and Slovak.
+
+Estonia 2017 is the genus *Cantharellus*, not *Cantharellus cibarius*. The picture is that species, because it is the only *Cantharellus* in the book. The row’s name is the genus.
 
 The app’s language setting is English or Slovak today. The selector accepts any code, which is what a later language setting would pass in. Slovak has no list of its own in the sample, so it sees only the `*` lists. Titles still fall back to English when that language has no string.
 
 ## Sample lists
 
-The seed file has seven documents:
+The seed file has eight documents:
 
-- Mushroom of the year for Germany (1994–2027), Austria, the Netherlands, Latvia, and Hungary. Each row has a year. Sources are the DGfM list, Naturschutzbund Österreich, the Dutch Mycological Society, the Latvian Mycological Society, and the Hungarian Év gombája pages linked in `sourceUrl`.
+- Mushroom of the year for Germany (1994–2027), Austria, the Netherlands, Latvia, Hungary, and Estonia. Each row has a year. Estonia 2017 is the genus *Cantharellus*. Estonia 2025 is the genus *Heterobasidion*, which the book does not list, so that row has no picture and does not open. Sources are the DGfM list, Naturschutzbund Österreich, the Dutch Mycological Society, the Latvian Mycological Society, the Hungarian Év gombája pages, and the Estonian Aasta seen page linked in `sourceUrl`.
 - US state mushrooms. Each row has a region. Minnesota and Utah are in the current catalog; Oregon and Texas are in the seed and are skipped until those species exist.
 - Deadly poisonous species, in stored order. `Amanita ocreata` and `Conocybe filaris` are in the seed and skipped until the catalog has them.
 

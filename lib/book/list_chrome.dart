@@ -149,15 +149,19 @@ Widget speciesGridRow({required int columns, required List<Widget> cells}) {
 }
 
 class SpeciesCell extends StatelessWidget {
-  final Species species;
+  final Species? species;
   final String title;
   final bool titleIsLatin;
+
+  /// Latin line. A genus row passes the genus. A species row uses its name.
+  final String? latin;
+  final String? rank;
   final bool plates;
   final bool seen;
   final String seenLabel;
   final String? mark;
   final String? markNote;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const SpeciesCell({
     super.key,
@@ -168,6 +172,8 @@ class SpeciesCell extends StatelessWidget {
     required this.seen,
     required this.seenLabel,
     required this.onTap,
+    this.latin,
+    this.rank,
     this.mark,
     this.markNote,
   });
@@ -175,9 +181,11 @@ class SpeciesCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = GuideColors.of(context);
-    final drawn = cardPlate(species.illustrationUrl);
+    final shown = species;
+    final shownLatin = latin ?? shown?.name ?? '';
+    final drawn = shown == null ? '' : cardPlate(shown.illustrationUrl);
     final showingPlate = plates && drawn.isNotEmpty;
-    final url = curatedImage(species, plate: plates);
+    final url = shown == null ? '' : curatedImage(shown, plate: plates);
     return InkWell(
       onTap: onTap,
       child: Column(
@@ -226,7 +234,7 @@ class SpeciesCell extends StatelessWidget {
               ),
             ),
           Text(
-            titleIsLatin ? species.name : title,
+            titleIsLatin ? shownLatin : title,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: titleIsLatin
@@ -239,13 +247,25 @@ class SpeciesCell extends StatelessWidget {
                     color: colors.ink,
                   ),
           ),
-          if (!titleIsLatin)
+          if (!titleIsLatin && shownLatin.isNotEmpty)
             Text(
-              species.name,
+              shownLatin,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GuideType.latin(colors)
                   .copyWith(fontSize: 13, height: 1.2, color: colors.ink2),
+            ),
+          if (rank != null && rank!.isNotEmpty)
+            Text(
+              rank!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: GuideType.sans,
+                fontSize: 13,
+                height: 1.2,
+                color: colors.ink3,
+              ),
             ),
           if (seen)
             Padding(

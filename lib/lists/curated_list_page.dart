@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:whats_that_mushroom/book/list_chrome.dart';
+import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -11,12 +13,14 @@ class CuratedListPage extends StatefulWidget {
   final CuratedListView list;
   final String backLabel;
   final void Function(BuildContext context, String latin) onOpenSpecies;
+  final void Function(BuildContext context, String genus)? onOpenGenus;
 
   const CuratedListPage({
     super.key,
     required this.list,
     required this.backLabel,
     this.onOpenSpecies = openSpecies,
+    this.onOpenGenus,
   });
 
   @override
@@ -126,25 +130,50 @@ class _CuratedListPageState extends State<CuratedListPage> {
             for (final entry in slice)
               SpeciesCell(
                 key: Key(
-                  'curated-entry-${entry.species.name}-${entry.year}-${entry.region}',
+                  'curated-entry-${entry.genus ?? entry.species?.name}-${entry.year}-${entry.region}',
                 ),
                 species: entry.species,
                 title: entry.title,
                 titleIsLatin: entry.titleIsLatin,
+                latin: entry.genus,
+                rank: entry.genus == null ? null : copy.rank('genus'),
                 plates: _plates,
-                seen: seen.contains(entry.species.name),
+                seen: entry.genus == null && seen.contains(entry.species?.name),
                 seenLabel: copy.seenMark,
                 mark:
                     entry.region ??
                     (entry.year == null ? null : '${entry.year}'),
                 markNote: entry.thisYear ? copy.thisYear : null,
-                onTap: () => widget.onOpenSpecies(context, entry.species.name),
+                onTap: _open(context, entry),
               ),
           ],
         ),
       );
     }
     return rows;
+  }
+
+  VoidCallback? _open(BuildContext context, CuratedEntryView entry) {
+    if (!entry.opens) return null;
+    final genus = entry.genus;
+    if (genus != null) {
+      return () {
+        final open = widget.onOpenGenus;
+        if (open != null) {
+          open(context, genus);
+          return;
+        }
+        Navigator.of(context).push(
+          guideRoute(
+            guideTaxonScreen('genus'),
+            (_) => TaxonPage(kind: 'genus', name: genus),
+          ),
+        );
+      };
+    }
+    final name = entry.species?.name;
+    if (name == null) return null;
+    return () => widget.onOpenSpecies(context, name);
   }
 }
 

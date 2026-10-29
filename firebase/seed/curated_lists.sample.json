@@ -554,6 +554,65 @@
       "coverSpeciesId": 9
     },
     {
+      "id": "mushroom-of-the-year-et",
+      "type": "year",
+      "sort": 56,
+      "locales": [
+        "et"
+      ],
+      "titles": {
+        "et": "Aasta seen"
+      },
+      "descriptions": {
+        "et": "Valib igal aastal Eesti Mükoloogiaühing, alates 2017."
+      },
+      "entries": [
+        {
+          "genus": "Cantharellus",
+          "year": 2017
+        },
+        {
+          "name": "Fomes fomentarius",
+          "year": 2018
+        },
+        {
+          "name": "Coprinus comatus",
+          "year": 2019
+        },
+        {
+          "name": "Cladonia stellaris",
+          "year": 2020
+        },
+        {
+          "name": "Hydnellum fuligineoviolaceum",
+          "year": 2021
+        },
+        {
+          "name": "Epichloë typhina",
+          "year": 2022
+        },
+        {
+          "name": "Boletus edulis",
+          "year": 2023
+        },
+        {
+          "name": "Lactarius camphoratus",
+          "year": 2024
+        },
+        {
+          "genus": "Heterobasidion",
+          "year": 2025
+        },
+        {
+          "name": "Sarcosoma globosum",
+          "year": 2026
+        }
+      ],
+      "parameter": "Estonia",
+      "sourceUrl": "https://et.wikipedia.org/wiki/Aasta_seen",
+      "coverSpecies": "Boletus edulis"
+    },
+    {
       "id": "us-state-mushrooms",
       "type": "region",
       "sort": 60,

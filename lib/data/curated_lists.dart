@@ -23,18 +23,27 @@ CuratedListType curatedListTypeOf(String? raw) {
 
 class CuratedListEntry {
   final String? name;
+  final String? genus;
   final int? speciesId;
   final int? year;
   final String? region;
 
-  const CuratedListEntry({this.name, this.speciesId, this.year, this.region});
+  const CuratedListEntry({
+    this.name,
+    this.genus,
+    this.speciesId,
+    this.year,
+    this.region,
+  });
 
   factory CuratedListEntry.fromJson(Map<String, dynamic> json) {
     final regionValue = json['region'] ?? json['state'];
     final region = regionValue?.toString().trim() ?? '';
     final name = json['name']?.toString().trim() ?? '';
+    final genus = json['genus']?.toString().trim() ?? '';
     return CuratedListEntry(
       name: name.isEmpty ? null : name,
+      genus: genus.isEmpty ? null : genus,
       speciesId: asInt(json['speciesId']),
       year: asInt(json['year']),
       region: region.isEmpty ? null : region,
@@ -103,7 +112,12 @@ class CuratedListDoc {
 }
 
 class CuratedEntryView {
-  final Species species;
+  /// The species, or the one species whose picture stands for [genus].
+  /// Null when a genus row names a genus the book does not list.
+  final Species? species;
+
+  /// Set when the row is a genus, not a species. A tap opens that genus.
+  final String? genus;
   final String title;
   final bool titleIsLatin;
   final int? year;
@@ -114,10 +128,15 @@ class CuratedEntryView {
     required this.species,
     required this.title,
     required this.titleIsLatin,
+    this.genus,
     this.year,
     this.region,
     this.thisYear = false,
   });
+
+  /// A genus the book lists can open, because one species stands for it.
+  /// A species row opens when it resolved. A genus the book does not list does not.
+  bool get opens => species != null;
 }
 
 class CuratedListView {
@@ -200,7 +219,8 @@ List<CuratedListView> presentCuratedLists(
   ]..sort(compareCuratedListViews);
 }
 
-/// Drops species the catalog does not have. Year lists are newest first.
+/// Drops species the catalog does not have. A genus row stays, and uses one
+/// species in that genus as its picture. Year lists are newest first.
 /// Region lists are ordered by the state or region name.
 CuratedListView presentCuratedList(
   CuratedListDoc doc,
@@ -212,6 +232,14 @@ CuratedListView presentCuratedList(
   final resolved = <({int index, CuratedEntryView view})>[];
   for (var i = 0; i < doc.entries.length; i++) {
     final entry = doc.entries[i];
+    final genus = entry.genus;
+    if (genus != null) {
+      resolved.add((
+        index: i,
+        view: _genusView(catalog, genus, entry, yearNow),
+      ));
+      continue;
+    }
     final species = _resolve(catalog, entry);
     if (species == null) continue;
     final title = catalog.heading(species);
@@ -239,6 +267,38 @@ CuratedListView presentCuratedList(
     sourceUrl: doc.sourceUrl,
     coverPhotoUrl: _cover(doc, catalog, entries),
     entries: entries,
+  );
+}
+
+/// One catalog species stands for the genus. The first Latin name that has a
+/// plate or a photo wins. A genus the book does not list has no picture.
+Species? _portrait(Catalog catalog, String genus) {
+  final rows = catalog.speciesIn('genus', genus);
+  for (final species in rows) {
+    if (species.illustrationUrl.isNotEmpty || species.photoUrls.isNotEmpty) {
+      return species;
+    }
+  }
+  if (rows.isEmpty) return null;
+  return rows.first;
+}
+
+CuratedEntryView _genusView(
+  Catalog catalog,
+  String genus,
+  CuratedListEntry entry,
+  int yearNow,
+) {
+  final spoken = catalog.taxonVernacular(genus).trim();
+  final title = catalog.taxonTitle(genus);
+  return CuratedEntryView(
+    species: _portrait(catalog, genus),
+    genus: genus,
+    title: title,
+    titleIsLatin: spoken.isEmpty || title == genus,
+    year: entry.year,
+    region: entry.region,
+    thisYear: entry.year != null && entry.year == yearNow,
   );
 }
 
@@ -342,7 +402,9 @@ String _cover(
     if (photo.isNotEmpty) return photo;
   }
   for (final entry in entries) {
-    final photo = curatedImage(entry.species, plate: false);
+    final species = entry.species;
+    if (species == null) continue;
+    final photo = curatedImage(species, plate: false);
     if (photo.isNotEmpty) return photo;
   }
   return '';
