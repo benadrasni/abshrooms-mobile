@@ -62,7 +62,6 @@ Catalog _catalog({String photoFor = ''}) {
     english: const {},
     synonyms: const {},
     taxa: const {},
-    key: const {},
   );
 }
 

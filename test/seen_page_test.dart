@@ -270,7 +270,6 @@ void main() {
           },
         },
         taxa: const {},
-        key: const {},
       );
       final notebook = Notebook()
         ..finds = adoptBookFinds([
@@ -538,7 +537,6 @@ Catalog _catalog(String language) {
     english: const {},
     synonyms: const {},
     taxa: const {},
-    key: const {},
   );
 }
 

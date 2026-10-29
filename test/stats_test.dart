@@ -592,7 +592,6 @@ Catalog _catalog(String language) {
     english: const {},
     synonyms: const {},
     taxa: const {},
-    key: const {},
   );
 }
 

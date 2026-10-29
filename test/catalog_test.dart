@@ -29,6 +29,9 @@ Catalog _catalog() {
         'capWidthToCm': 25,
         'stipeThicknessFromCm': 1.5,
         'stipeThicknessToCm': 4,
+        'hymenium': 'tubes',
+        'where': ['ground'],
+        'color': ['brown'],
       }),
       Doc('Amanita muscaria', {
         'name': 'Amanita muscaria',
@@ -39,6 +42,9 @@ Catalog _catalog() {
         },
         'fruitingFrom': 7,
         'fruitingTo': 11,
+        'hymenium': 'gills',
+        'where': ['ground'],
+        'color': ['red', 'yellow'],
       }),
       Doc('NoKey species', {
         'name': 'NoKey species',
@@ -80,18 +86,6 @@ Catalog _catalog() {
       },
     },
     taxa: {'Boletus': 'Hríb', 'Boletaceae': 'Hríbovité'},
-    key: {
-      'Boletus edulis': const KeyFacts(
-        hymenium: 'tubes',
-        where: ['ground'],
-        color: ['brown'],
-      ),
-      'Amanita muscaria': const KeyFacts(
-        hymenium: 'gills',
-        where: ['ground'],
-        color: ['red', 'yellow'],
-      ),
-    },
   );
 }
 
@@ -199,25 +193,8 @@ void main() {
     );
   });
 
-  test('the bundled key has 85 species and Boletus edulis has tubes', () async {
-    final key = await loadKeyAsset();
-    expect(key.length, 85);
-    expect(key['Boletus edulis']?.hymenium, 'tubes');
-    expect(key['Boletus edulis']?.where, ['ground']);
-    expect(key['Boletus edulis']?.added, '2026-10-22');
-    expect(key['Amanita muscaria']?.color, ['red', 'yellow']);
-    expect(key['Collybia personata']?.hymenium, 'gills');
-    expect(key['Collybia personata']?.where, ['grass', 'ground']);
-    expect(key['Collybia personata']?.color, ['white', 'brown', 'dark', 'purple']);
-    expect(key['Collybia personata']?.added, '2026-10-27');
-    expect(key['Serpula lacrymans']?.hymenium, 'pits');
-    expect(key['Serpula lacrymans']?.added, '2026-10-28');
-    expect(key.values.where((row) => row.hymenium.isEmpty), isEmpty);
-    expect(key.values.where((row) => addedDate(row.added) == null), isEmpty);
-  });
-
-  test('the species document day replaces the bundled day', () {
-    Catalog day(Object? added, {bool keyed = true}) {
+  test('an invalid catalog day stays empty', () {
+    Catalog day(Object? added) {
       return buildCatalog(
         language: 'en',
         speciesDocs: [
@@ -231,31 +208,19 @@ void main() {
         english: const {},
         synonyms: const {},
         taxa: const {},
-        key: keyed
-            ? const {
-                'Serpula lacrymans': KeyFacts(
-                  hymenium: 'pits',
-                  where: ['wood'],
-                  color: ['brown'],
-                  added: '2026-10-22',
-                ),
-              }
-            : const {},
       );
     }
 
     expect(day('2026-10-28').species.single.added, '2026-10-28');
-    expect(day('not-a-date').species.single.added, '2026-10-22');
-    expect(day(null).species.single.added, '2026-10-22');
-    expect(day('2026-10-28', keyed: false).species.single.added, '2026-10-28');
+    expect(day('not-a-date').species.single.added, '');
+    expect(day(null).species.single.added, '');
   });
 
-  test('the species document key replaces the bundled key', () {
+  test('a species document keeps only allowed key codes', () {
     Catalog keyed({
       Object? hymenium = 'smooth',
       Object? where = const ['ground', 'petal'],
       Object? color = const ['white'],
-      bool bundled = true,
     }) {
       return buildCatalog(
         language: 'en',
@@ -271,32 +236,27 @@ void main() {
         english: const {},
         synonyms: const {},
         taxa: const {},
-        key: bundled
-            ? const {
-                'Serpula lacrymans': KeyFacts(
-                  hymenium: 'pits',
-                  where: ['wood'],
-                  color: ['brown'],
-                ),
-              }
-            : const {},
       );
     }
 
-    final replaced = keyed().species.single;
-    expect(replaced.hymenium, 'smooth');
-    expect(replaced.where, ['ground']);
-    expect(replaced.colors, ['white']);
+    final kept = keyed().species.single;
+    expect(kept.hymenium, 'smooth');
+    expect(kept.where, ['ground']);
+    expect(kept.colors, ['white']);
 
-    final fallback = keyed(hymenium: 'pores', where: const [], color: 'brown');
-    expect(fallback.species.single.hymenium, 'pits');
-    expect(fallback.species.single.where, ['wood']);
-    expect(fallback.species.single.colors, ['brown']);
+    final rejected = keyed(hymenium: 'pores', where: const [], color: 'brown');
+    expect(rejected.species.single.hymenium, '');
+    expect(rejected.species.single.where, isEmpty);
+    expect(rejected.species.single.colors, isEmpty);
 
-    final stored = keyed(bundled: false).species.single;
-    expect(stored.hymenium, 'smooth');
-    expect(stored.where, ['ground']);
-    expect(stored.colors, ['white']);
+    final missing = keyed(
+      hymenium: null,
+      where: null,
+      color: null,
+    ).species.single;
+    expect(missing.hymenium, '');
+    expect(missing.where, isEmpty);
+    expect(missing.colors, isEmpty);
   });
 
   test('closed Firestore rules are named as permission-denied', () {

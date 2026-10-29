@@ -116,7 +116,14 @@ void main() {
     final catalog = buildCatalog(
       language: 'en',
       speciesDocs: [
-        Doc('Boletus edulis', {'name': 'Boletus edulis', 'id': 4}),
+        Doc('Boletus edulis', {
+          'name': 'Boletus edulis',
+          'id': 4,
+          'hymenium': 'tubes',
+          'where': ['ground'],
+          'color': ['brown'],
+          'added': '2026-10-24',
+        }),
       ],
       local: const {},
       english: const {
@@ -124,14 +131,6 @@ void main() {
       },
       synonyms: const {},
       taxa: const {},
-      key: const {
-        'Boletus edulis': KeyFacts(
-          hymenium: 'tubes',
-          where: ['ground'],
-          color: ['brown'],
-          added: '2026-10-24',
-        ),
-      },
     );
     final repository = CatalogRepository()
       ..data = catalog
@@ -221,7 +220,6 @@ void main() {
         english: const {},
         synonyms: const {},
         taxa: const {},
-        key: const {},
       )
       ..loading = false;
     tester.view.physicalSize = const Size(800, 1400);
@@ -254,7 +252,6 @@ void main() {
         english: const {},
         synonyms: const {},
         taxa: const {},
-        key: const {},
       )
       ..loading = false;
     tester.view.physicalSize = const Size(800, 1400);

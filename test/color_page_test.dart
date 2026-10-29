@@ -19,23 +19,29 @@ Catalog _catalog() {
         'id': 1,
         'fruitingFrom': DateTime.now().month,
         'fruitingTo': DateTime.now().month,
+        'hymenium': 'gills',
+        'where': ['wood'],
+        'color': ['brown'],
       }),
-      const Doc('Ground', {'name': 'Ground', 'id': 2}),
-      const Doc('Grass', {'name': 'Grass', 'id': 3}),
+      const Doc('Ground', {
+        'name': 'Ground',
+        'id': 2,
+        'hymenium': 'tubes',
+        'where': ['ground'],
+        'color': ['brown'],
+      }),
+      const Doc('Grass', {
+        'name': 'Grass',
+        'id': 3,
+        'hymenium': 'gills',
+        'where': ['grass'],
+        'color': ['white'],
+      }),
     ],
     local: const {},
     english: const {},
     synonyms: const {},
     taxa: const {},
-    key: const {
-      'Wood': KeyFacts(hymenium: 'gills', where: ['wood'], color: ['brown']),
-      'Ground': KeyFacts(
-        hymenium: 'tubes',
-        where: ['ground'],
-        color: ['brown'],
-      ),
-      'Grass': KeyFacts(hymenium: 'gills', where: ['grass'], color: ['white']),
-    },
   );
 }
 

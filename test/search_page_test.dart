@@ -30,7 +30,6 @@ void main() {
       english: const {},
       synonyms: const {},
       taxa: const {'Boletaceae': 'bolete family'},
-      key: const {},
     );
     final repository = CatalogRepository()
       ..data = catalog

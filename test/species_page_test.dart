@@ -682,7 +682,6 @@ Future<void> _pump(
       english: const {},
       synonyms: synonyms,
       taxa: taxa,
-      key: const {},
     )
     ..loading = false;
   final page = SpeciesPage(

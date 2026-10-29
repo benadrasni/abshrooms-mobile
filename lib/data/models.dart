@@ -33,22 +33,6 @@ const rankOrder = [
   'genus',
 ];
 
-class KeyFacts {
-  final String hymenium;
-  final List<String> where;
-  final List<String> color;
-
-  /// Bundled day, `YYYY-MM-DD`. The species document's `added` wins.
-  final String added;
-
-  const KeyFacts({
-    required this.hymenium,
-    required this.where,
-    required this.color,
-    this.added = '',
-  });
-}
-
 class Synonym {
   final String name;
   final String author;
@@ -334,7 +318,7 @@ class Doc {
   const Doc(this.id, this.data);
 }
 
-Species speciesFromMap(String id, Map<String, dynamic> data, KeyFacts? key) {
+Species speciesFromMap(String id, Map<String, dynamic> data) {
   final rawTaxonomy = data['taxonomy'];
   final taxonomy = <String, String>{};
   if (rawTaxonomy is Map) {
@@ -352,9 +336,9 @@ Species speciesFromMap(String id, Map<String, dynamic> data, KeyFacts? key) {
     order: taxonomy['order'] ?? '',
     taxonomy: taxonomy,
     edibility: _blank(data['edibility']) ?? '',
-    hymenium: catalogHymenium(data['hymenium']) ?? key?.hymenium ?? '',
-    where: catalogKeyList(data['where'], whereChoices) ?? key?.where ?? const [],
-    colors: catalogKeyList(data['color'], colorChoices) ?? key?.color ?? const [],
+    hymenium: catalogHymenium(data['hymenium']) ?? '',
+    where: catalogKeyList(data['where'], whereChoices) ?? const [],
+    colors: catalogKeyList(data['color'], colorChoices) ?? const [],
     fruitingFrom: asInt(data['fruitingFrom']),
     fruitingTo: asInt(data['fruitingTo']),
     capFrom: asDouble(data['capWidthFromCm']),
@@ -366,7 +350,7 @@ Species speciesFromMap(String id, Map<String, dynamic> data, KeyFacts? key) {
     illustrationUrl: _blank(data['illustrationUrl']) ?? '',
     photoUrls: stringList(data['photoUrls']),
     synonyms: const [],
-    added: catalogAdded(data['added']) ?? key?.added ?? '',
+    added: catalogAdded(data['added']) ?? '',
   );
 }
 
@@ -435,15 +419,10 @@ Catalog buildCatalog({
   required Map<String, Map<String, dynamic>> english,
   required Map<String, Map<String, dynamic>> synonyms,
   required Map<String, String> taxa,
-  required Map<String, KeyFacts> key,
 }) {
   final rows = <Species>[];
   for (final doc in speciesDocs) {
-    final parsed = speciesFromMap(
-      doc.id,
-      doc.data,
-      key[doc.id] ?? key[doc.data['name']],
-    );
+    final parsed = speciesFromMap(doc.id, doc.data);
     if (parsed.name.trim().isEmpty) continue;
     rows.add(
       Species(

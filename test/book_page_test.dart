@@ -20,6 +20,10 @@ void main() {
           'taxonomy': {'family': 'Boletaceae', 'genus': 'Boletus'},
           'fruitingFrom': 1,
           'fruitingTo': 12,
+          'hymenium': 'tubes',
+          'where': ['ground'],
+          'color': ['brown'],
+          'added': '2026-10-24',
         }),
         Doc('Amanita muscaria', {
           'name': 'Amanita muscaria',
@@ -27,26 +31,16 @@ void main() {
           'taxonomy': {'family': 'Amanitaceae', 'genus': 'Amanita'},
           'fruitingFrom': 1,
           'fruitingTo': 12,
+          'hymenium': 'gills',
+          'where': ['ground'],
+          'color': ['red'],
+          'added': '2026-10-23',
         }),
       ],
       local: const {},
       english: const {},
       synonyms: const {},
       taxa: const {'Boletaceae': 'bolete family'},
-      key: const {
-        'Boletus edulis': KeyFacts(
-          hymenium: 'tubes',
-          where: ['ground'],
-          color: ['brown'],
-          added: '2026-10-24',
-        ),
-        'Amanita muscaria': KeyFacts(
-          hymenium: 'gills',
-          where: ['ground'],
-          color: ['red'],
-          added: '2026-10-23',
-        ),
-      },
     );
     final repository = CatalogRepository()
       ..data = catalog

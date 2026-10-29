@@ -4,11 +4,7 @@ Field guide for Android and iOS. The store id is `sk.ab.shrooms`. The Dart packa
 
 The app reads the Firestore catalog in project `abshrooms-a9d4c` and names a photo through the `identifyMushroom` callable. The Plant.id key stays in Secret Manager as `PLANT_ID_KEY`. The app does not contain it.
 
-English and Slovak. The key is underside, where it grows, cap colour, and season. The app reads `hymenium`, `where`, and `color` on the species document and falls back to `assets/key.json` when a field is missing. Regenerate that file from `web/species.js` so an older install still has the key:
-
-```bash
-node tool/sync_key.mjs
-```
+English and Slovak. The key is underside, where it grows, cap colour, and season. The app reads `hymenium`, `where`, `color`, and `added` on the species document. A missing field or a value that is not an allowed code stays empty.
 
 Favorites and the Seen notebook stay on the device. Editorial lists are read from the Firestore collection `curated_lists` (see `docs/CURATED_LISTS.md`). The app does not write them.
 

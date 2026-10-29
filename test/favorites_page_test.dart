@@ -158,7 +158,6 @@ Catalog _catalog({required int month, required int other}) {
     english: const {},
     synonyms: const {},
     taxa: const {},
-    key: const {},
   );
 }
 

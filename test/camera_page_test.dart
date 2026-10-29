@@ -527,7 +527,6 @@ Catalog _catalog() {
     english: const {},
     synonyms: const {},
     taxa: const {},
-    key: const {},
   );
 }
 

@@ -225,7 +225,6 @@ void main() {
       },
       synonyms: const {},
       taxa: const {},
-      key: const {},
     );
     final added = buildCatalog(
       language: 'en',
@@ -251,7 +250,6 @@ void main() {
       },
       synonyms: const {},
       taxa: const {},
-      key: const {},
     );
     final repo =
         CatalogRepository(

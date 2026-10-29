@@ -92,7 +92,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/key.json
     - assets/go-logo.png
     - assets/splash_plate.jpg
     - assets/app_icon.png

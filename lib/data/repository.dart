@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/services.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 
@@ -77,31 +74,9 @@ Future<Catalog> _readLiveCatalog(String language, {required bool server}) {
   return fetchCatalog(language, source: server ? Source.server : null);
 }
 
-Future<Map<String, KeyFacts>> loadKeyAsset() async {
-  final raw = await rootBundle.loadString('assets/key.json');
-  final decoded = json.decode(raw) as Map<String, dynamic>;
-  return decoded.map((name, value) {
-    final map = value as Map<String, dynamic>;
-    return MapEntry(
-      name,
-      KeyFacts(
-        hymenium: map['hymenium']?.toString() ?? '',
-        where:
-            (map['where'] as List?)?.map((item) => item.toString()).toList() ??
-            const [],
-        color:
-            (map['color'] as List?)?.map((item) => item.toString()).toList() ??
-            const [],
-        added: map['added']?.toString() ?? '',
-      ),
-    );
-  });
-}
-
 Future<Catalog> fetchCatalog(String language, {Source? source}) async {
   final db = FirebaseFirestore.instance;
   final options = source == null ? null : GetOptions(source: source);
-  final key = await loadKeyAsset();
   final speciesSnap = await db.collection('species').get(options);
   final localSnap = await db
       .collection('translations')
@@ -131,7 +106,6 @@ Future<Catalog> fetchCatalog(String language, {Source? source}) async {
       for (final doc in taxaSnap.docs)
         doc.id: doc.data()['vernacular']?.toString() ?? '',
     },
-    key: key,
   );
 }
 
