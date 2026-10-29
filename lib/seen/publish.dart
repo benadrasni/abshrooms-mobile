@@ -60,7 +60,9 @@ const sightingGetOptions = GetOptions(source: Source.server);
 ///
 /// A document that is not already on the phone is added, with its photo
 /// URL, so Find and Seen show it after sign-in. A sent find whose document
-/// is gone returns to [FindShare.none]. The same list is not written again.
+/// is gone returns to [FindShare.none]. A row whose only photo is that
+/// Sighting is removed, because the document was its only copy. The same
+/// list is not written again.
 /// The read asks the server. Offline, this keeps the notebook as it is.
 Future<void> syncSightings(Notebook notebook) async {
   try {
@@ -106,6 +108,10 @@ List<FindRecord> mergeAccountSightings(
     seen.add(find.id);
     final data = byId[find.id];
     if (data == null) {
+      if (sightingPhotoIsRemote(find.photoPath)) {
+        changed = true;
+        continue;
+      }
       if (find.share == FindShare.none) {
         next.add(find);
       } else {

@@ -192,4 +192,33 @@ void main() {
     final next = mergeAccountSightings([local], const []);
     expect(next.single.share, FindShare.none);
   });
+
+  test('a deleted sighting leaves when its photo was only the cloud copy', () {
+    const photo =
+        'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media';
+    final kept = FindRecord(
+      id: 'local',
+      millis: 4,
+      latin: 'Amanita muscaria',
+      confirmed: true,
+    );
+    final gone = FindRecord(
+      id: '1',
+      millis: 5,
+      latin: 'Boletus edulis',
+      confirmed: true,
+      share: FindShare.none,
+      photoPath: photo,
+    );
+    final next = mergeAccountSightings([kept, gone], const []);
+    expect(next, hasLength(1));
+    expect(next.single.id, 'local');
+  });
+
+  test('public sighting lists read the server', () {
+    final species = File('lib/seen/species_sightings.dart').readAsStringSync();
+    final stats = File('lib/seen/stats_page.dart').readAsStringSync();
+    expect(species, contains('.get(sightingGetOptions)'));
+    expect(stats, contains('.get(sightingGetOptions)'));
+  });
 }

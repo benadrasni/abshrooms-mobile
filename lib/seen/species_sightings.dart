@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/seen/stats.dart';
 
@@ -58,6 +59,8 @@ SpeciesSighting? _row(String id, Map<String, dynamic> data) {
 }
 
 /// Public Sightings for one Latin name. No Firebase returns an empty list.
+/// The read asks the server. A default get would keep a deleted row that
+/// the on-phone cache still has.
 Future<List<SpeciesSighting>> loadSpeciesSightings(String latin) async {
   try {
     if (Firebase.apps.isEmpty) return const [];
@@ -69,7 +72,7 @@ Future<List<SpeciesSighting>> loadSpeciesSightings(String latin) async {
         .collection('sightings')
         .where('latin', isEqualTo: latin)
         .where('status', isEqualTo: 'public')
-        .get();
+        .get(sightingGetOptions);
     return speciesSightingsFromDocs([
       for (final doc in snap.docs) (id: doc.id, data: doc.data()),
     ]);

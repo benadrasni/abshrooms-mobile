@@ -10,6 +10,7 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/stats.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -288,6 +289,7 @@ class _StatsPageState extends State<StatsPage> {
 
 /// Public Sightings. An app with no Firebase returns an empty load so the
 /// page can still open in a test. A query failure is left for the page.
+/// The read asks the server, so a deleted document does not stay on screen.
 Future<SightingsLoad> loadPublicSightings() async {
   try {
     if (Firebase.apps.isEmpty) {
@@ -300,7 +302,7 @@ Future<SightingsLoad> loadPublicSightings() async {
   final snap = await FirebaseFirestore.instance
       .collection('sightings')
       .where('status', isEqualTo: 'public')
-      .get();
+      .get(sightingGetOptions);
   return sightingsFromDocs([for (final doc in snap.docs) doc.data()]);
 }
 
