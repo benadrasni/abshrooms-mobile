@@ -1,9 +1,12 @@
 import { signedJwt } from './jwt';
 import {
+  appleRenewalInfo,
+  appleStatusEntries,
   appleTransaction,
+  applyAppleRenewal,
   appStoreBundleId,
-  signedTransactionsFromStatus,
   verifyAppleSignedPayload,
+  type AppleRenewalInfo,
   type AppleTransaction,
 } from './apple_jws';
 import {
@@ -26,17 +29,40 @@ export type PlayCredentials = { email: string; privateKey: string };
 
 type FetchImpl = typeof fetch;
 
-export function verifiedApple(transaction: AppleTransaction): VerifiedPurchase {
+export function verifiedApple(
+  transaction: AppleTransaction,
+  renewal?: { expiresAt: number | null; revoked: boolean; willNotRenew: boolean },
+): VerifiedPurchase {
   return {
     store: 'app_store',
     productId: transaction.productId,
     token: transaction.originalTransactionId,
-    expiresAt: transaction.expiresAt,
-    revoked: transaction.revoked,
+    expiresAt: renewal ? renewal.expiresAt : transaction.expiresAt,
+    revoked: renewal ? renewal.revoked : transaction.revoked,
+    willNotRenew: renewal?.willNotRenew === true,
     accountToken: transaction.appAccountToken,
     environment: transaction.environment,
     subscription: subscriptionProducts.has(transaction.productId),
   };
+}
+
+/// Transaction plus App Store subscription status and renewal info.
+export function applePurchaseFromStatus(
+  transaction: AppleTransaction,
+  status: number | null,
+  renewal: AppleRenewalInfo | null,
+  now: number,
+): VerifiedPurchase {
+  return verifiedApple(
+    transaction,
+    applyAppleRenewal({
+      expiresAt: transaction.expiresAt,
+      revoked: transaction.revoked,
+      status,
+      renewal,
+      now,
+    }),
+  );
 }
 
 export function verifiedPlay(purchase: PlayPurchase, token: string): VerifiedPurchase {
@@ -117,14 +143,19 @@ export async function fetchAppleSubscription(
       continue;
     }
     if (!response.ok) throw new StoreUnavailable(`app store ${response.status}`);
-    const signed = signedTransactionsFromStatus(await response.json());
+    const signed = appleStatusEntries(await response.json());
     let best: VerifiedPurchase | null = null;
-    for (const jws of signed) {
-      const payload = verifyAppleSignedPayload(jws, now);
+    for (const entry of signed) {
+      const payload = verifyAppleSignedPayload(entry.signedTransactionInfo, now);
       if (!payload) continue;
       const transaction = appleTransaction(payload);
       if (!transaction) continue;
-      const purchase = verifiedApple(transaction);
+      let renewal: AppleRenewalInfo | null = null;
+      if (entry.signedRenewalInfo) {
+        const renewalPayload = verifyAppleSignedPayload(entry.signedRenewalInfo, now);
+        if (renewalPayload) renewal = appleRenewalInfo(renewalPayload);
+      }
+      const purchase = applePurchaseFromStatus(transaction, entry.status, renewal, now);
       if (!best || (purchase.expiresAt ?? 0) >= (best.expiresAt ?? 0)) best = purchase;
     }
     if (!best) throw new StoreUnavailable('app store signature');

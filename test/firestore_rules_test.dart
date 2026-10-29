@@ -3,6 +3,26 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('a sighting stores an owner-only photo token and cannot be edited', () {
+    final rules = File('firebase/firestore.rules').readAsStringSync();
+    expect(rules, contains('photoToken'));
+    expect(rules, contains("photoToken.matches('^[A-Za-z0-9_-]{16,128}\$')"));
+    expect(
+      rules,
+      contains(
+        "keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo', 'photoToken'])",
+      ),
+    );
+    expect(rules, contains('allow update: if false'));
+    expect(
+      rules,
+      contains(
+        "allow read: if resource.data.status == 'public' ||\n"
+        '        (request.auth != null && resource.data.uid == request.auth.uid)',
+      ),
+    );
+  });
+
   test('the owner can read photo quota and cannot grant a name', () {
     final rules = File('firebase/firestore.rules').readAsStringSync();
     expect(rules, contains('match /photo_quota/{uid}'));

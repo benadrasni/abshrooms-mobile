@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
+import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 
 void main() {
   test('an account sighting is added when the phone has no copy', () {
@@ -74,6 +75,50 @@ void main() {
           'latin': 'Boletus edulis',
           'millis': 5,
           'status': 'public',
+          'photo': 'sightings/uid/1.jpg',
+        },
+      ),
+    ]);
+    expect(identical(next, finds), isTrue);
+  });
+
+  test('an in-review sighting on another phone uses the download token', () {
+    const token = '11111111-2222-4333-8444-555555555555';
+    final next = mergeAccountSightings(const [], [
+      (
+        id: '1',
+        data: {
+          'latin': 'Boletus edulis',
+          'millis': 5,
+          'status': 'review',
+          'photo': 'sightings/uid/1.jpg',
+          'photoToken': token,
+        },
+      ),
+    ]);
+    expect(next.single.share, FindShare.review);
+    expect(next.single.photoPath, contains('token=$token'));
+    expect(seenPhotoOnPhone(next.single.photoPath), isFalse);
+  });
+
+  test('a token already on this phone is kept when the document has none', () {
+    const token = '11111111-2222-4333-8444-555555555555';
+    final local = FindRecord(
+      id: '1',
+      millis: 5,
+      latin: 'Boletus edulis',
+      confirmed: true,
+      share: FindShare.review,
+      photoPath: sightingPhotoUrl('sightings/uid/1.jpg', token: token),
+    );
+    final finds = [local];
+    final next = mergeAccountSightings(finds, [
+      (
+        id: '1',
+        data: {
+          'latin': 'Boletus edulis',
+          'millis': 5,
+          'status': 'review',
           'photo': 'sightings/uid/1.jpg',
         },
       ),

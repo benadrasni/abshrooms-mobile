@@ -1,8 +1,19 @@
 import assert from 'node:assert/strict';
 import { createPrivateKey, X509Certificate } from 'node:crypto';
 import { test } from 'node:test';
-import { appleRootCaG3Pem, appleRootFingerprint256, appleTransaction, verifyAppleSignedPayload } from './apple_jws';
+import {
+  appleRenewalHoldMs,
+  appleRenewalInfo,
+  appleRootCaG3Pem,
+  appleRootFingerprint256,
+  appleStatusEntries,
+  appleTransaction,
+  applyAppleRenewal,
+  verifyAppleSignedPayload,
+} from './apple_jws';
 import { signedJwt } from './jwt';
+import { appleNotice } from './store_handlers';
+import type { VerifiedPurchase } from './entitlements';
 
 const rootPem = `-----BEGIN CERTIFICATE-----
 MIIBPDCB46ADAgECAhQ3h/DhJ/IiBwnRLQIEg/KU6KjAvzAKBggqhkjOPQQDAjAU
@@ -148,4 +159,229 @@ test('a leaf missing the receipt OID is rejected', () => {
 test('an intermediate without the CA bit is rejected', () => {
   const signed = jws(transaction(), [leafUnderNoCaPem, noCaPem, rootPem], leafUnderNoCaKey);
   assert.equal(verifyAppleSignedPayload(signed, now, rootPem), null);
+});
+
+test('Apple renewal status ends a lapsed plan unless a verified renewal extends it', () => {
+  const future = now + 86_400_000;
+  const active = applyAppleRenewal({
+    expiresAt: future,
+    revoked: false,
+    status: 1,
+    renewal: appleRenewalInfo({ autoRenewStatus: 1 }),
+    now,
+  });
+  assert.equal(active.revoked, false);
+  assert.equal(active.willNotRenew, false);
+  assert.equal(active.expiresAt, future);
+
+  const canceled = applyAppleRenewal({
+    expiresAt: future,
+    revoked: false,
+    status: 1,
+    renewal: appleRenewalInfo({ autoRenewStatus: 0 }),
+    now,
+  });
+  assert.equal(canceled.willNotRenew, true);
+  assert.equal(canceled.revoked, false);
+  assert.equal(canceled.expiresAt, future);
+
+  const stale = now - 1_000;
+  const held = applyAppleRenewal({
+    expiresAt: stale,
+    revoked: false,
+    status: 1,
+    renewal: appleRenewalInfo({ autoRenewStatus: 1 }),
+    now,
+  });
+  assert.equal(held.revoked, false);
+  assert.equal(held.willNotRenew, false);
+  assert.equal(held.expiresAt, stale + appleRenewalHoldMs);
+
+  const canceledLapsed = applyAppleRenewal({
+    expiresAt: stale,
+    revoked: false,
+    status: 1,
+    renewal: appleRenewalInfo({ autoRenewStatus: 0 }),
+    now,
+  });
+  assert.equal(canceledLapsed.revoked, false);
+  assert.equal(canceledLapsed.willNotRenew, false);
+  assert.equal(canceledLapsed.expiresAt, stale);
+
+  const tooOld = applyAppleRenewal({
+    expiresAt: now - appleRenewalHoldMs,
+    revoked: false,
+    status: 1,
+    renewal: appleRenewalInfo({ autoRenewStatus: 1 }),
+    now,
+  });
+  assert.equal(tooOld.revoked, true);
+  assert.equal(tooOld.expiresAt, now - appleRenewalHoldMs);
+
+  for (const status of [2, 3, 5]) {
+    const ended = applyAppleRenewal({
+      expiresAt: future,
+      revoked: false,
+      status,
+      renewal: appleRenewalInfo({ autoRenewStatus: 1 }),
+      now,
+    });
+    assert.equal(ended.revoked, true, `status ${status}`);
+  }
+
+  const graceAt = now + 50_000;
+  const grace = applyAppleRenewal({
+    expiresAt: stale,
+    revoked: false,
+    status: 4,
+    renewal: appleRenewalInfo({ autoRenewStatus: 1, gracePeriodExpiresDate: graceAt }),
+    now,
+  });
+  assert.equal(grace.revoked, false);
+  assert.equal(grace.willNotRenew, false);
+  assert.equal(grace.expiresAt, graceAt);
+
+  const graceOver = applyAppleRenewal({
+    expiresAt: stale,
+    revoked: false,
+    status: 4,
+    renewal: appleRenewalInfo({ autoRenewStatus: 1, gracePeriodExpiresDate: now - 1 }),
+    now,
+  });
+  assert.equal(graceOver.revoked, true);
+
+  const noticeGrace = applyAppleRenewal({
+    expiresAt: stale,
+    revoked: false,
+    status: null,
+    renewal: appleRenewalInfo({ autoRenewStatus: 1, gracePeriodExpiresDate: graceAt }),
+    now,
+  });
+  assert.equal(noticeGrace.expiresAt, graceAt);
+  assert.equal(noticeGrace.revoked, false);
+
+  const refunded = applyAppleRenewal({
+    expiresAt: future,
+    revoked: true,
+    status: null,
+    renewal: appleRenewalInfo({ autoRenewStatus: 1, gracePeriodExpiresDate: graceAt }),
+    now,
+  });
+  assert.equal(refunded.revoked, true);
+  assert.equal(refunded.expiresAt, future);
+});
+
+test('subscription status keeps the renewal payload and the numeric status', () => {
+  assert.deepEqual(
+    appleStatusEntries({
+      data: [
+        {
+          lastTransactions: [
+            { status: 1, signedTransactionInfo: 'tx', signedRenewalInfo: 'rn' },
+            { status: 2 },
+          ],
+        },
+      ],
+    }),
+    [{ status: 1, signedTransactionInfo: 'tx', signedRenewalInfo: 'rn' }],
+  );
+  assert.deepEqual(appleRenewalInfo({ autoRenewStatus: 2 }), {
+    autoRenewStatus: null,
+    gracePeriodExpiresAt: null,
+  });
+});
+
+function purchaseFrom(tx: {
+  productId: string;
+  originalTransactionId: string;
+  expiresAt: number | null;
+  revoked: boolean;
+  appAccountToken: string | null;
+  environment: string | null;
+}): VerifiedPurchase {
+  return {
+    store: 'app_store',
+    productId: tx.productId,
+    token: tx.originalTransactionId,
+    expiresAt: tx.expiresAt,
+    revoked: tx.revoked,
+    accountToken: tx.appAccountToken,
+    environment: tx.environment,
+    subscription: true,
+  };
+}
+
+test('an App Store notice applies renewal status', () => {
+  const expiresAt = now + 86_400_000;
+  const transactionJws = jws(
+    { ...transaction(), expiresDate: expiresAt },
+    [leafPem, intermediatePem, rootPem],
+    leafKey,
+  );
+  const off = jws(
+    { autoRenewStatus: 0, originalTransactionId: '1000', productId: 'field_guide_yearly' },
+    [leafPem, intermediatePem, rootPem],
+    leafKey,
+  );
+  const signed = jws(
+    {
+      notificationType: 'DID_CHANGE_RENEWAL_STATUS',
+      data: {
+        bundleId: 'sk.ab.shrooms',
+        signedTransactionInfo: transactionJws,
+        signedRenewalInfo: off,
+      },
+    },
+    [leafPem, intermediatePem, rootPem],
+    leafKey,
+  );
+  const notice = appleNotice({ signedPayload: signed }, now, purchaseFrom, rootPem);
+  assert.equal(notice.kind, 'transaction');
+  if (notice.kind !== 'transaction') return;
+  assert.equal(notice.purchase.willNotRenew, true);
+  assert.equal(notice.purchase.revoked, false);
+  assert.equal(notice.purchase.expiresAt, expiresAt);
+
+  const graceAt = now + 50_000;
+  const graceRenewal = jws(
+    { autoRenewStatus: 1, gracePeriodExpiresDate: graceAt, originalTransactionId: '1000' },
+    [leafPem, intermediatePem, rootPem],
+    leafKey,
+  );
+  const graceSigned = jws(
+    {
+      notificationType: 'DID_FAIL_TO_RENEW',
+      data: {
+        bundleId: 'sk.ab.shrooms',
+        signedTransactionInfo: jws(
+          { ...transaction(), expiresDate: now - 1_000 },
+          [leafPem, intermediatePem, rootPem],
+          leafKey,
+        ),
+        signedRenewalInfo: graceRenewal,
+      },
+    },
+    [leafPem, intermediatePem, rootPem],
+    leafKey,
+  );
+  const grace = appleNotice({ signedPayload: graceSigned }, now, purchaseFrom, rootPem);
+  assert.equal(grace.kind, 'transaction');
+  if (grace.kind !== 'transaction') return;
+  assert.equal(grace.purchase.willNotRenew, false);
+  assert.equal(grace.purchase.revoked, false);
+  assert.equal(grace.purchase.expiresAt, graceAt);
+
+  const badRenewal = jws(
+    {
+      notificationType: 'DID_CHANGE_RENEWAL_STATUS',
+      data: {
+        bundleId: 'sk.ab.shrooms',
+        signedTransactionInfo: transactionJws,
+        signedRenewalInfo: 'not-a-jws',
+      },
+    },
+    [leafPem, intermediatePem, rootPem],
+    leafKey,
+  );
+  assert.equal(appleNotice({ signedPayload: badRenewal }, now, purchaseFrom, rootPem).kind, 'bad');
 });

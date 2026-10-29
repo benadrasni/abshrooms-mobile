@@ -26,6 +26,10 @@ import {
   type AppStoreCredentials,
 } from './store_fetch';
 import { authorizePubSub, googlePubSubKey, PubSubKeysUnavailable } from './pubsub_auth';
+import {
+  refreshEntitlementsAllowed,
+  refreshEntitlementsEnforceAppCheck,
+} from './refresh_limit';
 
 const playPublisherJson = defineSecret('PLAY_PUBLISHER_JSON');
 const playPubsubEmail = defineString('PLAY_PUBSUB_EMAIL', { default: '' });
@@ -234,25 +238,30 @@ export const playStoreNotification = onRequest(
   },
 );
 
+const refreshSlots = new Map<string, number>();
+
 /**
  * Reads this account's stored subscription tokens and writes the current
  * Play or App Store state. The phone calls this when a stored expiry is due,
  * because a restore often returns nothing for an ended test subscription.
- * App Check is not enforced, matching submitPurchase, so a sideloaded release
- * can run the check. An unverified lookup is returned as retry and is not
- * written.
+ * App Check is required. A second call for the same user inside the window
+ * does not load purchase tokens and is returned as retry. An unverified
+ * lookup is also returned as retry and is not written.
  */
 export const refreshEntitlements = onCall(
   {
     region: 'us-central1',
     // Cloud Run must accept the callable. Sign-in is checked in the function.
     invoker: 'public',
-    enforceAppCheck: false,
+    enforceAppCheck: refreshEntitlementsEnforceAppCheck,
     secrets: [playPublisherJson, appStoreIssuerId, appStoreKeyId, appStorePrivateKey],
   },
   async (request) => {
     const uid = signedInUid(request.auth?.uid, request.auth?.token.firebase?.sign_in_provider);
     const now = Date.now();
+    if (!refreshEntitlementsAllowed(uid, now, refreshSlots)) {
+      return { products: {}, retry: true };
+    }
     const play = playCredentialsOf(playPublisherJson.value());
     const issuer = appStoreIssuerId.value();
     const keyId = appStoreKeyId.value();

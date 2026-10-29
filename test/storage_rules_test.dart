@@ -20,5 +20,17 @@ void main() {
     expect(rules, contains('allow read: if owns(uid) || sightingPublic(file)'));
     expect(rules, contains('allow create, update: if owns(uid)'));
     expect(rules.contains('allow read: if true'), isFalse);
+    expect(rules.contains("status == 'review'"), isFalse);
+  });
+
+  test('an in-review photo url carries the owner token', () {
+    const token = '11111111-2222-4333-8444-555555555555';
+    final url = Uri.parse(sightingPhotoUrl('sightings/u/1.jpg', token: token));
+    expect(url.queryParameters['alt'], 'media');
+    expect(url.queryParameters['token'], token);
+    expect(sightingPhotoUrl('sightings/u/1.jpg'), isNot(contains('token=')));
+    expect(sightingTokenOk(token), isTrue);
+    expect(sightingTokenOk('short'), isFalse);
+    expect(downloadTokenFromUrl(url.toString()), token);
   });
 }

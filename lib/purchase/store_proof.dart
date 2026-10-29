@@ -15,7 +15,14 @@ class StoreProofOutcome {
   final StoreProofResult result;
   final Map<String, bool> products;
 
-  const StoreProofOutcome(this.result, [this.products = const {}]);
+  /// The callable may have written the plan, and this phone never saw the body.
+  final bool responseLost;
+
+  const StoreProofOutcome(
+    this.result, [
+    this.products = const {},
+    this.responseLost = false,
+  ]);
 }
 
 class _PendingProof {
@@ -67,11 +74,7 @@ Future<StoreProofOutcome> submitStoreProof({
           'submitPurchase',
           options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
         )
-        .call({
-          'store': store,
-          'productId': productId,
-          'proof': proof,
-        });
+        .call({'store': store, 'productId': productId, 'proof': proof});
     final products = checkedProductsOf(response.data);
     applyCheckedProducts(products);
     await _dropPending(store, productId);
@@ -88,11 +91,11 @@ Future<StoreProofOutcome> submitStoreProof({
     }
     await _rememberPending(store, productId, proof);
     debugPrint('store proof: ${error.code}');
-    return const StoreProofOutcome(StoreProofResult.deferred);
+    return const StoreProofOutcome(StoreProofResult.deferred, {}, true);
   } catch (error) {
     await _rememberPending(store, productId, proof);
     debugPrint('store proof: $error');
-    return const StoreProofOutcome(StoreProofResult.deferred);
+    return const StoreProofOutcome(StoreProofResult.deferred, {}, true);
   }
 }
 
@@ -197,11 +200,19 @@ Future<void> _writePending(List<_PendingProof> pending) async {
   );
 }
 
-Future<void> _rememberPending(String store, String productId, String proof) async {
+Future<void> _rememberPending(
+  String store,
+  String productId,
+  String proof,
+) async {
   final pending = await _readPending();
-  pending.removeWhere((item) => item.store == store && item.productId == productId);
+  pending.removeWhere(
+    (item) => item.store == store && item.productId == productId,
+  );
   pending.add(_PendingProof(store, productId, proof));
-  final kept = pending.length > 8 ? pending.sublist(pending.length - 8) : pending;
+  final kept = pending.length > 8
+      ? pending.sublist(pending.length - 8)
+      : pending;
   await _writePending(kept);
 }
 

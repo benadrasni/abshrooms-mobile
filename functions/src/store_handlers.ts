@@ -1,7 +1,10 @@
 import {
+  appleRenewalInfo,
   appleTransaction,
+  applyAppleRenewal,
   appStoreBundleId,
   verifyAppleSignedPayload,
+  type AppleRenewalInfo,
   type AppleTransaction,
 } from './apple_jws';
 import {
@@ -178,11 +181,12 @@ export function appleNotice(
   body: unknown,
   now: number,
   toPurchase: (transaction: AppleTransaction) => VerifiedPurchase,
+  rootPem?: string,
 ): AppleNotice {
   if (!body || typeof body !== 'object') return { kind: 'bad' };
   const signed = (body as { signedPayload?: unknown }).signedPayload;
   if (typeof signed !== 'string') return { kind: 'bad' };
-  const payload = verifyAppleSignedPayload(signed, now);
+  const payload = verifyAppleSignedPayload(signed, now, rootPem);
   if (!payload) return { kind: 'bad' };
   if (payload.notificationType === 'TEST') return { kind: 'ignore' };
   const data = payload.data;
@@ -190,11 +194,28 @@ export function appleNotice(
   if ((data as { bundleId?: unknown }).bundleId !== appStoreBundleId) return { kind: 'ignore' };
   const signedTransaction = (data as { signedTransactionInfo?: unknown }).signedTransactionInfo;
   if (typeof signedTransaction !== 'string') return { kind: 'ignore' };
-  const transactionPayload = verifyAppleSignedPayload(signedTransaction, now);
+  const transactionPayload = verifyAppleSignedPayload(signedTransaction, now, rootPem);
   if (!transactionPayload) return { kind: 'bad' };
+  const signedRenewal = (data as { signedRenewalInfo?: unknown }).signedRenewalInfo;
+  let renewal: AppleRenewalInfo | null = null;
+  if (typeof signedRenewal === 'string' && signedRenewal.length > 0) {
+    const renewalPayload = verifyAppleSignedPayload(signedRenewal, now, rootPem);
+    if (!renewalPayload) return { kind: 'bad' };
+    renewal = appleRenewalInfo(renewalPayload);
+  }
   const transaction = appleTransaction(transactionPayload);
   const purchase = transaction ? toPurchase(transaction) : null;
-  if (!purchase) return { kind: 'ignore' };
+  if (!transaction || !purchase) return { kind: 'ignore' };
+  const applied = applyAppleRenewal({
+    expiresAt: transaction.expiresAt,
+    revoked: transaction.revoked,
+    status: null,
+    renewal,
+    now,
+  });
+  purchase.expiresAt = applied.expiresAt;
+  purchase.revoked = applied.revoked;
+  purchase.willNotRenew = applied.willNotRenew;
   return { kind: 'transaction', purchase };
 }
 

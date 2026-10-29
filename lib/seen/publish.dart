@@ -25,15 +25,29 @@ Future<bool> publishSighting(FindRecord find) async {
     final photo = seenPhotoFromBytes(await file.readAsBytes());
     if (photo == null) return false;
     final object = _objectPath(user.uid, find.id);
-    await sightingStorage()
-        .ref(object)
-        .putData(photo.bytes, SettableMetadata(contentType: 'image/jpeg'));
+    final minted = sightingDownloadToken();
+    final ref = sightingStorage().ref(object);
+    await ref.putData(
+      photo.bytes,
+      SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'firebaseStorageDownloadTokens': minted},
+      ),
+    );
+    var photoToken = minted;
+    try {
+      final issued = downloadTokenFromUrl(await ref.getDownloadURL());
+      if (issued != null) photoToken = issued;
+    } catch (error) {
+      debugPrint('sighting photo url: $error');
+    }
     await FirebaseFirestore.instance.collection('sightings').doc(find.id).set({
       'uid': user.uid,
       'latin': latin,
       'millis': find.millis,
       'status': 'review',
       'photo': object,
+      'photoToken': photoToken,
     });
     return true;
   } catch (error) {
@@ -65,9 +79,13 @@ Future<void> syncSightings(Notebook notebook) async {
         .collection('sightings')
         .where('uid', isEqualTo: user.uid)
         .get();
-    final next = mergeAccountSightings(notebook.finds, [
-      for (final doc in snap.docs) (id: doc.id, data: doc.data()),
-    ]);
+    final remote = [
+      for (final doc in snap.docs)
+        (id: doc.id, data: Map<String, dynamic>.from(doc.data())),
+    ];
+    _keepLocalToken(notebook.finds, remote);
+    await _fillOwnerTokens(remote);
+    final next = mergeAccountSightings(notebook.finds, remote);
     if (identical(next, notebook.finds)) return;
     await notebook.replaceAll(next);
   } catch (error) {
@@ -138,18 +156,57 @@ FindRecord _withSighting(FindRecord find, Map<String, dynamic> data) {
 }
 
 /// Keeps a file on this phone. Otherwise uses the Sighting download URL.
+/// An in-review photo keeps its download token so another device can read it.
 String? _sightingPhoto(FindRecord find, Map<String, dynamic> data) {
   if (seenPhotoOnPhone(find.photoPath)) return find.photoPath;
-  final url = sightingPhotoUrl(data['photo']?.toString() ?? '');
+  final token = _photoToken(data) ?? downloadTokenFromUrl(find.photoPath ?? '');
+  final url = sightingPhotoUrl(data['photo']?.toString() ?? '', token: token);
   if (url.isEmpty) return find.photoPath;
   return url;
+}
+
+String? _photoToken(Map<String, dynamic> data) {
+  final token = data['photoToken']?.toString().trim() ?? '';
+  if (!sightingTokenOk(token)) return null;
+  return token;
+}
+
+void _keepLocalToken(List<FindRecord> local, List<SightingRow> remote) {
+  final byId = {for (final find in local) find.id: find};
+  for (final row in remote) {
+    if (_photoToken(row.data) != null) continue;
+    final token = downloadTokenFromUrl(byId[row.id]?.photoPath ?? '');
+    if (token != null) row.data['photoToken'] = token;
+  }
+}
+
+/// Older in-review photos have no token on the document. The owner can
+/// mint one; the object stays closed to everyone else.
+Future<void> _fillOwnerTokens(List<SightingRow> remote) async {
+  for (final row in remote) {
+    if (_photoToken(row.data) != null) continue;
+    if (row.data['status'] == 'public') continue;
+    final photo = row.data['photo']?.toString().trim() ?? '';
+    if (photo.isEmpty || photo.startsWith('http')) continue;
+    try {
+      final issued = downloadTokenFromUrl(
+        await sightingStorage().ref(photo).getDownloadURL(),
+      );
+      if (issued != null) row.data['photoToken'] = issued;
+    } catch (error) {
+      debugPrint('sighting photo: $error');
+    }
+  }
 }
 
 FindRecord? _importedSighting(String id, Map<String, dynamic> data) {
   final latin = data['latin']?.toString().trim() ?? '';
   final millis = data['millis'];
   if (latin.isEmpty || millis is! num || millis <= 0) return null;
-  final url = sightingPhotoUrl(data['photo']?.toString() ?? '');
+  final url = sightingPhotoUrl(
+    data['photo']?.toString() ?? '',
+    token: _photoToken(data),
+  );
   return FindRecord(
     id: id,
     millis: millis.round(),

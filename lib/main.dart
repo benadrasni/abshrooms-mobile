@@ -241,8 +241,7 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     unawaited(_checkVersion());
-    Entitlements.applyIfLoaded();
-    unawaited(Entitlements.recheckIfDue(force: true));
+    Entitlements.onResume();
   }
 
   /// A failed read keeps a remembered floor closed. The shell only shows
