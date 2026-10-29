@@ -4,24 +4,43 @@ export const refreshEntitlementsMinGapMs = 60_000;
 /** The callable rejects a missing App Check token. */
 export const refreshEntitlementsEnforceAppCheck = true;
 
+export function refreshedAtOf(node: unknown): number | null {
+  if (!node || typeof node !== 'object') return null;
+  const value = (node as { refreshedAt?: unknown }).refreshedAt;
+  return typeof value === 'number' ? value : null;
+}
+
 /**
- * One refresh per user per [gapMs] on this instance. A call inside the
- * window does not read purchase tokens. The caller returns retry so the
- * phone asks again later.
+ * Whether [node] may start a store read at [now]. This does not reserve
+ * the slot. A call inside the window is throttled.
  */
-export function refreshEntitlementsAllowed(
-  uid: string,
+export function nextRefreshReservation(
+  node: unknown,
   now: number,
-  slots: Map<string, number>,
   gapMs = refreshEntitlementsMinGapMs,
-): boolean {
-  const last = slots.get(uid);
-  if (last != null && now - last < gapMs) return false;
-  slots.set(uid, now);
-  if (slots.size > 1000) {
-    for (const [key, at] of slots) {
-      if (now - at >= gapMs) slots.delete(key);
-    }
+): { allowed: false } | { allowed: true; refreshedAt: number } {
+  const last = refreshedAtOf(node);
+  if (last != null && now - last < gapMs) return { allowed: false };
+  return { allowed: true, refreshedAt: now };
+}
+
+/**
+ * The entitlements object to write when the slot is reserved. Products
+ * already on the row stay. A window that is still open returns reserved false
+ * and does not change the timestamp.
+ */
+export function stampRefresh(
+  node: unknown,
+  now: number,
+  gapMs = refreshEntitlementsMinGapMs,
+): { reserved: false } | { reserved: true; entitlements: Record<string, unknown> } {
+  const decision = nextRefreshReservation(node, now, gapMs);
+  if (!decision.allowed) return { reserved: false };
+  const current = node && typeof node === 'object' ? { ...(node as Record<string, unknown>) } : {};
+  const products = current.products;
+  if (products && typeof products === 'object') {
+    current.products = { ...(products as Record<string, unknown>) };
   }
-  return true;
+  current.refreshedAt = decision.refreshedAt;
+  return { reserved: true, entitlements: current };
 }

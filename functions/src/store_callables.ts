@@ -4,14 +4,14 @@ import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { appleTransaction, verifyAppleSignedPayload } from './apple_jws';
 import { proofKey, proofRecordOf, subscriptionProducts, type VerifiedPurchase } from './entitlements';
-import { firestoreEntitlements } from './firestore_entitlements';
+import { firestoreEntitlements, reserveEntitlementRefresh } from './firestore_entitlements';
 import {
   appleNotice,
   applyVerifiedNotification,
   grantPurchase,
   playNotice,
-  refreshAccountProofs,
   registerStoreAccount as registerAccount,
+  runEntitlementRefresh,
   releaseStorePurchases as releaseAccount,
   subscriptionProofs,
 } from './store_handlers';
@@ -26,10 +26,7 @@ import {
   type AppStoreCredentials,
 } from './store_fetch';
 import { authorizePubSub, googlePubSubKey, PubSubKeysUnavailable } from './pubsub_auth';
-import {
-  refreshEntitlementsAllowed,
-  refreshEntitlementsEnforceAppCheck,
-} from './refresh_limit';
+import { refreshEntitlementsEnforceAppCheck } from './refresh_limit';
 
 const playPublisherJson = defineSecret('PLAY_PUBLISHER_JSON');
 const playPubsubEmail = defineString('PLAY_PUBSUB_EMAIL', { default: '' });
@@ -238,15 +235,13 @@ export const playStoreNotification = onRequest(
   },
 );
 
-const refreshSlots = new Map<string, number>();
-
 /**
  * Reads this account's stored subscription tokens and writes the current
  * Play or App Store state. The phone calls this when a stored expiry is due,
  * because a restore often returns nothing for an ended test subscription.
- * App Check is required. A second call for the same user inside the window
- * does not load purchase tokens and is returned as retry. An unverified
- * lookup is also returned as retry and is not written.
+ * App Check is required. A second call inside the window is throttled and
+ * does not load purchase tokens. An unverified lookup is returned as retry
+ * and is not written.
  */
 export const refreshEntitlements = onCall(
   {
@@ -259,9 +254,7 @@ export const refreshEntitlements = onCall(
   async (request) => {
     const uid = signedInUid(request.auth?.uid, request.auth?.token.firebase?.sign_in_provider);
     const now = Date.now();
-    if (!refreshEntitlementsAllowed(uid, now, refreshSlots)) {
-      return { products: {}, retry: true };
-    }
+    const db = firestoreEntitlements();
     const play = playCredentialsOf(playPublisherJson.value());
     const issuer = appStoreIssuerId.value();
     const keyId = appStoreKeyId.value();
@@ -276,25 +269,42 @@ export const refreshEntitlements = onCall(
         logger.error('refreshEntitlements: play auth', { error: String(error) });
       }
     }
-    return refreshAccountProofs(firestoreEntitlements(), uid, now, async (proof) => {
-      try {
-        if (proof.store === 'app_store') {
-          if (!apple) return { status: 'unavailable' };
-          const fetched = await fetchAppleSubscription(proof.token, proof.environment, apple, now, fetch);
+    const outcome = await runEntitlementRefresh({
+      db,
+      uid,
+      now,
+      node: await db.get(`users/${uid}/entitlements`),
+      canFetch: (proof) => (proof.store === 'app_store' ? apple != null : Boolean(play && bearer)),
+      reserve: (at) => reserveEntitlementRefresh(uid, at),
+      lookup: async (proof) => {
+        try {
+          if (proof.store === 'app_store') {
+            if (!apple) return { status: 'unavailable' };
+            const fetched = await fetchAppleSubscription(
+              proof.token,
+              proof.productId,
+              proof.environment,
+              apple,
+              now,
+              fetch,
+            );
+            return fetched.status === 'verified'
+              ? { status: 'verified', purchase: fetched.purchase }
+              : { status: 'unknown' };
+          }
+          if (!play || !bearer) return { status: 'unavailable' };
+          const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);
           return fetched.status === 'verified'
             ? { status: 'verified', purchase: fetched.purchase }
             : { status: 'unknown' };
+        } catch (error) {
+          if (error instanceof StoreUnavailable) return { status: 'unavailable' };
+          throw error;
         }
-        if (!play || !bearer) return { status: 'unavailable' };
-        const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);
-        return fetched.status === 'verified'
-          ? { status: 'verified', purchase: fetched.purchase }
-          : { status: 'unknown' };
-      } catch (error) {
-        if (error instanceof StoreUnavailable) return { status: 'unavailable' };
-        throw error;
-      }
+      },
     });
+    if (outcome.throttled) return { throttled: true };
+    return { products: outcome.products, retry: outcome.retry };
   },
 );
 
@@ -327,7 +337,14 @@ export const refreshStoreEntitlements = onSchedule(
         let purchase: VerifiedPurchase | null = null;
         if (proof.store === 'app_store') {
           if (!apple) continue;
-          const fetched = await fetchAppleSubscription(proof.token, proof.environment, apple, now, fetch);
+          const fetched = await fetchAppleSubscription(
+            proof.token,
+            proof.productId,
+            proof.environment,
+            apple,
+            now,
+            fetch,
+          );
           purchase = purchaseIfVerified(fetched);
         } else if (play && bearer) {
           const fetched = await fetchPlayPurchase(proof.token, proof.productId, true, play, now, fetch, bearer);

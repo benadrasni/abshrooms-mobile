@@ -23,14 +23,16 @@ void main() {
     expect(rules.contains("status == 'review'"), isFalse);
   });
 
-  test('an in-review photo url carries the owner token', () {
-    const token = '11111111-2222-4333-8444-555555555555';
-    final url = Uri.parse(sightingPhotoUrl('sightings/u/1.jpg', token: token));
+  test('sighting upload metadata is content type only', () {
+    final metadata = sightingJpegMetadata();
+    expect(metadata.contentType, 'image/jpeg');
+    expect(metadata.customMetadata, anyOf(isNull, isEmpty));
+    expect(
+      metadata.customMetadata?.containsKey('firebaseStorageDownloadTokens'),
+      isNot(true),
+    );
+    final url = Uri.parse(sightingPhotoUrl('sightings/u/1.jpg'));
     expect(url.queryParameters['alt'], 'media');
-    expect(url.queryParameters['token'], token);
-    expect(sightingPhotoUrl('sightings/u/1.jpg'), isNot(contains('token=')));
-    expect(sightingTokenOk(token), isTrue);
-    expect(sightingTokenOk('short'), isFalse);
-    expect(downloadTokenFromUrl(url.toString()), token);
+    expect(url.queryParameters.containsKey('token'), isFalse);
   });
 }

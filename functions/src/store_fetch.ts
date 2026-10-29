@@ -117,9 +117,75 @@ function hosts(environment: string | null): string[] {
   return environment === 'Sandbox' ? [sandbox, production] : [production, sandbox];
 }
 
+export type AppleStatusChoice = {
+  transaction: AppleTransaction;
+  status: number | null;
+  renewal: AppleRenewalInfo | null;
+};
+
+/// A revoked row does not win on expiresAt. Among equals, the later expiry wins.
+export function preferApplePurchase(current: VerifiedPurchase, next: VerifiedPurchase): VerifiedPurchase {
+  if (current.revoked !== next.revoked) return current.revoked ? next : current;
+  return (next.expiresAt ?? 0) >= (current.expiresAt ?? 0) ? next : current;
+}
+
+/**
+ * The status response lists every subscription for the customer. Only the
+ * original transaction being refreshed is eligible, and only when its
+ * product is the one on the stored proof. A revoked row never outranks an
+ * active one.
+ */
+export function chooseAppleStatusPurchase(
+  entries: AppleStatusChoice[],
+  originalTransactionId: string,
+  productId: string,
+  now: number,
+): VerifiedPurchase {
+  let chosen: VerifiedPurchase | null = null;
+  for (const entry of entries) {
+    if (entry.transaction.originalTransactionId !== originalTransactionId) continue;
+    if (entry.transaction.productId !== productId) continue;
+    const purchase = applePurchaseFromStatus(entry.transaction, entry.status, entry.renewal, now);
+    chosen = chosen == null ? purchase : preferApplePurchase(chosen, purchase);
+  }
+  if (!chosen) throw new StoreUnavailable('app store signature');
+  return chosen;
+}
+
+/**
+ * Parses one App Store status body for [originalTransactionId] and [productId].
+ * A signedRenewalInfo that does not verify throws, so the caller writes nothing.
+ */
+export function readAppleSubscriptionStatus(input: {
+  body: unknown;
+  originalTransactionId: string;
+  productId: string;
+  now: number;
+  verify: (jws: string) => Record<string, unknown> | null;
+}): VerifiedPurchase {
+  const parsed: AppleStatusChoice[] = [];
+  for (const entry of appleStatusEntries(input.body)) {
+    const payload = input.verify(entry.signedTransactionInfo);
+    const transaction = payload ? appleTransaction(payload) : null;
+    if (!transaction || transaction.originalTransactionId !== input.originalTransactionId) continue;
+    if (transaction.productId !== input.productId) continue;
+    let renewal: AppleRenewalInfo | null = null;
+    if (entry.signedRenewalInfo) {
+      const renewalPayload = input.verify(entry.signedRenewalInfo);
+      if (!renewalPayload) throw new StoreUnavailable('app store signature');
+      renewal = appleRenewalInfo(renewalPayload);
+    }
+    parsed.push({ transaction, status: entry.status, renewal });
+  }
+  return chooseAppleStatusPurchase(parsed, input.originalTransactionId, input.productId, input.now);
+}
+
 /// Current subscription state from the App Store Server API.
+/// The status route lists every subscription for the customer. Only the
+/// original transaction and product on the stored proof are returned.
 export async function fetchAppleSubscription(
   originalTransactionId: string,
+  productId: string,
   environment: string | null,
   credentials: AppStoreCredentials,
   now: number,
@@ -143,23 +209,14 @@ export async function fetchAppleSubscription(
       continue;
     }
     if (!response.ok) throw new StoreUnavailable(`app store ${response.status}`);
-    const signed = appleStatusEntries(await response.json());
-    let best: VerifiedPurchase | null = null;
-    for (const entry of signed) {
-      const payload = verifyAppleSignedPayload(entry.signedTransactionInfo, now);
-      if (!payload) continue;
-      const transaction = appleTransaction(payload);
-      if (!transaction) continue;
-      let renewal: AppleRenewalInfo | null = null;
-      if (entry.signedRenewalInfo) {
-        const renewalPayload = verifyAppleSignedPayload(entry.signedRenewalInfo, now);
-        if (renewalPayload) renewal = appleRenewalInfo(renewalPayload);
-      }
-      const purchase = applePurchaseFromStatus(transaction, entry.status, renewal, now);
-      if (!best || (purchase.expiresAt ?? 0) >= (best.expiresAt ?? 0)) best = purchase;
-    }
-    if (!best) throw new StoreUnavailable('app store signature');
-    return { status: 'verified', purchase: best };
+    const purchase = readAppleSubscriptionStatus({
+      body: await response.json(),
+      originalTransactionId,
+      productId,
+      now,
+      verify: (jws) => verifyAppleSignedPayload(jws, now),
+    });
+    return { status: 'verified', purchase };
   }
   if (sawUnknown) return { status: 'unknown' };
   throw new StoreUnavailable('app store');

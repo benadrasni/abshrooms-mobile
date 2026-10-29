@@ -249,8 +249,8 @@ export const appleRenewalHoldMs = 15 * 60 * 1000;
 /**
  * Apple renewal status on top of a transaction. The grant still ends at
  * expiresAt. autoRenewStatus 0 sets willNotRenew and does not extend a
- * lapsed date. Status 1 (active) or a grace date still ahead is a verified
- * extension. Expired, billing retry, and revoked are not.
+ * lapsed date. Grace and the short renewal hold are applied only when
+ * [renewal] is a verified payload. Expired, billing retry, and revoked are not.
  */
 export function applyAppleRenewal(input: {
   expiresAt: number | null;
@@ -261,20 +261,25 @@ export function applyAppleRenewal(input: {
 }): { expiresAt: number | null; revoked: boolean; willNotRenew: boolean } {
   let expiresAt = input.expiresAt;
   let revoked = input.revoked;
-  const autoRenew = input.renewal?.autoRenewStatus ?? null;
-  const grace = input.renewal?.gracePeriodExpiresAt ?? null;
+  const renewal = input.renewal;
+  const autoRenew = renewal?.autoRenewStatus ?? null;
+  const grace = renewal?.gracePeriodExpiresAt ?? null;
   const status = input.status;
   if (status === 2 || status === 3 || status === 5) revoked = true;
-  if (status === 4 && grace != null && grace <= input.now) revoked = true;
+  if (renewal && status === 4 && grace != null && grace <= input.now) revoked = true;
 
   const terminal = revoked || status === 2 || status === 3 || status === 5;
-  if (!terminal && grace != null && grace > input.now && autoRenew !== 0) {
-    if (expiresAt == null || grace > expiresAt) expiresAt = grace;
-  }
-  if (!terminal && status === 1 && autoRenew !== 0 && expiresAt != null && expiresAt <= input.now) {
-    const heldUntil = expiresAt + appleRenewalHoldMs;
-    if (heldUntil > input.now) expiresAt = heldUntil;
-    else revoked = true;
+  // Grace and the renewal hold come only from a verified renewal payload.
+  // A missing payload is not treated as auto-renewing.
+  if (renewal && !terminal) {
+    if (grace != null && grace > input.now && autoRenew !== 0) {
+      if (expiresAt == null || grace > expiresAt) expiresAt = grace;
+    }
+    if (status === 1 && autoRenew !== 0 && expiresAt != null && expiresAt <= input.now) {
+      const heldUntil = expiresAt + appleRenewalHoldMs;
+      if (heldUntil > input.now) expiresAt = heldUntil;
+      else revoked = true;
+    }
   }
 
   const open = !revoked && (expiresAt == null || expiresAt > input.now);

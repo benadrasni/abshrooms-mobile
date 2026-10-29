@@ -18,6 +18,7 @@ import {
   type VerifiedPurchase,
 } from './entitlements';
 import { playPackageName } from './play_purchase';
+import { nextRefreshReservation } from './refresh_limit';
 import { storeAccountToken } from './store_account';
 
 export type EntitlementDb = {
@@ -141,23 +142,34 @@ export async function subscriptionProofs(db: EntitlementDb): Promise<ProofRecord
 export type ProofLookup =
   | { status: 'verified'; purchase: VerifiedPurchase }
   | { status: 'unknown' }
-  | { status: 'unavailable' };
+  | { status: 'unavailable' }
+  | { status: 'throttled' };
+
+export type RefreshRun = {
+  products: Record<string, boolean>;
+  retry: boolean;
+  throttled: boolean;
+};
 
 /// Re-reads this account's stored subscription tokens. A verified result is
 /// written. An unknown or unavailable lookup is left unchanged and reported
 /// as retry, so a failed Play read is not stored as a cancellation.
+/// Throttled stops the pass and is not a retry.
 export async function refreshAccountProofs(
   db: EntitlementDb,
   uid: string,
   now: number,
   lookup: (proof: ProofRecord) => Promise<ProofLookup>,
-): Promise<{ products: Record<string, boolean>; retry: boolean }> {
+): Promise<RefreshRun> {
   const products: Record<string, boolean> = {};
   let retry = false;
   for (const proof of await subscriptionProofs(db)) {
     if (proof.uid !== uid) continue;
     try {
       const fetched = await lookup(proof);
+      if (fetched.status === 'throttled') {
+        return { products, retry: false, throttled: true };
+      }
       if (fetched.status !== 'verified') {
         retry = true;
         continue;
@@ -172,7 +184,36 @@ export async function refreshAccountProofs(
       retry = true;
     }
   }
-  return { products, retry };
+  return { products, retry, throttled: false };
+}
+
+/**
+ * One account refresh. A recent `refreshedAt` returns throttled and does not
+ * look anything up. The slot is reserved only once a lookup is about to
+ * start, not when the read would be skipped.
+ */
+export async function runEntitlementRefresh(input: {
+  db: EntitlementDb;
+  uid: string;
+  now: number;
+  node: unknown;
+  canFetch: (proof: ProofRecord) => boolean;
+  reserve: (now: number) => Promise<boolean>;
+  lookup: (proof: ProofRecord) => Promise<Exclude<ProofLookup, { status: 'throttled' }>>;
+}): Promise<RefreshRun> {
+  if (!nextRefreshReservation(input.node, input.now).allowed) {
+    return { products: {}, retry: false, throttled: true };
+  }
+  let reserved = false;
+  return refreshAccountProofs(input.db, input.uid, input.now, async (proof) => {
+    if (!input.canFetch(proof)) return { status: 'unavailable' };
+    if (!reserved) {
+      const ok = await input.reserve(input.now);
+      if (!ok) return { status: 'throttled' };
+      reserved = true;
+    }
+    return input.lookup(proof);
+  });
 }
 
 export type AppleNotice = { kind: 'transaction'; purchase: VerifiedPurchase } | { kind: 'ignore' } | { kind: 'bad' };

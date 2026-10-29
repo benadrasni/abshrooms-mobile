@@ -184,6 +184,33 @@ void main() {
     },
   );
 
+  test('a throttled refresh is not settled and does not clear a settle', () {
+    expect(storedRefreshOf({'throttled': true}), StoredRefresh.throttled);
+    expect(storedRefreshOf({'retry': true}), StoredRefresh.retry);
+    expect(
+      storedRefreshOf({'throttled': true, 'retry': true}),
+      StoredRefresh.throttled,
+    );
+    expect(
+      storedRefreshOf({'products': <String, bool>{}}),
+      StoredRefresh.settled,
+    );
+    const due = 5;
+    final kept = refreshMarksAfter(
+      const RefreshMarks(rechecked: due, settled: due),
+      due,
+      StoredRefresh.throttled,
+    );
+    expect(kept.settled, due);
+    final cleared = refreshMarksAfter(
+      const RefreshMarks(rechecked: due, settled: due),
+      due,
+      StoredRefresh.retry,
+    );
+    expect(cleared.settled, isNull);
+    expect(cleared.rechecked, isNull);
+  });
+
   test('a lost submit response restores Field Guide from the account row', () {
     final recovery = LostSubmitRecovery();
     Purchases.grantStorePurchase(fieldGuideMonthlyPlay);

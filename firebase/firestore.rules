@@ -121,9 +121,7 @@ service cloud.firestore {
         && request.resource.data.latin.size() < 200
         && request.resource.data.millis is int
         && request.resource.data.photo == 'sightings/' + request.auth.uid + '/' + id + '.jpg'
-        && request.resource.data.photoToken is string
-        && request.resource.data.photoToken.matches('^[A-Za-z0-9_-]{16,128}$')
-        && request.resource.data.keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo', 'photoToken']);
+        && request.resource.data.keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo']);
       allow update: if false;
       allow delete: if request.auth != null
         && resource.data.uid == request.auth.uid;

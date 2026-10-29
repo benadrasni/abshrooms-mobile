@@ -25,29 +25,15 @@ Future<bool> publishSighting(FindRecord find) async {
     final photo = seenPhotoFromBytes(await file.readAsBytes());
     if (photo == null) return false;
     final object = _objectPath(user.uid, find.id);
-    final minted = sightingDownloadToken();
-    final ref = sightingStorage().ref(object);
-    await ref.putData(
-      photo.bytes,
-      SettableMetadata(
-        contentType: 'image/jpeg',
-        customMetadata: {'firebaseStorageDownloadTokens': minted},
-      ),
-    );
-    var photoToken = minted;
-    try {
-      final issued = downloadTokenFromUrl(await ref.getDownloadURL());
-      if (issued != null) photoToken = issued;
-    } catch (error) {
-      debugPrint('sighting photo url: $error');
-    }
+    await sightingStorage()
+        .ref(object)
+        .putData(photo.bytes, sightingJpegMetadata());
     await FirebaseFirestore.instance.collection('sightings').doc(find.id).set({
       'uid': user.uid,
       'latin': latin,
       'millis': find.millis,
       'status': 'review',
       'photo': object,
-      'photoToken': photoToken,
     });
     return true;
   } catch (error) {
@@ -83,8 +69,7 @@ Future<void> syncSightings(Notebook notebook) async {
       for (final doc in snap.docs)
         (id: doc.id, data: Map<String, dynamic>.from(doc.data())),
     ];
-    _keepLocalToken(notebook.finds, remote);
-    await _fillOwnerTokens(remote);
+    await _cacheOwnerDownloadUrls(remote);
     final next = mergeAccountSightings(notebook.finds, remote);
     if (identical(next, notebook.finds)) return;
     await notebook.replaceAll(next);
@@ -155,44 +140,39 @@ FindRecord _withSighting(FindRecord find, Map<String, dynamic> data) {
   return find.copyWith(share: share, photoPath: photo);
 }
 
-/// Keeps a file on this phone. Otherwise uses the Sighting download URL.
-/// An in-review photo keeps its download token so another device can read it.
+/// Keeps a file on this phone. A public Sighting uses the token-less URL.
+/// An in-review photo uses the download URL cached on this device.
 String? _sightingPhoto(FindRecord find, Map<String, dynamic> data) {
   if (seenPhotoOnPhone(find.photoPath)) return find.photoPath;
-  final token = _photoToken(data) ?? downloadTokenFromUrl(find.photoPath ?? '');
-  final url = sightingPhotoUrl(data['photo']?.toString() ?? '', token: token);
-  if (url.isEmpty) return find.photoPath;
-  return url;
-}
-
-String? _photoToken(Map<String, dynamic> data) {
-  final token = data['photoToken']?.toString().trim() ?? '';
-  if (!sightingTokenOk(token)) return null;
-  return token;
-}
-
-void _keepLocalToken(List<FindRecord> local, List<SightingRow> remote) {
-  final byId = {for (final find in local) find.id: find};
-  for (final row in remote) {
-    if (_photoToken(row.data) != null) continue;
-    final token = downloadTokenFromUrl(byId[row.id]?.photoPath ?? '');
-    if (token != null) row.data['photoToken'] = token;
+  final photo = data['photo']?.toString().trim() ?? '';
+  if (data['status'] == 'public') {
+    final url = sightingPhotoUrl(photo);
+    return url.isEmpty ? find.photoPath : url;
   }
+  final cached = _ownerDownloadUrl(data);
+  if (cached != null) return cached;
+  if (sightingPhotoIsRemote(find.photoPath)) return find.photoPath;
+  return find.photoPath;
 }
 
-/// Older in-review photos have no token on the document. The owner can
-/// mint one; the object stays closed to everyone else.
-Future<void> _fillOwnerTokens(List<SightingRow> remote) async {
+/// Set by sync after the owner calls getDownloadURL. Not a Firestore field.
+String? _ownerDownloadUrl(Map<String, dynamic> data) {
+  final url = data['downloadUrl']?.toString().trim() ?? '';
+  if (url.startsWith('https://') || url.startsWith('http://')) return url;
+  return null;
+}
+
+/// In-review and rejected photos stay owner-only. The signed-in owner asks
+/// Storage for a download URL and the notebook keeps it. The document does not.
+Future<void> _cacheOwnerDownloadUrls(List<SightingRow> remote) async {
   for (final row in remote) {
-    if (_photoToken(row.data) != null) continue;
     if (row.data['status'] == 'public') continue;
     final photo = row.data['photo']?.toString().trim() ?? '';
-    if (photo.isEmpty || photo.startsWith('http')) continue;
+    if (!photo.startsWith('sightings/') || !photo.endsWith('.jpg')) continue;
     try {
-      final issued = downloadTokenFromUrl(
-        await sightingStorage().ref(photo).getDownloadURL(),
-      );
-      if (issued != null) row.data['photoToken'] = issued;
+      row.data['downloadUrl'] = await sightingStorage()
+          .ref(photo)
+          .getDownloadURL();
     } catch (error) {
       debugPrint('sighting photo: $error');
     }
@@ -203,10 +183,10 @@ FindRecord? _importedSighting(String id, Map<String, dynamic> data) {
   final latin = data['latin']?.toString().trim() ?? '';
   final millis = data['millis'];
   if (latin.isEmpty || millis is! num || millis <= 0) return null;
-  final url = sightingPhotoUrl(
-    data['photo']?.toString() ?? '',
-    token: _photoToken(data),
-  );
+  final photo = data['photo']?.toString().trim() ?? '';
+  final url = data['status'] == 'public'
+      ? sightingPhotoUrl(photo)
+      : (_ownerDownloadUrl(data) ?? '');
   return FindRecord(
     id: id,
     millis: millis.round(),

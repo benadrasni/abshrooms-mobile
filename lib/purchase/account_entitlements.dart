@@ -92,6 +92,42 @@ bool entitlementRowActive(String id, Map value, int nowMs) {
   return expiresAt.toInt() > nowMs;
 }
 
+/// How the phone should treat one `refreshEntitlements` body.
+enum StoredRefresh { settled, retry, throttled }
+
+/// `throttled` is checked first so it is never read as an unverified retry.
+StoredRefresh storedRefreshOf(Object? data) {
+  if (data is Map && data['throttled'] == true) return StoredRefresh.throttled;
+  if (data is Map && data['retry'] == true) return StoredRefresh.retry;
+  return StoredRefresh.settled;
+}
+
+class RefreshMarks {
+  final int? rechecked;
+  final int? settled;
+
+  const RefreshMarks({this.rechecked, this.settled});
+}
+
+/// A throttled read leaves [RefreshMarks.settled] alone. An unverified
+/// retry clears a settle for [dueAt]. A settled read records [dueAt].
+RefreshMarks refreshMarksAfter(
+  RefreshMarks marks,
+  int dueAt,
+  StoredRefresh read,
+) {
+  if (read == StoredRefresh.settled) {
+    return RefreshMarks(rechecked: marks.rechecked, settled: dueAt);
+  }
+  if (read == StoredRefresh.throttled) {
+    return RefreshMarks(rechecked: marks.rechecked, settled: marks.settled);
+  }
+  return RefreshMarks(
+    rechecked: marks.rechecked == dueAt ? null : marks.rechecked,
+    settled: marks.settled == dueAt ? null : marks.settled,
+  );
+}
+
 /// A lost `submitPurchase` response is not a refusal. The optimistic grant
 /// is already off. The account row puts it back when that row shows the
 /// plan. Until then [pendingProduct] is read again on resume and the next call.

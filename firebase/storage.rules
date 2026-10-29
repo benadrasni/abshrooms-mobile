@@ -18,9 +18,9 @@ service firebase.storage {
     }
 
     match /sightings/{uid}/{file} {
-      // Public Sightings are world-readable. Every other object, including
-      // one still in review, is the owner's. Another device loads that JPEG
-      // with the download token on the sighting document.
+      // Public Sightings are world-readable. Every other object is the
+      // owner's. Another device calls getDownloadURL while signed in and
+      // keeps that URL on the phone. It is not stored on the document.
       allow read: if owns(uid) || sightingPublic(file);
       allow create, update: if owns(uid)
         && request.resource.size < 8 * 1024 * 1024

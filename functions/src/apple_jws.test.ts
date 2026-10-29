@@ -269,6 +269,25 @@ test('Apple renewal status ends a lapsed plan unless a verified renewal extends 
   });
   assert.equal(refunded.revoked, true);
   assert.equal(refunded.expiresAt, future);
+
+  const unverified = applyAppleRenewal({
+    expiresAt: stale,
+    revoked: false,
+    status: 1,
+    renewal: null,
+    now,
+  });
+  assert.equal(unverified.expiresAt, stale);
+  assert.equal(unverified.revoked, false);
+  const unverifiedGrace = applyAppleRenewal({
+    expiresAt: stale,
+    revoked: false,
+    status: 4,
+    renewal: null,
+    now,
+  });
+  assert.equal(unverifiedGrace.expiresAt, stale);
+  assert.equal(unverifiedGrace.revoked, false);
 });
 
 test('subscription status keeps the renewal payload and the numeric status', () => {

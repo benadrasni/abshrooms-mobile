@@ -120,14 +120,15 @@ class Entitlements {
   static Future<void> _refreshDue(int dueAt) async {
     try {
       await rereadLostGrant();
-      final settled = await refreshStoredEntitlements();
+      final read = await refreshStoredEntitlements();
       if (_recheckedExpiry != dueAt && _settledExpiry != dueAt) return;
-      if (settled) {
-        _settledExpiry = dueAt;
-        return;
-      }
-      if (_recheckedExpiry == dueAt) _recheckedExpiry = null;
-      if (_settledExpiry == dueAt) _settledExpiry = null;
+      final marks = refreshMarksAfter(
+        RefreshMarks(rechecked: _recheckedExpiry, settled: _settledExpiry),
+        dueAt,
+        read,
+      );
+      _recheckedExpiry = marks.rechecked;
+      _settledExpiry = marks.settled;
     } catch (error) {
       if (_recheckedExpiry == dueAt) _recheckedExpiry = null;
       if (_settledExpiry == dueAt) _settledExpiry = null;

@@ -3,17 +3,17 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('a sighting stores an owner-only photo token and cannot be edited', () {
+  test('a sighting document does not store a download token', () {
     final rules = File('firebase/firestore.rules').readAsStringSync();
-    expect(rules, contains('photoToken'));
-    expect(rules, contains("photoToken.matches('^[A-Za-z0-9_-]{16,128}\$')"));
+    final start = rules.indexOf('match /sightings/{id}');
+    expect(start, greaterThan(0));
+    final block = rules.substring(start, rules.indexOf('allow delete:', start));
+    expect(block.contains('photoToken'), isFalse);
     expect(
-      rules,
-      contains(
-        "keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo', 'photoToken'])",
-      ),
+      block,
+      contains("keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo'])"),
     );
-    expect(rules, contains('allow update: if false'));
+    expect(block.contains('allow update: if false'), isTrue);
     expect(
       rules,
       contains(
