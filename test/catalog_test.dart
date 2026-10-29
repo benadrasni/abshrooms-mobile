@@ -6,7 +6,6 @@ import 'package:whats_that_mushroom/camera/plant_id.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/key_filter.dart';
 import 'package:whats_that_mushroom/data/models.dart';
-import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/data/search.dart';
 import 'package:whats_that_mushroom/data/text.dart';
