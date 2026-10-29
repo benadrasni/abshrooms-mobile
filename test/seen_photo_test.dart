@@ -22,10 +22,43 @@ void main() {
     expect(photo.when, DateTime(2026, 7, 4, 15, 4, 5));
     expect(photo.latitude, closeTo(48.1, 0.0001));
     expect(photo.longitude, closeTo(-17.1, 0.0001));
+    final place = photoPositionFromBytes(bytes);
+    expect(place, isNotNull);
+    expect(place!.latitude, closeTo(48.1, 0.0001));
+    expect(place.longitude, closeTo(-17.1, 0.0001));
     final stored = img.decodeImage(photo.bytes);
     expect(stored, isNotNull);
     expect(stored!.exif.gpsIfd['GPSLatitude'], isNull);
     expect(stored.exif.exifIfd['DateTimeOriginal'], isNull);
+  });
+
+  test('a photo date keeps the clock and ignores a fraction', () {
+    final shot = img.Image(width: 2, height: 2);
+    shot.exif.exifIfd['DateTimeOriginal'] = '2023:06:25 15:33:04.12+02:00';
+    final bytes = Uint8List.fromList(img.encodeJpg(shot));
+    expect(photoDateFromBytes(bytes), DateTime(2023, 6, 25, 15, 33, 4));
+  });
+
+  test('a photo file reports its date', () async {
+    final shot = img.Image(width: 2, height: 2);
+    shot.exif.exifIfd['DateTimeDigitized'] = '2024:01:02 03:04:05';
+    final root = await Directory.systemTemp.createTemp('photo-date');
+    addTearDown(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+    final file = File('${root.path}/shot.jpg');
+    await file.writeAsBytes(img.encodeJpg(shot));
+    expect(await photoTakenAt(file.path), DateTime(2024, 1, 2, 3, 4, 5));
+    expect(await photoTakenAt('${root.path}/missing.jpg'), isNull);
+  });
+
+  test('no GPS and a point off the globe are no place', () {
+    expect(photoPlace(0, 0), isNull);
+    expect(photoPlace(91, 10), isNull);
+    expect(photoPlace(48.1, -17.1), isNotNull);
+    final shot = img.Image(width: 2, height: 2);
+    final bytes = Uint8List.fromList(img.encodeJpg(shot));
+    expect(photoPositionFromBytes(bytes), isNull);
   });
 
   test('a photo without a date uses now', () {

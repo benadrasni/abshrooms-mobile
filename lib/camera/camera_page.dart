@@ -23,6 +23,7 @@ import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
+import 'package:whats_that_mushroom/species/seen_photo.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
 
 const _well = Color(0xFF0D0C0A);
@@ -34,13 +35,23 @@ const _scrim = Color(0x66000000);
 /// its own page. A guest has one name. A signed-in account has five each
 /// UTC month, and a rewarded ad can add five more. Field Guide is unlimited.
 /// `identifyMushroom` counts the name. There is no location question: this
-/// guide has no floristic regions, and a photo name does not use a place.
+/// guide has no floristic regions, and the name is not sent with a place.
+/// A photo keeps the date and the place written on the file. A shutter
+/// photo is dated when it is taken, and keeps a place only when the file
+/// has one.
 class CameraPage extends StatefulWidget {
   /// When set, this stands in for the live camera. Production leaves it
   /// empty and opens the device camera.
   final WidgetBuilder? livePreview;
   final Future<String?> Function(ImageSource source)? pickPhoto;
   final Future<Uint8List> Function(String path)? readPhoto;
+
+  /// Gallery photo date. Production reads the EXIF date. A shutter photo
+  /// does not use this.
+  final Future<DateTime?> Function(String path)? photoTakenAt;
+
+  /// Place written on the photo. Production reads the EXIF GPS.
+  final Future<PhotoPlace?> Function(String path)? photoPosition;
   final Future<List<NameGuess>> Function(Uint8List jpeg, String language)?
   identify;
 
@@ -62,6 +73,8 @@ class CameraPage extends StatefulWidget {
     this.livePreview,
     this.pickPhoto,
     this.readPhoto,
+    this.photoTakenAt,
+    this.photoPosition,
     this.identify,
     this.fieldGuide,
     this.signedIn,
@@ -424,6 +437,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       if (shot != null) return shot;
     }
     if (!mounted) return null;
+    if (source == ImageSource.gallery) {
+      // This picker keeps the picture's date and place. The image picker
+      // resizes first and can drop both.
+      return pickDevicePhoto();
+    }
     final image = await ImagePicker().pickImage(
       source: source,
       maxWidth: 1280,
@@ -523,6 +541,25 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         _limit = false;
         _shotPath = path;
       });
+      // The resized JPEG used for the name drops the file's date and place.
+      DateTime? taken;
+      if (source == ImageSource.gallery) {
+        final readWhen = widget.photoTakenAt ?? photoTakenAt;
+        try {
+          taken = await readWhen(path);
+        } catch (error) {
+          debugPrint('camera photo date: $error');
+        }
+        if (!mounted) return;
+      }
+      PhotoPlace? place;
+      final locate = widget.photoPosition ?? photoPosition;
+      try {
+        place = await locate(path);
+      } catch (error) {
+        debugPrint('camera photo position: $error');
+      }
+      if (!mounted) return;
       final read = widget.readPhoto ?? _readPhoto;
       final bytes = await read(path);
       if (!mounted) return;
@@ -549,6 +586,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         return;
       }
       _logPhoto(source, outcome.speciesName == null ? 'outside' : 'species');
+      final when = taken ?? DateTime.now();
       final id = DateTime.now().microsecondsSinceEpoch.toString();
       final saved = await scope.notebook.savePhoto(bytes, id);
       final photoPath = saved ?? path;
@@ -558,12 +596,14 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       await scope.notebook.addFind(
         FindRecord(
           id: id,
-          millis: DateTime.now().millisecondsSinceEpoch,
+          millis: when.millisecondsSinceEpoch,
           latin: species,
           outsideName: species == null ? leading.scientificName : null,
           spoken: species == null ? _spoken(leading) : null,
           probability: leading.probability,
           photoPath: photoPath,
+          latitude: place?.latitude,
+          longitude: place?.longitude,
           others: [
             for (final guess in outcome.others)
               FindName(

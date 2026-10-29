@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/species/seen_photo.dart';
 import 'package:whats_that_mushroom/camera/plant_id.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
@@ -95,6 +96,59 @@ void main() {
       'Amanita muscaria',
     );
     expect(Names.count.namesUsed, 1);
+  });
+
+  testWidgets('a gallery photo keeps the date on the photo', (tester) async {
+    final notebook = Notebook();
+    final taken = DateTime(2023, 6, 25, 15, 33, 4);
+    const place = (latitude: 48.1, longitude: -17.1);
+    await _open(
+      tester,
+      notebook: notebook,
+      signedIn: true,
+      onOpenSpecies: (_) {},
+      photoTakenAt: (_) async => taken,
+      photoPosition: (_) async => place,
+      identify: (_, _) async => const [
+        NameGuess(
+          scientificName: 'Boletus edulis',
+          probability: 0.82,
+          commonNames: ['penny bun'],
+        ),
+      ],
+    );
+    await tester.tap(find.byKey(const Key('guide-camera-roll')));
+    await tester.pumpAndSettle();
+    expect(notebook.finds.single.millis, taken.millisecondsSinceEpoch);
+    expect(notebook.finds.single.latitude, closeTo(48.1, 0.0001));
+    expect(notebook.finds.single.longitude, closeTo(-17.1, 0.0001));
+    expect(notebook.finds.single.latin, 'Boletus edulis');
+  });
+
+  testWidgets('a shutter photo is dated when it is named', (tester) async {
+    final notebook = Notebook();
+    final before = DateTime.now().millisecondsSinceEpoch;
+    const place = (latitude: 48.1, longitude: -17.1);
+    await _open(
+      tester,
+      notebook: notebook,
+      signedIn: true,
+      onOpenSpecies: (_) {},
+      photoTakenAt: (_) async => DateTime(2020, 1, 1),
+      photoPosition: (_) async => place,
+      identify: (_, _) async => const [
+        NameGuess(
+          scientificName: 'Boletus edulis',
+          probability: 0.82,
+          commonNames: ['penny bun'],
+        ),
+      ],
+    );
+    await tester.tap(find.byKey(const Key('guide-camera-shutter')));
+    await tester.pumpAndSettle();
+    expect(notebook.finds.single.millis, greaterThanOrEqualTo(before));
+    expect(notebook.finds.single.latitude, closeTo(48.1, 0.0001));
+    expect(notebook.finds.single.longitude, closeTo(-17.1, 0.0001));
   });
 
   testWidgets('a name outside the book opens its page', (tester) async {
@@ -561,6 +615,8 @@ Future<void> _open(
   VoidCallback? onClose,
   Future<void> Function()? onWatchAd,
   void Function(int index)? onTab,
+  Future<DateTime?> Function(String path)? photoTakenAt,
+  Future<PhotoPlace?> Function(String path)? photoPosition,
 }) async {
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 1;
@@ -590,6 +646,8 @@ Future<void> _open(
                           const ColoredBox(color: Color(0xFF224422)),
                       pickPhoto: (_) async => '/tmp/mushroom-shot.jpg',
                       readPhoto: (_) async => Uint8List.fromList(const [1]),
+                      photoTakenAt: photoTakenAt,
+                      photoPosition: photoPosition ?? (_) async => null,
                       identify: identify,
                       fieldGuide: fieldGuide,
                       signedIn: signedIn,

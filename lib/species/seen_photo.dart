@@ -104,20 +104,10 @@ SeenPhoto? seenPhotoFromBytes(
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
   final exif = decoded.exif;
-  final dateTag =
-      _text(exif.exifIfd['DateTimeOriginal']) ??
-      _text(exif.imageIfd['DateTime']);
-  final when = _exifDate(dateTag);
-  final latitude = _gps(
-    exif.gpsIfd['GPSLatitude'],
-    _text(exif.gpsIfd['GPSLatitudeRef']),
-    positive: 'N',
-  );
-  final longitude = _gps(
-    exif.gpsIfd['GPSLongitude'],
-    _text(exif.gpsIfd['GPSLongitudeRef']),
-    positive: 'E',
-  );
+  final when = _dateFromExif(exif);
+  final place = _placeFromExif(exif);
+  final latitude = place?.latitude ?? 0;
+  final longitude = place?.longitude ?? 0;
   decoded.exif = img.ExifData();
   final sized = _limit(decoded, edge);
   return SeenPhoto(
@@ -129,26 +119,104 @@ SeenPhoto? seenPhotoFromBytes(
   );
 }
 
+/// When [path] was taken, from its EXIF date. Null when the file has no
+/// date, or the date cannot be read. A shutter photo does not use this.
+Future<DateTime?> photoTakenAt(String path) async {
+  try {
+    final file = File(path);
+    if (!await file.exists()) return null;
+    return photoDateFromBytes(await file.readAsBytes());
+  } catch (error) {
+    debugPrint('photo date: $error');
+    return null;
+  }
+}
+
+/// Where this photo was taken. Null for no GPS, 0, 0, or a point off the globe.
+typedef PhotoPlace = ({double latitude, double longitude});
+
+/// Where [path] was taken, from its EXIF GPS. Null when the file has no
+/// position, or the position cannot be read.
+Future<PhotoPlace?> photoPosition(String path) async {
+  try {
+    final file = File(path);
+    if (!await file.exists()) return null;
+    return photoPositionFromBytes(await file.readAsBytes());
+  } catch (error) {
+    debugPrint('photo position: $error');
+    return null;
+  }
+}
+
+/// EXIF position in [bytes]. Null when the picture has no place.
+@visibleForTesting
+PhotoPlace? photoPositionFromBytes(Uint8List bytes) {
+  final exif = img.decodeJpgExif(bytes);
+  if (exif != null) return _placeFromExif(exif);
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+  return _placeFromExif(decoded.exif);
+}
+
+/// Null for 0, 0 (no GPS) and for values off the globe.
+PhotoPlace? photoPlace(double latitude, double longitude) {
+  if (!latitude.isFinite || !longitude.isFinite) return null;
+  if (latitude == 0 && longitude == 0) return null;
+  if (latitude.abs() > 90 || longitude.abs() > 180) return null;
+  return (latitude: latitude, longitude: longitude);
+}
+
+PhotoPlace? _placeFromExif(img.ExifData exif) {
+  final latitude = exif.gpsIfd['GPSLatitude'];
+  final longitude = exif.gpsIfd['GPSLongitude'];
+  if (latitude == null || latitude.length == 0) return null;
+  if (longitude == null || longitude.length == 0) return null;
+  return photoPlace(
+    _gps(latitude, _text(exif.gpsIfd['GPSLatitudeRef']), positive: 'N'),
+    _gps(longitude, _text(exif.gpsIfd['GPSLongitudeRef']), positive: 'E'),
+  );
+}
+
+/// EXIF date in [bytes]. Null when the picture has no date.
+@visibleForTesting
+DateTime? photoDateFromBytes(Uint8List bytes) {
+  final exif = img.decodeJpgExif(bytes);
+  if (exif != null) return _dateFromExif(exif);
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+  return _dateFromExif(decoded.exif);
+}
+
+DateTime? _dateFromExif(img.ExifData exif) {
+  final dateTag =
+      _text(exif.exifIfd['DateTimeOriginal']) ??
+      _text(exif.exifIfd['DateTimeDigitized']) ??
+      _text(exif.imageIfd['DateTime']);
+  return _exifDate(dateTag);
+}
+
 String? _text(img.IfdValue? value) {
-  final text = value?.toString().trim() ?? '';
+  final text = value?.toString().replaceAll('\u0000', '').trim() ?? '';
   if (text.isEmpty) return null;
   return text;
 }
 
-/// `YYYY:MM:DD HH:MM:SS` from the photo. Anything else is no date.
+/// `YYYY:MM:DD HH:MM:SS` from the photo. The clock is the photo's own
+/// local time. A fractional second or a trailing offset is ignored.
+/// Anything else is no date.
 DateTime? _exifDate(String? raw) {
   if (raw == null) return null;
-  final parts = raw.split(' ');
+  final parts = raw.replaceAll('\u0000', '').trim().split(' ');
   if (parts.length < 2) return null;
   final date = parts[0].split(':');
   final time = parts[1].split(':');
   if (date.length < 3 || time.length < 3) return null;
-  final year = int.tryParse(date[0]);
-  final month = int.tryParse(date[1]);
-  final day = int.tryParse(date[2]);
-  final hour = int.tryParse(time[0]);
-  final minute = int.tryParse(time[1]);
-  final second = int.tryParse(time[2]);
+  final year = _exifPart(date[0]);
+  final month = _exifPart(date[1]);
+  final day = _exifPart(date[2]);
+  final hour = _exifPart(time[0]);
+  final minute = _exifPart(time[1]);
+  final second = _exifPart(time[2]);
   if (year == null ||
       month == null ||
       day == null ||
@@ -160,6 +228,14 @@ DateTime? _exifDate(String? raw) {
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   if (hour > 23 || minute > 59 || second > 59) return null;
   return DateTime(year, month, day, hour, minute, second);
+}
+
+/// Leading digits of one EXIF date field. `05.12` and `05+01:00` are 5.
+int? _exifPart(String raw) {
+  final head = raw.split('.').first.trim();
+  final digits = RegExp(r'^\d+').firstMatch(head);
+  if (digits == null) return null;
+  return int.tryParse(digits.group(0)!);
 }
 
 /// Degrees from a GPS rational. [positive] is `N` or `E`. No value is 0.
