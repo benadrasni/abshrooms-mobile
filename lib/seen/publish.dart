@@ -27,7 +27,7 @@ Future<bool> publishSighting(FindRecord find) async {
     final object = _objectPath(user.uid, find.id);
     await sightingStorage()
         .ref(object)
-        .putData(photo.bytes, SettableMetadata(contentType: 'image/jpeg'));
+        .putData(photo.bytes, sightingJpegMetadata());
     await FirebaseFirestore.instance.collection('sightings').doc(find.id).set({
       'uid': user.uid,
       'latin': latin,
@@ -65,9 +65,12 @@ Future<void> syncSightings(Notebook notebook) async {
         .collection('sightings')
         .where('uid', isEqualTo: user.uid)
         .get();
-    final next = mergeAccountSightings(notebook.finds, [
-      for (final doc in snap.docs) (id: doc.id, data: doc.data()),
-    ]);
+    final remote = [
+      for (final doc in snap.docs)
+        (id: doc.id, data: Map<String, dynamic>.from(doc.data())),
+    ];
+    await _cacheOwnerDownloadUrls(remote);
+    final next = mergeAccountSightings(notebook.finds, remote);
     if (identical(next, notebook.finds)) return;
     await notebook.replaceAll(next);
   } catch (error) {
@@ -137,19 +140,53 @@ FindRecord _withSighting(FindRecord find, Map<String, dynamic> data) {
   return find.copyWith(share: share, photoPath: photo);
 }
 
-/// Keeps a file on this phone. Otherwise uses the Sighting download URL.
+/// Keeps a file on this phone. A public Sighting uses the token-less URL.
+/// An in-review photo uses the download URL cached on this device.
 String? _sightingPhoto(FindRecord find, Map<String, dynamic> data) {
   if (seenPhotoOnPhone(find.photoPath)) return find.photoPath;
-  final url = sightingPhotoUrl(data['photo']?.toString() ?? '');
-  if (url.isEmpty) return find.photoPath;
-  return url;
+  final photo = data['photo']?.toString().trim() ?? '';
+  if (data['status'] == 'public') {
+    final url = sightingPhotoUrl(photo);
+    return url.isEmpty ? find.photoPath : url;
+  }
+  final cached = _ownerDownloadUrl(data);
+  if (cached != null) return cached;
+  if (sightingPhotoIsRemote(find.photoPath)) return find.photoPath;
+  return find.photoPath;
+}
+
+/// Set by sync after the owner calls getDownloadURL. Not a Firestore field.
+String? _ownerDownloadUrl(Map<String, dynamic> data) {
+  final url = data['downloadUrl']?.toString().trim() ?? '';
+  if (url.startsWith('https://') || url.startsWith('http://')) return url;
+  return null;
+}
+
+/// In-review and rejected photos stay owner-only. The signed-in owner asks
+/// Storage for a download URL and the notebook keeps it. The document does not.
+Future<void> _cacheOwnerDownloadUrls(List<SightingRow> remote) async {
+  for (final row in remote) {
+    if (row.data['status'] == 'public') continue;
+    final photo = row.data['photo']?.toString().trim() ?? '';
+    if (!photo.startsWith('sightings/') || !photo.endsWith('.jpg')) continue;
+    try {
+      row.data['downloadUrl'] = await sightingStorage()
+          .ref(photo)
+          .getDownloadURL();
+    } catch (error) {
+      debugPrint('sighting photo: $error');
+    }
+  }
 }
 
 FindRecord? _importedSighting(String id, Map<String, dynamic> data) {
   final latin = data['latin']?.toString().trim() ?? '';
   final millis = data['millis'];
   if (latin.isEmpty || millis is! num || millis <= 0) return null;
-  final url = sightingPhotoUrl(data['photo']?.toString() ?? '');
+  final photo = data['photo']?.toString().trim() ?? '';
+  final url = data['status'] == 'public'
+      ? sightingPhotoUrl(photo)
+      : (_ownerDownloadUrl(data) ?? '');
   return FindRecord(
     id: id,
     millis: millis.round(),

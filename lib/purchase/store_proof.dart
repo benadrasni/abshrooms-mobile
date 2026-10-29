@@ -15,7 +15,14 @@ class StoreProofOutcome {
   final StoreProofResult result;
   final Map<String, bool> products;
 
-  const StoreProofOutcome(this.result, [this.products = const {}]);
+  /// The callable may have written the plan, and this phone never saw the body.
+  final bool responseLost;
+
+  const StoreProofOutcome(
+    this.result, [
+    this.products = const {},
+    this.responseLost = false,
+  ]);
 }
 
 class _PendingProof {
@@ -67,11 +74,7 @@ Future<StoreProofOutcome> submitStoreProof({
           'submitPurchase',
           options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
         )
-        .call({
-          'store': store,
-          'productId': productId,
-          'proof': proof,
-        });
+        .call({'store': store, 'productId': productId, 'proof': proof});
     final products = checkedProductsOf(response.data);
     applyCheckedProducts(products);
     await _dropPending(store, productId);
@@ -88,19 +91,20 @@ Future<StoreProofOutcome> submitStoreProof({
     }
     await _rememberPending(store, productId, proof);
     debugPrint('store proof: ${error.code}');
-    return const StoreProofOutcome(StoreProofResult.deferred);
+    return const StoreProofOutcome(StoreProofResult.deferred, {}, true);
   } catch (error) {
     await _rememberPending(store, productId, proof);
     debugPrint('store proof: $error');
-    return const StoreProofOutcome(StoreProofResult.deferred);
+    return const StoreProofOutcome(StoreProofResult.deferred, {}, true);
   }
 }
 
 /// Asks the server to read this account's stored purchase tokens.
-/// Returns false when that lookup should be tried again. An empty or
-/// unverified result does not clear the plan.
-Future<bool> refreshStoredEntitlements() async {
-  if (Auth.appUser == null) return false;
+/// [StoredRefresh.retry] is an unverified lookup and should be tried again.
+/// [StoredRefresh.throttled] is not that, and it is not a settled read.
+/// An empty or unverified result does not clear the plan.
+Future<StoredRefresh> refreshStoredEntitlements() async {
+  if (Auth.appUser == null) return StoredRefresh.retry;
   try {
     final response = await FirebaseFunctions.instanceFor(region: 'us-central1')
         .httpsCallable(
@@ -109,12 +113,14 @@ Future<bool> refreshStoredEntitlements() async {
         )
         .call();
     final data = response.data;
-    applyCheckedProducts(checkedProductsOf(data));
-    if (data is Map && data['retry'] == true) return false;
-    return true;
+    final read = storedRefreshOf(data);
+    if (read != StoredRefresh.throttled) {
+      applyCheckedProducts(checkedProductsOf(data));
+    }
+    return read;
   } catch (error) {
     debugPrint('entitlement refresh: $error');
-    return false;
+    return StoredRefresh.retry;
   }
 }
 
@@ -197,11 +203,19 @@ Future<void> _writePending(List<_PendingProof> pending) async {
   );
 }
 
-Future<void> _rememberPending(String store, String productId, String proof) async {
+Future<void> _rememberPending(
+  String store,
+  String productId,
+  String proof,
+) async {
   final pending = await _readPending();
-  pending.removeWhere((item) => item.store == store && item.productId == productId);
+  pending.removeWhere(
+    (item) => item.store == store && item.productId == productId,
+  );
   pending.add(_PendingProof(store, productId, proof));
-  final kept = pending.length > 8 ? pending.sublist(pending.length - 8) : pending;
+  final kept = pending.length > 8
+      ? pending.sublist(pending.length - 8)
+      : pending;
   await _writePending(kept);
 }
 

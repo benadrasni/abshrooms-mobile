@@ -549,6 +549,7 @@ void main() {
     expect(url.host, 'firebasestorage.googleapis.com');
     expect(url.path, contains('abshrooms-a9d4c.firebasestorage.app'));
     expect(rows.first.url, contains('sightings%2Fu%2Fnew.jpg'));
+    expect(url.queryParameters.containsKey('token'), isFalse);
   });
 
   testWidgets('sightings sit above sources', (tester) async {

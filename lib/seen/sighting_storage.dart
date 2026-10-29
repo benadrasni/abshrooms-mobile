@@ -14,10 +14,16 @@ bool sightingPhotoIsRemote(String? path) {
   return path.startsWith('https://') || path.startsWith('http://');
 }
 
+/// JPEG upload. Content type only. The Storage client rejects
+/// `firebaseStorageDownloadTokens` as custom metadata.
+SettableMetadata sightingJpegMetadata() {
+  return SettableMetadata(contentType: 'image/jpeg');
+}
+
 /// Download URL for one object in [sightingStorageBucket].
 ///
 /// The host is the Firebase Storage API, so `firebase/storage.rules` applies.
-/// A full URL is left as it is.
+/// A public Sighting is readable with no token. A full URL is left as it is.
 String sightingPhotoUrl(String path) {
   final object = path.trim();
   if (object.isEmpty) return '';

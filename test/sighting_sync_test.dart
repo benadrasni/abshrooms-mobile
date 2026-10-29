@@ -81,6 +81,72 @@ void main() {
     expect(identical(next, finds), isTrue);
   });
 
+  test('an in-review photo uses the download URL cached on the device', () {
+    const cached =
+        'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media&token=device-only';
+    final next = mergeAccountSightings(const [], [
+      (
+        id: '1',
+        data: {
+          'latin': 'Boletus edulis',
+          'millis': 5,
+          'status': 'review',
+          'photo': 'sightings/uid/1.jpg',
+          'downloadUrl': cached,
+        },
+      ),
+    ]);
+    expect(next.single.share, FindShare.review);
+    expect(next.single.photoPath, cached);
+    expect(seenPhotoOnPhone(next.single.photoPath), isFalse);
+  });
+
+  test('a cached in-review URL stays when this sync has no new one', () {
+    const cached =
+        'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media&token=device-only';
+    final local = FindRecord(
+      id: '1',
+      millis: 5,
+      latin: 'Boletus edulis',
+      confirmed: true,
+      share: FindShare.review,
+      photoPath: cached,
+    );
+    final finds = [local];
+    final next = mergeAccountSightings(finds, [
+      (
+        id: '1',
+        data: {
+          'latin': 'Boletus edulis',
+          'millis': 5,
+          'status': 'review',
+          'photo': 'sightings/uid/1.jpg',
+        },
+      ),
+    ]);
+    expect(identical(next, finds), isTrue);
+  });
+
+  test(
+    'a public sighting does not keep a download token from the document',
+    () {
+      final next = mergeAccountSightings(const [], [
+        (
+          id: '1',
+          data: {
+            'latin': 'Boletus edulis',
+            'millis': 5,
+            'status': 'public',
+            'photo': 'sightings/uid/1.jpg',
+            'downloadUrl': 'https://example.com/secret?alt=media&token=leak',
+          },
+        ),
+      ]);
+      expect(next.single.photoPath, isNot(contains('token=')));
+      expect(next.single.photoPath, contains('alt=media'));
+    },
+  );
+
   test('a missing document clears the shared mark', () {
     final local = FindRecord(
       id: '1',

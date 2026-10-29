@@ -1,5 +1,6 @@
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { refreshEntitlementsMinGapMs, stampRefresh } from './refresh_limit';
 import type { EntitlementDb } from './store_handlers';
 
 const userEntitlements = /^users\/([^/]+)\/entitlements$/;
@@ -8,7 +9,11 @@ const userUpdated = /^users\/([^/]+)\/entitlements\/updatedAt$/;
 const proofDoc = /^purchase_proofs\/([^/]+)$/;
 const accountDoc = /^store_accounts\/([^/]+)$/;
 
-type EntitlementsNode = { products?: Record<string, unknown>; updatedAt?: number };
+type EntitlementsNode = {
+  products?: Record<string, unknown>;
+  updatedAt?: number;
+  refreshedAt?: number;
+};
 
 function userRef(db: Firestore, uid: string) {
   return db.collection('users').doc(uid);
@@ -33,6 +38,26 @@ async function writeEntitlement(
     const snap = await tx.get(ref);
     const next = change(entitlementsOf(snap.data()?.entitlements));
     tx.set(ref, { entitlements: next }, { merge: true });
+  });
+}
+
+/**
+ * Reserves this uid's refresh slot inside one transaction. A timestamp
+ * already inside the window does not move, and the products on the row stay.
+ */
+export async function reserveEntitlementRefresh(
+  uid: string,
+  now: number,
+  gapMs = refreshEntitlementsMinGapMs,
+): Promise<boolean> {
+  const db = getFirestore();
+  const ref = userRef(db, uid);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const stamped = stampRefresh(snap.data()?.entitlements, now, gapMs);
+    if (!stamped.reserved) return false;
+    tx.set(ref, { entitlements: stamped.entitlements }, { merge: true });
+    return true;
   });
 }
 

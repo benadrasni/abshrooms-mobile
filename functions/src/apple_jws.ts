@@ -191,11 +191,18 @@ export function appleTransaction(payload: Record<string, unknown>): AppleTransac
   return { productId, originalTransactionId, expiresAt, revoked, appAccountToken, environment };
 }
 
-export function signedTransactionsFromStatus(body: unknown): string[] {
+export type AppleStatusEntry = {
+  /** 1 active, 2 expired, 3 billing retry, 4 grace, 5 revoked. */
+  status: number | null;
+  signedTransactionInfo: string;
+  signedRenewalInfo: string | null;
+};
+
+export function appleStatusEntries(body: unknown): AppleStatusEntry[] {
   if (!body || typeof body !== 'object') return [];
   const data = (body as { data?: unknown }).data;
   if (!Array.isArray(data)) return [];
-  const signed: string[] = [];
+  const entries: AppleStatusEntry[] = [];
   for (const group of data) {
     if (!group || typeof group !== 'object') continue;
     const last = (group as { lastTransactions?: unknown }).lastTransactions;
@@ -203,8 +210,78 @@ export function signedTransactionsFromStatus(body: unknown): string[] {
     for (const row of last) {
       if (!row || typeof row !== 'object') continue;
       const info = (row as { signedTransactionInfo?: unknown }).signedTransactionInfo;
-      if (typeof info === 'string' && info.length > 0) signed.push(info);
+      if (typeof info !== 'string' || info.length === 0) continue;
+      const status = (row as { status?: unknown }).status;
+      const renewal = (row as { signedRenewalInfo?: unknown }).signedRenewalInfo;
+      entries.push({
+        status: typeof status === 'number' ? status : null,
+        signedTransactionInfo: info,
+        signedRenewalInfo: typeof renewal === 'string' && renewal.length > 0 ? renewal : null,
+      });
     }
   }
-  return signed;
+  return entries;
+}
+
+export function signedTransactionsFromStatus(body: unknown): string[] {
+  return appleStatusEntries(body).map((entry) => entry.signedTransactionInfo);
+}
+
+export type AppleRenewalInfo = {
+  /** 0 off, 1 on. Null when the payload does not say. */
+  autoRenewStatus: number | null;
+  gracePeriodExpiresAt: number | null;
+};
+
+export function appleRenewalInfo(payload: Record<string, unknown>): AppleRenewalInfo {
+  const autoRenew = payload.autoRenewStatus;
+  const grace = payload.gracePeriodExpiresDate;
+  return {
+    autoRenewStatus: autoRenew === 0 || autoRenew === 1 ? autoRenew : null,
+    gracePeriodExpiresAt: typeof grace === 'number' ? grace : null,
+  };
+}
+
+/// How long a verified active Apple status keeps a stale expiresDate.
+/// Same window as Play's renewal hold. A later check does not push it.
+export const appleRenewalHoldMs = 15 * 60 * 1000;
+
+/**
+ * Apple renewal status on top of a transaction. The grant still ends at
+ * expiresAt. autoRenewStatus 0 sets willNotRenew and does not extend a
+ * lapsed date. Grace and the short renewal hold are applied only when
+ * [renewal] is a verified payload. Expired, billing retry, and revoked are not.
+ */
+export function applyAppleRenewal(input: {
+  expiresAt: number | null;
+  revoked: boolean;
+  status: number | null;
+  renewal: AppleRenewalInfo | null;
+  now: number;
+}): { expiresAt: number | null; revoked: boolean; willNotRenew: boolean } {
+  let expiresAt = input.expiresAt;
+  let revoked = input.revoked;
+  const renewal = input.renewal;
+  const autoRenew = renewal?.autoRenewStatus ?? null;
+  const grace = renewal?.gracePeriodExpiresAt ?? null;
+  const status = input.status;
+  if (status === 2 || status === 3 || status === 5) revoked = true;
+  if (renewal && status === 4 && grace != null && grace <= input.now) revoked = true;
+
+  const terminal = revoked || status === 2 || status === 3 || status === 5;
+  // Grace and the renewal hold come only from a verified renewal payload.
+  // A missing payload is not treated as auto-renewing.
+  if (renewal && !terminal) {
+    if (grace != null && grace > input.now && autoRenew !== 0) {
+      if (expiresAt == null || grace > expiresAt) expiresAt = grace;
+    }
+    if (status === 1 && autoRenew !== 0 && expiresAt != null && expiresAt <= input.now) {
+      const heldUntil = expiresAt + appleRenewalHoldMs;
+      if (heldUntil > input.now) expiresAt = heldUntil;
+      else revoked = true;
+    }
+  }
+
+  const open = !revoked && (expiresAt == null || expiresAt > input.now);
+  return { expiresAt, revoked, willNotRenew: autoRenew === 0 && open };
 }

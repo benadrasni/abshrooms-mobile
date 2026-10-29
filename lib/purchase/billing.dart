@@ -5,6 +5,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:whats_that_mushroom/purchase/entitlements.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/purchase/store_account.dart';
 import 'package:whats_that_mushroom/purchase/store_proof.dart';
@@ -111,6 +112,10 @@ class FieldGuideBilling {
       return;
     }
     if (bought) Purchases.revokeStorePurchase(id);
+    if (outcome.responseLost) {
+      unawaited(Entitlements.recoverLostSubmit(id));
+      return;
+    }
     if (!bought || outcome.result == StoreProofResult.deferred) {
       return;
     }

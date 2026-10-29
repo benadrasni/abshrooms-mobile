@@ -20,5 +20,19 @@ void main() {
     expect(rules, contains('allow read: if owns(uid) || sightingPublic(file)'));
     expect(rules, contains('allow create, update: if owns(uid)'));
     expect(rules.contains('allow read: if true'), isFalse);
+    expect(rules.contains("status == 'review'"), isFalse);
+  });
+
+  test('sighting upload metadata is content type only', () {
+    final metadata = sightingJpegMetadata();
+    expect(metadata.contentType, 'image/jpeg');
+    expect(metadata.customMetadata, anyOf(isNull, isEmpty));
+    expect(
+      metadata.customMetadata?.containsKey('firebaseStorageDownloadTokens'),
+      isNot(true),
+    );
+    final url = Uri.parse(sightingPhotoUrl('sightings/u/1.jpg'));
+    expect(url.queryParameters['alt'], 'media');
+    expect(url.queryParameters.containsKey('token'), isFalse);
   });
 }

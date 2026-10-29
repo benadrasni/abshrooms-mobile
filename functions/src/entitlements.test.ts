@@ -186,7 +186,7 @@ function putPath(root: Record<string, unknown>, path: string, value: unknown): v
   cursor[parts[parts.length - 1]] = value;
 }
 
-test('a renewal follows the active flag and a canceled plan ends at its expiry', () => {
+test('a plan ends at expiresAt unless a later verified expiry is stored', () => {
   const row = (expiresAt?: number, active = true, willNotRenew = false): EntitlementRow => ({
     active,
     ...(expiresAt == null ? {} : { expiresAt }),
@@ -199,14 +199,14 @@ test('a renewal follows the active flag and a canceled plan ends at its expiry',
     entitlements: { products: { [id]: value } },
   });
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now + 1)), now), ['field_guide_yearly']);
-  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now)), now), ['field_guide_yearly']);
-  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now - 3_600_000)), now), ['field_guide_yearly']);
+  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now)), now), []);
+  assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now - 3_600_000)), now), []);
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now + 1, true, true)), now), ['field_guide_yearly']);
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now, true, true)), now), []);
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now - 1, true, true)), now), []);
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row()), now), ['field_guide_yearly']);
   assert.deepEqual(activeEntitlementIds(user('field_guide_yearly', row(now + 1, false)), now), []);
-  assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now - 1)), now), true);
+  assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now - 1)), now), false);
   assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now - 1, true, true)), now), false);
   assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now + 1, true, true)), now), true);
   assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now + 1)), now), true);
@@ -390,4 +390,48 @@ test('a stored token is read again and an unverified lookup is not a cancel', as
   assert.equal(ended.products.field_guide_monthly, false);
   assert.equal(storedProduct(db, uid, 'field_guide_monthly').active, false);
   assert.equal(storedProduct(db, uid, 'field_guide_monthly').willNotRenew, false);
+});
+
+test('an unverified re-check does not keep a lapsed plan, and a verified renewal does', async () => {
+  const db = memoryDb();
+  const expiresAt = now + 1_000;
+  const granted = await grantPurchase(db, uid, yearly({ expiresAt }), now);
+  assert.equal('products' in granted && granted.products.field_guide_yearly, true);
+  const user = () => (db.tree.users as Record<string, Record<string, unknown>>)[uid];
+  assert.deepEqual(activeEntitlementIds(user(), expiresAt - 1), ['field_guide_yearly']);
+
+  const unknown = await refreshAccountProofs(db, uid, expiresAt + 1, async () => ({ status: 'unknown' }));
+  assert.equal(unknown.retry, true);
+  assert.equal(storedProduct(db, uid, 'field_guide_yearly').active, true);
+  assert.deepEqual(activeEntitlementIds(user(), expiresAt + 1), []);
+
+  const renewed = await refreshAccountProofs(db, uid, expiresAt + 1, async () => ({
+    status: 'verified',
+    purchase: yearly({ expiresAt: expiresAt + 86_400_000, willNotRenew: false }),
+  }));
+  assert.equal(renewed.retry, false);
+  assert.equal(renewed.products.field_guide_yearly, true);
+  assert.deepEqual(activeEntitlementIds(user(), expiresAt + 1), ['field_guide_yearly']);
+  assert.equal(storedProduct(db, uid, 'field_guide_yearly').expiresAt, expiresAt + 86_400_000);
+});
+
+test('an Apple plan that will not renew is stored and still ends at expiresAt', () => {
+  const plan = planGrant({
+    uid,
+    now,
+    purchase: yearly({ willNotRenew: true, expiresAt: now + 1 }),
+    existing: null,
+    previousOwnerExists: false,
+    products: {},
+  });
+  assert.equal('error' in plan, false);
+  if ('error' in plan) return;
+  const written = plan.writes.find((write) => write.path.endsWith('/field_guide_yearly'));
+  const value = written?.value as EntitlementRow;
+  assert.equal(value.willNotRenew, true);
+  assert.equal(value.active, true);
+  assert.deepEqual(
+    activeEntitlementIds({ entitlements: { products: { field_guide_yearly: value } } }, now + 2),
+    [],
+  );
 });

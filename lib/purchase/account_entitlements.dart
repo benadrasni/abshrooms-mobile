@@ -21,13 +21,13 @@ class EntitlementWatch {
 }
 
 /// The soonest Field Guide expiry still ahead of [now]. The timer fires then
-/// so a plan that will not renew can leave. A later expiry is re-armed
-/// within [entitlementExpiryWait].
+/// so the plan can leave. A later expiry is re-armed within
+/// [entitlementExpiryWait].
 const entitlementExpiryWait = Duration(hours: 12);
 
 /// How long the phone waits after a stored Field Guide expiry before asking
-/// the server to read that purchase token again. The pages follow `active`.
-/// A plan marked `willNotRenew` leaves at `expiresAt` without this wait.
+/// the server to read that purchase token again. The plan has already ended.
+/// A verified renewal writes a later expiresAt and the plan returns.
 const entitlementRecheckDelay = Duration(minutes: 2);
 
 DateTime? nextFieldGuideExpiry(Object? userValue, DateTime now) {
@@ -81,16 +81,85 @@ int? fieldGuideExpiryDueAt(Object? userValue, DateTime now) {
   return due;
 }
 
-/// The server `active` flag keeps the plan, including past [expiresAt] while
-/// a renewal is still posting. A plan marked `willNotRenew` leaves at
-/// [expiresAt]. A missing expiry stays on the active flag.
+/// A Field Guide plan ends at expiresAt. A verified renewal writes a later
+/// time. An unverified re-check does not keep a lapsed plan. A missing
+/// expiry stays on the active flag. willNotRenew does not extend it.
 bool entitlementRowActive(String id, Map value, int nowMs) {
   if (value['active'] != true) return false;
   if (!FieldGuideIds.isFieldGuide(id)) return true;
-  if (value['willNotRenew'] != true) return true;
   final expiresAt = value['expiresAt'];
   if (expiresAt is! num) return true;
   return expiresAt.toInt() > nowMs;
+}
+
+/// How the phone should treat one `refreshEntitlements` body.
+enum StoredRefresh { settled, retry, throttled }
+
+/// `throttled` is checked first so it is never read as an unverified retry.
+StoredRefresh storedRefreshOf(Object? data) {
+  if (data is Map && data['throttled'] == true) return StoredRefresh.throttled;
+  if (data is Map && data['retry'] == true) return StoredRefresh.retry;
+  return StoredRefresh.settled;
+}
+
+class RefreshMarks {
+  final int? rechecked;
+  final int? settled;
+
+  const RefreshMarks({this.rechecked, this.settled});
+}
+
+/// A throttled read leaves [RefreshMarks.settled] alone. An unverified
+/// retry clears a settle for [dueAt]. A settled read records [dueAt].
+RefreshMarks refreshMarksAfter(
+  RefreshMarks marks,
+  int dueAt,
+  StoredRefresh read,
+) {
+  if (read == StoredRefresh.settled) {
+    return RefreshMarks(rechecked: marks.rechecked, settled: dueAt);
+  }
+  if (read == StoredRefresh.throttled) {
+    return RefreshMarks(rechecked: marks.rechecked, settled: marks.settled);
+  }
+  return RefreshMarks(
+    rechecked: marks.rechecked == dueAt ? null : marks.rechecked,
+    settled: marks.settled == dueAt ? null : marks.settled,
+  );
+}
+
+/// A lost `submitPurchase` response is not a refusal. The optimistic grant
+/// is already off. The account row puts it back when that row shows the
+/// plan. Until then [pendingProduct] is read again on resume and the next call.
+class LostSubmitRecovery {
+  String? pendingProduct;
+
+  /// True when [account] grants [productId] and that grant was applied.
+  bool note(String productId, AccountEntitlements account) {
+    if (productId.isEmpty) return false;
+    if (_grants(account, productId)) {
+      applyAccountEntitlements(account);
+      pendingProduct = null;
+      return true;
+    }
+    pendingProduct = productId;
+    return false;
+  }
+
+  /// Resume or a later read. Applies the row only when it grants the pending
+  /// plan, so an older read cannot clear a newer one.
+  bool reread(AccountEntitlements account) {
+    final productId = pendingProduct;
+    if (productId == null) return false;
+    if (!_grants(account, productId)) return false;
+    applyAccountEntitlements(account);
+    pendingProduct = null;
+    return true;
+  }
+
+  bool _grants(AccountEntitlements account, String productId) {
+    return account.present && account.products[productId] == true;
+  }
 }
 
 /// Active and inactive products under `users/{uid}.entitlements`.
