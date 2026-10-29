@@ -49,6 +49,10 @@ Set<String> localFieldGuideIds(Set<String> account, TargetPlatform platform) {
   };
 }
 
+/// Admin-only field on `users/{uid}`. The phone cannot write it.
+/// True is Field Guide, with no store product and no expiry.
+const lifetimeSubscriptionField = 'lifetime subscription';
+
 /// Field Guide on the signed-in account. A receipt on this phone is kept in
 /// [Purchases.purchases] so a plan change can replace it. It is not a grant.
 class Purchases {
@@ -57,6 +61,11 @@ class Purchases {
   /// Product ids a checked receipt granted to the signed-in account.
   static final Set<String> accountProducts = <String>{};
 
+  static bool _lifetimeSubscription = false;
+
+  /// [lifetimeSubscriptionField] on the signed-in account. Not a store plan.
+  static bool get lifetimeSubscription => _lifetimeSubscription;
+
   static final ValueNotifier<int> revision = ValueNotifier(0);
   static final ValueNotifier<int> failures = ValueNotifier(0);
 
@@ -64,7 +73,15 @@ class Purchases {
   static Set<String> get owned =>
       localFieldGuideIds(accountProducts, defaultTargetPlatform);
 
-  static bool hasFieldGuide() => accountProducts.any(FieldGuideIds.isFieldGuide);
+  static bool hasFieldGuide() =>
+      lifetimeSubscription || accountProducts.any(FieldGuideIds.isFieldGuide);
+
+  /// The account document changed. A store-product update does not clear this.
+  static void setLifetimeSubscription(bool value) {
+    if (_lifetimeSubscription == value) return;
+    _lifetimeSubscription = value;
+    revision.value++;
+  }
 
   /// Field Guide is the grant that hides ads.
   static bool showsAds() => !hasFieldGuide();
@@ -118,6 +135,7 @@ class Purchases {
   static void resetForTest() {
     purchases.clear();
     accountProducts.clear();
+    _lifetimeSubscription = false;
   }
 }
 

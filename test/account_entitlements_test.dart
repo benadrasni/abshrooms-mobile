@@ -242,6 +242,51 @@ void main() {
     expect(recovery.pendingProduct, isNull);
   });
 
+  test('a lifetime subscription is Field Guide without a store plan', () {
+    expect(lifetimeSubscriptionOf(null), isFalse);
+    expect(lifetimeSubscriptionOf({'lifetime subscription': 'true'}), isFalse);
+    expect(lifetimeSubscriptionOf({'lifetime subscription': 1}), isFalse);
+
+    Entitlements.debugReset(
+      uid: 'user-1',
+      user: {'lifetime subscription': true, 'token': 'abc'},
+    );
+    Entitlements.applyIfLoaded();
+    expect(Purchases.lifetimeSubscription, isTrue);
+    expect(Purchases.hasFieldGuide(), isTrue);
+    expect(Purchases.showsAds(), isFalse);
+    expect(Purchases.accountProducts, isEmpty);
+    expect(Purchases.fieldGuideFromAccountOnly, isTrue);
+
+    Entitlements.debugReset(
+      uid: 'user-1',
+      user: {
+        'lifetime subscription': true,
+        'entitlements': {'products': <String, dynamic>{}},
+      },
+    );
+    Entitlements.applyIfLoaded();
+    expect(Purchases.hasFieldGuide(), isTrue);
+    expect(Purchases.accountProducts, isEmpty);
+
+    Purchases.replaceAccountProducts({fieldGuideMonthlyPlay});
+    Purchases.setLifetimeSubscription(false);
+    expect(Purchases.hasFieldGuide(), isTrue);
+    expect(Purchases.accountProducts, {fieldGuideMonthlyPlay});
+
+    Entitlements.debugReset(
+      uid: 'user-1',
+      user: {
+        'lifetime subscription': false,
+        'entitlements': {'products': <String, dynamic>{}},
+      },
+    );
+    Entitlements.applyIfLoaded();
+    expect(Purchases.lifetimeSubscription, isFalse);
+    expect(Purchases.hasFieldGuide(), isFalse);
+    expect(Purchases.showsAds(), isTrue);
+  });
+
   test('a lost submitPurchase response is read again on resume', () async {
     var reads = 0;
     Entitlements.debugReset(

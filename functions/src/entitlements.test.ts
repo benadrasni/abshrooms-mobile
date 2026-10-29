@@ -212,6 +212,14 @@ test('a plan ends at expiresAt unless a later verified expiry is stored', () => 
   assert.equal(hasUnlimitedNames(user('field_guide_yearly', row(now + 1)), now), true);
   assert.equal(hasUnlimitedNames(user('shrooms_field_guide_yearly', row(now + 1)), now), true);
   assert.equal(hasUnlimitedNames(user('search_by_photo', row(now + 1)), now), false);
+  assert.equal(hasUnlimitedNames({ 'lifetime subscription': true }), true);
+  assert.equal(
+    hasUnlimitedNames({ 'lifetime subscription': true, ...user('field_guide_yearly', row(now - 1)) }, now),
+    true,
+  );
+  assert.equal(hasUnlimitedNames({ 'lifetime subscription': false }), false);
+  assert.equal(hasUnlimitedNames({ 'lifetime subscription': 'true' }), false);
+  assert.equal(hasUnlimitedNames(null), false);
 });
 
 function memoryDb(live: (id: string) => boolean = (id) => id === uid): EntitlementDb & { tree: Record<string, unknown> } {

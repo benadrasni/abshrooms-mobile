@@ -254,9 +254,11 @@ export function activeEntitlementIds(user: Record<string, unknown> | null, now =
 
 /**
  * Unlimited photo names. A checked Field Guide plan on either store grants it.
- * The phone's own receipt is not an entitlement.
+ * `lifetime subscription` on the user document does too. The phone's own
+ * receipt is not an entitlement, and the phone cannot write that field.
  */
 export function hasUnlimitedNames(user: Record<string, unknown> | null, now = Date.now()): boolean {
   if (!user) return false;
+  if (user['lifetime subscription'] === true) return true;
   return activeEntitlementIds(user, now).some((id) => unlimitedProducts.includes(id));
 }

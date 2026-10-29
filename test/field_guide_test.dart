@@ -238,6 +238,35 @@ void main() {
     }
   });
 
+  testWidgets('a lifetime subscription says subscribed', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    Purchases.setLifetimeSubscription(true);
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          load: () async => FieldGuideLoaded(
+            catalog: fieldGuideCatalog(
+              ids: ids,
+              storeAvailable: true,
+              yearlyPrice: r'$24.99',
+              monthlyPrice: r'$2.99',
+              owned: const {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('You already have Field Guide.'), findsOneWidget);
+    expect(find.text('Subscribed'), findsOneWidget);
+    expect(find.text('Start 7 days free'), findsNothing);
+    expect(find.text('7 days free, then yearly'), findsNothing);
+  });
+
   testWidgets('a monthly plan opens with yearly selected', (tester) async {
     tester.view.physicalSize = const Size(800, 2000);
     tester.view.devicePixelRatio = 1;

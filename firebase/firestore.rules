@@ -48,6 +48,8 @@ service cloud.firestore {
     // Checked Field Guide plans. Cloud Functions write them after Apple or
     // Google confirms the receipt. The owner can read them. A purchase on
     // either store unlocks the other phone from this document.
+    // `lifetime subscription: true` is Field Guide. An admin write sets it.
+    // The phone only reads it.
     // The signed-in owner may also store or clear the push token. No other
     // field is writable from the client.
     match /users/{uid} {

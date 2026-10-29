@@ -50,6 +50,7 @@ class Entitlements {
     if (signed?.uid == _uid) return;
     _stopDoc();
     _uid = signed?.uid;
+    Purchases.setLifetimeSubscription(false);
     Purchases.clearAccountProducts();
     if (signed == null) return;
     _listen(signed.uid);
@@ -81,8 +82,16 @@ class Entitlements {
   /// the server reads the stored token. A verified renewal writes a later
   /// expiry. An unverified read does not keep the lapsed plan.
   static void _apply(EntitlementWatch watch) {
+    final lifetime = lifetimeSubscriptionOf(_user);
+    final lifetimeChanged = lifetime != Purchases.lifetimeSubscription;
+    Purchases.setLifetimeSubscription(lifetime);
     final parsed = accountEntitlementsOf(_user);
-    if (!watch.shouldApply(parsed)) return;
+    // A cached row with no entitlements must not wipe a plan. The lifetime
+    // flag is on the same document and still applies.
+    if (!watch.shouldApply(parsed)) {
+      if (lifetimeChanged) Auth.syncAnalytics();
+      return;
+    }
     applyAccountEntitlements(parsed);
     Auth.syncAnalytics();
     _armExpiry(watch);

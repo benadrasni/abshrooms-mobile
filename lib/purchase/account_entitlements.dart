@@ -162,6 +162,12 @@ class LostSubmitRecovery {
   }
 }
 
+/// [lifetimeSubscriptionField] grants Field Guide only when it is boolean true.
+bool lifetimeSubscriptionOf(Object? userValue) {
+  if (userValue is! Map) return false;
+  return userValue[lifetimeSubscriptionField] == true;
+}
+
 /// Active and inactive products under `users/{uid}.entitlements`.
 /// Absent when the account has never had a checked receipt.
 AccountEntitlements accountEntitlementsOf(Object? userValue, {DateTime? now}) {
