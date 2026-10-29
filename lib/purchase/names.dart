@@ -161,13 +161,6 @@ String quotaMonth(DateTime now) {
   return '${utc.year}-$month';
 }
 
-/// A reward arrived only when this month's ad grants grew. A month rollover
-/// reads as zero grants, so a drop is not a grant.
-bool nameGrantArrived(int grantsBefore, NameMonth? next) {
-  if (next == null) return false;
-  return next.adGrants > grantsBefore;
-}
-
 /// Reads [NameMonth] from a `photo_quota` Firestore document snapshot.
 NameMonth nameMonthFromQuota(Object? raw, DateTime now) {
   final currentMonth = quotaMonth(now);

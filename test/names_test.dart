@@ -167,51 +167,6 @@ void main() {
     expect(rolled.adGrants, 0);
   });
 
-  test('a month rollover is not a rewarded-ad grant', () {
-    final now = DateTime.utc(2026, 10, 15);
-    final rolled = nameMonthFromQuota({
-      'month': '2026-09',
-      'namesUsed': 5,
-      'adGrants': 4,
-    }, now);
-    expect(nameGrantArrived(4, rolled), isFalse);
-    expect(nameGrantArrived(0, rolled), isFalse);
-    expect(nameGrantArrived(3, null), isFalse);
-    expect(
-      nameGrantArrived(
-        2,
-        nameMonthFromQuota({
-          'month': '2026-10',
-          'namesUsed': 5,
-          'adGrants': 2,
-        }, now),
-      ),
-      isFalse,
-    );
-    expect(
-      nameGrantArrived(
-        2,
-        nameMonthFromQuota({
-          'month': '2026-10',
-          'namesUsed': 5,
-          'adGrants': 3,
-        }, now),
-      ),
-      isTrue,
-    );
-    expect(
-      nameGrantArrived(
-        0,
-        nameMonthFromQuota({
-          'month': '2026-10',
-          'namesUsed': 0,
-          'adGrants': 1,
-        }, now),
-      ),
-      isTrue,
-    );
-  });
-
   test('a photo_quota snapshot keeps names already used this month', () async {
     SharedPreferences.setMockInitialValues({});
     final snapshots = StreamController<Object?>(sync: true);
