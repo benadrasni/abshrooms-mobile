@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/data/adopt.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
@@ -240,6 +241,66 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('guide-outside-page')), findsOneWidget);
   });
+
+  testWidgets(
+    'a Not in the book find opens its page once the species is added',
+    (tester) async {
+      final catalog = buildCatalog(
+        language: 'en',
+        speciesDocs: [
+          Doc('Agaricus augustus', {
+            'name': 'Agaricus augustus',
+            'taxonomy': {'family': 'Agaricaceae', 'genus': 'Agaricus'},
+          }),
+          Doc('Boletus edulis', {
+            'name': 'Boletus edulis',
+            'taxonomy': {'family': 'Boletaceae', 'genus': 'Boletus'},
+          }),
+        ],
+        local: const {
+          'Agaricus augustus': {'label': 'the prince'},
+          'Boletus edulis': {'label': 'penny bun'},
+        },
+        english: const {},
+        synonyms: const {
+          'Agaricus augustus': {
+            'homotypic': [
+              {'name': 'Psalliota augusta', 'author': 'Gillet'},
+            ],
+          },
+        },
+        taxa: const {},
+        key: const {},
+      );
+      final notebook = Notebook()
+        ..finds = adoptBookFinds([
+          FindRecord(
+            id: 'out',
+            millis: DateTime(2026, 10, 3).millisecondsSinceEpoch,
+            outsideName: 'Psalliota augusta',
+            spoken: 'prince',
+            confirmed: true,
+          ),
+          FindRecord(
+            id: 'stay',
+            millis: DateTime(2026, 10, 2).millisecondsSinceEpoch,
+            outsideName: 'Agaricus campestris',
+            confirmed: true,
+          ),
+        ], catalog);
+      await _pump(tester, notebook, catalog: catalog);
+
+      expect(find.text('the prince'), findsOneWidget);
+      expect(find.text('Not in the book'), findsOneWidget);
+      expect(find.byKey(const Key('guide-seen-outside-out')), findsNothing);
+      expect(notebook.finds.first.latin, 'Agaricus augustus');
+
+      await tester.tap(find.text('the prince'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('guide-species-scroll')), findsOneWidget);
+      expect(find.text('the prince'), findsWidgets);
+    },
+  );
 
   testWidgets('Slovak counts and months follow the plants page', (
     tester,
@@ -485,6 +546,7 @@ Future<void> _pump(
   WidgetTester tester,
   Notebook notebook, {
   String language = 'en',
+  Catalog? catalog,
   bool? signedIn,
   Future<bool> Function(FindRecord find)? onShare,
   Future<bool> Function(FindRecord find)? onWithdraw,
@@ -496,7 +558,7 @@ Future<void> _pump(
   addTearDown(tester.view.resetDevicePixelRatio);
   final settings = GuideSettings()..language = language;
   final repository = CatalogRepository()
-    ..data = _catalog(language)
+    ..data = catalog ?? _catalog(language)
     ..loading = false;
   await tester.pumpWidget(
     GuideScope(

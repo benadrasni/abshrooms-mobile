@@ -209,6 +209,27 @@ class Catalog {
     return null;
   }
 
+  /// The catalog species for this Latin name.
+  ///
+  /// An accepted name wins. Otherwise one MycoBank synonym that is not
+  /// itself a catalog key. Two species sharing that synonym match nothing.
+  Species? speciesFor(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final exact = byName(trimmed);
+    if (exact != null) return exact;
+    final key = trimmed.toLowerCase();
+    Species? found;
+    for (final item in species) {
+      for (final synonym in item.synonyms) {
+        if (synonym.name.trim().toLowerCase() != key) continue;
+        if (found != null && found.name != item.name) return null;
+        found = item;
+      }
+    }
+    return found;
+  }
+
   SpeciesText textFor(Species species) {
     final own = local[species.name];
     final en = english[species.name];
@@ -227,8 +248,8 @@ class Catalog {
     final notes = own == null
         ? body((text) => text.notes)
         : (localNotes != null && localNotes.trim().isNotEmpty
-            ? localNotes
-            : null);
+              ? localNotes
+              : null);
     return SpeciesText(
       label: own?.label,
       names: own?.names ?? const [],

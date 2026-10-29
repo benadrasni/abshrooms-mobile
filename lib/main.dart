@@ -16,7 +16,9 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:whats_that_mushroom/ads/ad_consent.dart';
 import 'package:whats_that_mushroom/ads/ad_units.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/data/adopt.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
+import 'package:whats_that_mushroom/data/refresh_guide.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/firebase_options.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
@@ -24,6 +26,7 @@ import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/purchase/billing.dart';
 import 'package:whats_that_mushroom/purchase/entitlements.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/app_version.dart';
 import 'package:whats_that_mushroom/shell/app_version_check.dart';
@@ -128,6 +131,7 @@ class _StartupState extends State<_Startup>
       final lists = catalog.loadCuratedLists();
       await catalog.load(settings.language);
       await lists;
+      await adoptOutsideFinds(notebook, catalog.data);
       if (!mounted) return;
       setState(() {
         _settings = settings;
@@ -200,6 +204,7 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
   var _dismissedStore = 0;
   var _versionBusy = false;
   Future<void>? _curatedLists;
+  Future<void>? _bookRefresh;
   final _billing = FieldGuideBilling();
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final GuidePush _push;
@@ -242,6 +247,33 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
     if (state != AppLifecycleState.resumed) return;
     unawaited(_checkVersion());
     Entitlements.onResume();
+    // Launch reads the book once. Coming back has to read it again, or
+    // Seen, Seen lately, and New in the book stay on that first snapshot
+    // until the process is killed.
+    unawaited(_refreshBook());
+  }
+
+  Future<void> _refreshBook() {
+    final running = _bookRefresh;
+    if (running != null) return running;
+    final run = _refreshBookNow();
+    _bookRefresh = run;
+    return run;
+  }
+
+  Future<void> _refreshBookNow() async {
+    try {
+      await refreshOpenGuide(
+        catalog: widget.catalog,
+        notebook: widget.notebook,
+        syncSightings: syncSightings,
+      );
+    } catch (error) {
+      debugPrint('guide refresh: $error');
+    } finally {
+      _bookRefresh = null;
+    }
+    if (mounted) setState(() {});
   }
 
   /// A failed read keeps a remembered floor closed. The shell only shows
@@ -422,6 +454,7 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
     final lists = _curatedLists ??= widget.catalog.loadCuratedLists();
     await widget.catalog.load(widget.settings.language);
     await lists;
+    await adoptOutsideFinds(widget.notebook, widget.catalog.data);
     if (mounted) setState(() {});
     unawaited(_armAppCheck());
   }

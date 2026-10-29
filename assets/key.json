@@ -970,5 +970,30 @@
       "brown"
     ],
     "added": "2026-10-28"
+  },
+  "Leucocoprinus birnbaumii": {
+    "hymenium": "gills",
+    "where": [
+      "ground",
+      "grass",
+      "wood"
+    ],
+    "color": [
+      "yellow",
+      "brown"
+    ],
+    "added": "2026-10-28"
+  },
+  "Crucibulum laeve": {
+    "hymenium": "gleba",
+    "where": [
+      "wood"
+    ],
+    "color": [
+      "yellow",
+      "brown",
+      "white"
+    ],
+    "added": "2026-10-29"
   }
 }
