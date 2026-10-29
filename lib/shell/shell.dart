@@ -56,7 +56,11 @@ class GuideShell extends StatelessWidget {
               Expanded(
                 child: IndexedStack(
                   index: index,
-                  children: const [FindPage(), BookPage(), SeenPage()],
+                  children: [
+                    const FindPage(),
+                    const BookPage(),
+                    SeenPage(active: index == 2),
+                  ],
                 ),
               ),
             ],

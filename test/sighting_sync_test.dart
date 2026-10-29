@@ -147,6 +147,40 @@ void main() {
     },
   );
 
+  test('an accepted sighting leaves in review', () {
+    final dir = Directory.systemTemp.createTempSync('sighting-accepted');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final file = File('${dir.path}/local.jpg')..writeAsStringSync('photo');
+    final local = FindRecord(
+      id: '1793233925274975',
+      millis: 1793233925358,
+      latin: 'Leucocoprinus birnbaumii',
+      photoPath: file.path,
+      confirmed: true,
+      share: FindShare.review,
+    );
+    final next = mergeAccountSightings(
+      [local],
+      [
+        (
+          id: '1793233925274975',
+          data: {
+            'latin': 'Leucocoprinus birnbaumii',
+            'millis': 1793233925358,
+            'status': 'public',
+            'photo': 'sightings/uid/1793233925274975.jpg',
+          },
+        ),
+      ],
+    );
+    expect(next.single.share, FindShare.shared);
+    expect(next.single.photoPath, file.path);
+  });
+
+  test('a sighting refresh does not trust the cached review', () {
+    expect(sightingGetOptions.source.name, 'server');
+  });
+
   test('a missing document clears the shared mark', () {
     final local = FindRecord(
       id: '1',

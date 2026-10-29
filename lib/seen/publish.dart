@@ -52,11 +52,16 @@ Future<bool> deleteSighting(FindRecord find) async {
   return _removeSighting(find.id);
 }
 
+/// The send writes `review` into the on-phone cache. A default get returns
+/// that copy, so Seen stays on In review after the sighting is accepted.
+const sightingGetOptions = GetOptions(source: Source.server);
+
 /// Copies this account's Sightings onto the notebook.
 ///
 /// A document that is not already on the phone is added, with its photo
 /// URL, so Find and Seen show it after sign-in. A sent find whose document
 /// is gone returns to [FindShare.none]. The same list is not written again.
+/// The read asks the server. Offline, this keeps the notebook as it is.
 Future<void> syncSightings(Notebook notebook) async {
   try {
     final user = _account();
@@ -64,7 +69,7 @@ Future<void> syncSightings(Notebook notebook) async {
     final snap = await FirebaseFirestore.instance
         .collection('sightings')
         .where('uid', isEqualTo: user.uid)
-        .get();
+        .get(sightingGetOptions);
     final remote = [
       for (final doc in snap.docs)
         (id: doc.id, data: Map<String, dynamic>.from(doc.data())),

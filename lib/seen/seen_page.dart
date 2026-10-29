@@ -41,6 +41,10 @@ class SeenPage extends StatefulWidget {
   /// Overrides the remembered Hide shared choice.
   final bool? hideShared;
 
+  /// The shell keeps this page alive. True while Seen is the open tab.
+  /// Each visit reads Sightings again.
+  final bool active;
+
   const SeenPage({
     super.key,
     this.signedIn,
@@ -48,6 +52,7 @@ class SeenPage extends StatefulWidget {
     this.onWithdraw,
     this.onRemoveSent,
     this.hideShared,
+    this.active = true,
   });
 
   @override
@@ -84,7 +89,14 @@ class _SeenPageState extends State<SeenPage> {
     notebook.addListener(_onChange);
     if (_synced) return;
     _synced = true;
+    if (!widget.active) return;
     unawaited(_syncShares());
+  }
+
+  @override
+  void didUpdateWidget(SeenPage old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) unawaited(_syncShares());
   }
 
   @override
