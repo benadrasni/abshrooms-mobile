@@ -238,13 +238,13 @@ export function proofRecordOf(value: unknown): ProofRecord | null {
 function rowStillActive(id: string, row: EntitlementRow, now: number): boolean {
   if (!row.active) return false;
   if (!subscriptionProducts.has(id)) return true;
-  if (row.expiresAt != null && row.expiresAt <= now) return false;
+  if (row.willNotRenew === true && row.expiresAt != null && row.expiresAt <= now) return false;
   return true;
 }
 
-/// Product ids that still grant. A subscription ends at `expiresAt`. A
-/// verified renewal writes a later time. An unverified re-check does not
-/// keep a lapsed plan. A row with no expiry follows `active`.
+/// Product ids that still grant. `active` is the grant, including a renewal
+/// whose expiry has passed and has not been cleared yet. A plan that will
+/// not renew ends at its stored expiry.
 export function activeEntitlementIds(user: Record<string, unknown> | null, now = Date.now()): string[] {
   if (!user) return [];
   return Object.entries(entitlementRows(user.entitlements))

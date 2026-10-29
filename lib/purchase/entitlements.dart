@@ -78,9 +78,8 @@ class Entitlements {
         );
   }
 
-  /// A Field Guide plan ends at its stored expiry. When that expiry is due,
-  /// the server reads the stored token. A verified renewal writes a later
-  /// expiry. An unverified read does not keep the lapsed plan.
+  /// The server `active` flag keeps the plan. A stored `willNotRenew` ends it
+  /// at expiry. When that expiry is due, the server reads the stored token.
   static void _apply(EntitlementWatch watch) {
     final lifetime = lifetimeSubscriptionOf(_user);
     final lifetimeChanged = lifetime != Purchases.lifetimeSubscription;
@@ -97,7 +96,8 @@ class Entitlements {
     _armExpiry(watch);
   }
 
-  /// Re-reads the stored row, including when the phone was asleep.
+  /// Re-reads the stored row. A plan that will not renew leaves as soon as
+  /// its expiry has passed, including when the phone was asleep.
   static void applyIfLoaded() {
     final watch = _rowWatch;
     if (watch == null || _uid == null) return;
@@ -106,8 +106,7 @@ class Entitlements {
 
   /// Asks the server to read the stored token once the expiry has been due
   /// for [entitlementRecheckDelay]. A resume retries a check that failed.
-  /// A lookup the store does not verify is tried again and does not extend
-  /// a lapsed plan.
+  /// A lookup the store does not verify is tried again. It is not a cancel.
   static Future<void> recheckIfDue({bool force = false}) {
     if (_uid == null) return Future<void>.value();
     final now = DateTime.now();

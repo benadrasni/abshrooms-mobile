@@ -116,7 +116,7 @@ void main() {
   });
 
   test(
-    'a Field Guide plan ends at expiresAt even when renewal was not verified',
+    'a plan that will not renew leaves at expiry and a renewal stays active',
     () {
       const now = 1_700_000_000_000;
       final clock = DateTime.fromMillisecondsSinceEpoch(now);
@@ -145,7 +145,7 @@ void main() {
       }, now: clock);
       expect(parsed.products['field_guide_yearly'], isTrue);
       expect(parsed.products['shrooms_field_guide_monthly'], isFalse);
-      expect(parsed.products['field_guide_monthly'], isFalse);
+      expect(parsed.products['field_guide_monthly'], isTrue);
       expect(parsed.products['shrooms_field_guide_yearly'], isFalse);
       expect(parsed.products['other_product'], isTrue);
       expect(
@@ -224,7 +224,11 @@ void main() {
     final lapsed = accountEntitlementsOf({
       'entitlements': {
         'products': {
-          fieldGuideMonthlyPlay: {'active': true, 'expiresAt': 1},
+          fieldGuideMonthlyPlay: {
+            'active': true,
+            'expiresAt': 1,
+            'willNotRenew': true,
+          },
         },
       },
     }, now: DateTime.fromMillisecondsSinceEpoch(5));

@@ -21,13 +21,13 @@ class EntitlementWatch {
 }
 
 /// The soonest Field Guide expiry still ahead of [now]. The timer fires then
-/// so the plan can leave. A later expiry is re-armed within
-/// [entitlementExpiryWait].
+/// so a plan that will not renew can leave. A later expiry is re-armed
+/// within [entitlementExpiryWait].
 const entitlementExpiryWait = Duration(hours: 12);
 
 /// How long the phone waits after a stored Field Guide expiry before asking
-/// the server to read that purchase token again. The plan has already ended.
-/// A verified renewal writes a later expiresAt and the plan returns.
+/// the server to read that purchase token again. The pages follow `active`.
+/// A plan marked `willNotRenew` leaves at `expiresAt` without this wait.
 const entitlementRecheckDelay = Duration(minutes: 2);
 
 DateTime? nextFieldGuideExpiry(Object? userValue, DateTime now) {
@@ -81,12 +81,13 @@ int? fieldGuideExpiryDueAt(Object? userValue, DateTime now) {
   return due;
 }
 
-/// A Field Guide plan ends at expiresAt. A verified renewal writes a later
-/// time. An unverified re-check does not keep a lapsed plan. A missing
-/// expiry stays on the active flag. willNotRenew does not extend it.
+/// The server `active` flag keeps the plan, including past [expiresAt] while
+/// a renewal is still posting. A plan marked `willNotRenew` leaves at
+/// [expiresAt]. A missing expiry stays on the active flag.
 bool entitlementRowActive(String id, Map value, int nowMs) {
   if (value['active'] != true) return false;
   if (!FieldGuideIds.isFieldGuide(id)) return true;
+  if (value['willNotRenew'] != true) return true;
   final expiresAt = value['expiresAt'];
   if (expiresAt is! num) return true;
   return expiresAt.toInt() > nowMs;
