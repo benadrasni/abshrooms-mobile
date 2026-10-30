@@ -22,20 +22,6 @@ Set<String> favoriteNamesFrom(Iterable<({String id, Object? value})> rows) {
   return names;
 }
 
-/// Names still only on this phone. Ones already on the account are left out.
-Set<String> favoriteNamesToMove(Set<String> phone, Set<String> remote) {
-  return {
-    for (final name in phone)
-      if (favoriteNameOk(name) && !remote.contains(name.trim())) name.trim(),
-  };
-}
-
-/// The list to show for a signed-in account: the account rows, plus any
-/// phone rows that have not moved yet.
-Set<String> favoriteNamesShown(Set<String> remote, Set<String> phone) {
-  return {...remote, ...favoriteNamesToMove(phone, remote)};
-}
-
 /// Writes or removes `users/{uid}/favorites/{latin}`.
 Future<void> writeAccountFavorite(String uid, String latin, bool on) async {
   final name = latin.trim();

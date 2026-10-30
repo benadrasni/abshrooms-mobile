@@ -4,7 +4,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/favorites.dart';
-import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/phone_verify.dart';
 import 'package:whats_that_mushroom/purchase/store_proof.dart';
@@ -73,9 +72,8 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
     }
   }
 
-  final notebook = GuideScope.of(context).notebook;
   try {
-    await _deleteUser(notebook);
+    await _deleteUser();
     await hideSpinner();
     return DeleteAccountResult.success;
   } on FirebaseAuthException catch (error) {
@@ -92,7 +90,7 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
     try {
-      await _deleteUser(notebook);
+      await _deleteUser();
       await hideSpinner();
       return DeleteAccountResult.success;
     } catch (_) {
@@ -105,13 +103,12 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
   }
 }
 
-Future<void> _deleteUser(Notebook notebook) async {
+Future<void> _deleteUser() async {
   final user = Auth.firebaseAuth.currentUser;
   if (user == null || user.isAnonymous) {
     throw StateError('not signed in');
   }
   await deleteOwnedSightings(user.uid);
-  await notebook.forgetPhoneFavorites();
   await deleteAccountFavorites(user.uid);
   await releaseStorePurchases();
   await clearPushToken(user.uid);

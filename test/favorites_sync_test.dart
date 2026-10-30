@@ -18,20 +18,6 @@ void main() {
     expect(favoriteNamesFrom(const []), isEmpty);
   });
 
-  test('phone favorites join the account and are not shown twice', () {
-    expect(
-      favoriteNamesToMove(
-        {'Amanita muscaria', 'Boletus edulis', ' Bad/name '},
-        {'Amanita muscaria'},
-      ),
-      {'Boletus edulis'},
-    );
-    expect(favoriteNamesShown({'Amanita muscaria'}, {'Boletus edulis'}), {
-      'Amanita muscaria',
-      'Boletus edulis',
-    });
-  });
-
   test('a signed-in favorite is written for that account', () async {
     final notebook = Notebook()..favoriteAccount = 'ada';
     final writes = <String>[];
@@ -77,31 +63,12 @@ void main() {
     expect(notebook.favorites, isEmpty);
   });
 
-  test('signing out clears the list and leaves the phone rows to move', () {
+  test('signing out clears the list', () {
     final notebook = Notebook()
       ..favoriteAccount = 'ada'
-      ..phoneFavorites = {'Boletus edulis'}
       ..favorites = {'Amanita muscaria'};
     notebook.favoriteAccount = null;
     notebook.debugFavoriteAccount();
     expect(notebook.favorites, isEmpty);
-    expect(notebook.phoneFavorites, {'Boletus edulis'});
-  });
-
-  test('a phone list is written onto the account', () async {
-    final notebook = Notebook()..favoriteAccount = 'ada';
-    final writes = <String>[];
-    notebook.favoriteWrite = (uid, latin, on) async {
-      writes.add('$uid|$latin|$on');
-    };
-    notebook.phoneFavorites = {'Boletus edulis', 'Amanita muscaria'};
-    notebook.applyFavoriteSnapshot({'Amanita muscaria'});
-    await Future<void>.value();
-    expect(notebook.favorites, {'Amanita muscaria', 'Boletus edulis'});
-    expect(writes, ['ada|Boletus edulis|true']);
-
-    notebook.applyFavoriteSnapshot({'Amanita muscaria', 'Boletus edulis'});
-    expect(notebook.phoneFavorites, isEmpty);
-    expect(notebook.favorites, {'Amanita muscaria', 'Boletus edulis'});
   });
 }

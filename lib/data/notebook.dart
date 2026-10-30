@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whats_that_mushroom/data/favorites.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 
@@ -189,19 +188,13 @@ class Notebook extends ChangeNotifier {
   /// Latin names on the signed-in account. Empty while signed out.
   Set<String> favorites = {};
   int epoch = 0;
-  SharedPreferences? _prefs;
   Directory? _dir;
 
-  /// The phone list from before favorites lived on the account. Moved onto
-  /// the next signed-in account, then cleared so another account does not
-  /// inherit it.
-  Set<String> _phoneFavorites = {};
   Set<String> _remoteFavorites = {};
   final Set<String> _pendingOn = {};
   final Set<String> _pendingOff = {};
   String? _favoriteUid;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _favoriteSub;
-  var _favoriteMoving = false;
   var _followingFavorites = false;
 
   /// Replaces the signed-in uid in tests.
@@ -219,11 +212,6 @@ class Notebook extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    _prefs = await SharedPreferences.getInstance();
-    _phoneFavorites = {
-      for (final name in _prefs!.getStringList('favorites') ?? const <String>[])
-        if (favoriteNameOk(name)) name.trim(),
-    };
     _dir = await getApplicationDocumentsDirectory();
     final file = File('${_dir!.path}/notebook.json');
     if (await file.exists()) {
@@ -260,25 +248,6 @@ class Notebook extends ChangeNotifier {
     _favoriteUid = null;
   }
 
-  /// Drops the phone list when the account that would receive it is deleted.
-  Future<void> forgetPhoneFavorites() async {
-    _favoriteSub?.cancel();
-    _favoriteSub = null;
-    _favoriteMoving = false;
-    _phoneFavorites = {};
-    _pendingOn.clear();
-    _pendingOff.clear();
-    await _persistPhoneFavorites();
-    if (_signedInUid() == null) {
-      if (favorites.isNotEmpty) {
-        favorites = {};
-        notifyListeners();
-      }
-      return;
-    }
-    _paintFavorites();
-  }
-
   String? _signedInUid() {
     if (favoriteAccount != null) return favoriteAccount;
     try {
@@ -297,7 +266,6 @@ class Notebook extends ChangeNotifier {
     if (uid != null && uid == _favoriteUid && _favoriteSub != null) return;
     _favoriteSub?.cancel();
     _favoriteSub = null;
-    _favoriteMoving = false;
     _favoriteUid = uid;
     _remoteFavorites = {};
     _pendingOn.clear();
@@ -335,64 +303,20 @@ class Notebook extends ChangeNotifier {
     _applyFavoriteSnapshot(uid, remote);
   }
 
-  @visibleForTesting
-  Set<String> get phoneFavorites => _phoneFavorites;
-
-  @visibleForTesting
-  set phoneFavorites(Set<String> names) {
-    _phoneFavorites = {
-      for (final name in names)
-        if (favoriteNameOk(name)) name.trim(),
-    };
-  }
-
   void _applyFavoriteSnapshot(String uid, Set<String> remote) {
     if (_favoriteUid != uid) return;
     _remoteFavorites = remote;
-    final before = _phoneFavorites.length;
-    _phoneFavorites.removeAll(remote);
     _pendingOn.removeWhere(remote.contains);
     _pendingOff.removeWhere((name) => !remote.contains(name));
-    if (_phoneFavorites.length != before) unawaited(_persistPhoneFavorites());
     _paintFavorites();
-    final move = Set<String>.of(_phoneFavorites);
-    if (move.isEmpty || _favoriteMoving) return;
-    _favoriteMoving = true;
-    unawaited(() async {
-      try {
-        for (final name in move) {
-          if (_favoriteUid != uid) return;
-          if (!_phoneFavorites.contains(name)) continue;
-          try {
-            await _writeFavorite(uid, name, true);
-          } catch (error) {
-            debugPrint('favorites: $error');
-          }
-        }
-      } finally {
-        if (_favoriteUid == uid) _favoriteMoving = false;
-      }
-    }());
   }
 
   void _paintFavorites() {
     if (_signedInUid() == null) return;
-    final shown = favoriteNamesShown(_remoteFavorites, _phoneFavorites);
-    shown.addAll(_pendingOn);
-    shown.removeAll(_pendingOff);
+    final shown = {..._remoteFavorites, ..._pendingOn}..removeAll(_pendingOff);
     if (setEquals(favorites, shown)) return;
     favorites = shown;
     notifyListeners();
-  }
-
-  Future<void> _persistPhoneFavorites() async {
-    final prefs = _prefs;
-    if (prefs == null) return;
-    if (_phoneFavorites.isEmpty) {
-      await prefs.remove('favorites');
-    } else {
-      await prefs.setStringList('favorites', _phoneFavorites.toList());
-    }
   }
 
   Future<void> _writeFavorite(String uid, String latin, bool on) {
@@ -492,7 +416,6 @@ class Notebook extends ChangeNotifier {
     } else {
       _pendingOn.remove(name);
       _pendingOff.add(name);
-      if (_phoneFavorites.remove(name)) unawaited(_persistPhoneFavorites());
     }
     _paintFavorites();
     try {
