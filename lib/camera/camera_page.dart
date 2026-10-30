@@ -468,7 +468,10 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Future<Uint8List> _readPhoto(String path) async {
-    return jpegMaxEdge(await File(path).readAsBytes());
+    final jpeg = jpegMaxEdge(await File(path).readAsBytes());
+    // Not a JPEG. The original bytes are not sent.
+    if (jpeg == null) throw const FormatException('not a jpeg');
+    return jpeg;
   }
 
   Future<void> _openSpecies(String latin) async {

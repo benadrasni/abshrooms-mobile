@@ -28,22 +28,74 @@ class NameGuess {
 }
 
 /// Longest side becomes [edge] pixels. The bytes stay a JPEG.
-Uint8List jpegMaxEdge(Uint8List bytes, {int edge = 1280}) {
+/// The date and the place written on the file are not copied across.
+/// Null when [bytes] is not a JPEG.
+Uint8List? jpegMaxEdge(Uint8List bytes, {int edge = 1280}) {
   final decoded = img.decodeImage(bytes);
-  if (decoded == null) return bytes;
+  if (decoded == null) return _jpegWithoutApp1(bytes);
+  decoded.exif = img.ExifData();
   final longest = decoded.width > decoded.height
       ? decoded.width
       : decoded.height;
+  final img.Image sized;
   if (longest <= edge) {
-    return Uint8List.fromList(img.encodeJpg(decoded, quality: 85));
+    sized = decoded;
+  } else {
+    final wide = decoded.width >= decoded.height;
+    sized = img.copyResize(
+      decoded,
+      width: wide ? edge : null,
+      height: wide ? null : edge,
+    );
   }
-  final wide = decoded.width >= decoded.height;
-  final resized = img.copyResize(
-    decoded,
-    width: wide ? edge : null,
-    height: wide ? null : edge,
-  );
-  return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+  return Uint8List.fromList(img.encodeJpg(sized, quality: 85));
+}
+
+/// Drops every APP1 segment before the scan and copies the rest.
+/// Null when [bytes] has no JPEG start.
+Uint8List? _jpegWithoutApp1(Uint8List bytes) {
+  if (bytes.length < 2 || bytes[0] != 0xff || bytes[1] != 0xd8) return null;
+  final kept = BytesBuilder(copy: false)
+    ..addByte(0xff)
+    ..addByte(0xd8);
+  var i = 2;
+  while (i + 1 < bytes.length) {
+    if (bytes[i] != 0xff) {
+      kept.add(bytes.sublist(i));
+      return kept.takeBytes();
+    }
+    final marker = bytes[i + 1];
+    if (marker == 0xff) {
+      kept.addByte(0xff);
+      i++;
+      continue;
+    }
+    if (marker == 0xda || marker == 0xd9) {
+      kept.add(bytes.sublist(i));
+      return kept.takeBytes();
+    }
+    if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      kept
+        ..addByte(0xff)
+        ..addByte(marker);
+      i += 2;
+      continue;
+    }
+    if (i + 3 >= bytes.length) {
+      kept.add(bytes.sublist(i));
+      return kept.takeBytes();
+    }
+    final length = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (length < 2 || i + 2 + length > bytes.length) {
+      kept.add(bytes.sublist(i));
+      return kept.takeBytes();
+    }
+    final end = i + 2 + length;
+    if (marker != 0xe1) kept.add(bytes.sublist(i, end));
+    i = end;
+  }
+  if (i < bytes.length) kept.add(bytes.sublist(i));
+  return kept.takeBytes();
 }
 
 List<NameGuess> guessesFrom(Object? data) {
