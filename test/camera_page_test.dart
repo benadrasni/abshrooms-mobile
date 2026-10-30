@@ -657,7 +657,7 @@ Future<void> _namedWithoutPlace(
     notebook: notebook,
     signedIn: true,
     onOpenSpecies: (_) {},
-    readPhoto: (_) async => jpegMaxEdge(original),
+    readPhoto: (_) async => jpegMaxEdge(original)!,
     photoTakenAt: (_) async => photoDateFromBytes(original),
     photoPosition: (_) async => photoPositionFromBytes(original),
     identify: (jpeg, _) async {

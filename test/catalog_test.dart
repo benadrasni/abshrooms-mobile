@@ -312,7 +312,7 @@ void main() {
   test('a wide photo is resized so the long edge is 1280', () {
     final source = img.Image(width: 2000, height: 1000);
     final bytes = img.encodeJpg(source);
-    final resized = img.decodeJpg(jpegMaxEdge(bytes, edge: 1280))!;
+    final resized = img.decodeJpg(jpegMaxEdge(bytes, edge: 1280)!)!;
     expect(resized.width, 1280);
     expect(resized.height, 640);
   });
@@ -332,7 +332,7 @@ void main() {
       expect(place.longitude, closeTo(-17.1, 0.0001));
       expect(photoDateFromBytes(bytes), DateTime(2023, 6, 25, 15, 33, 4));
 
-      final named = jpegMaxEdge(bytes, edge: 1280);
+      final named = jpegMaxEdge(bytes, edge: 1280)!;
       expect(photoPositionFromBytes(named), isNull);
       expect(photoDateFromBytes(named), isNull);
       expect(String.fromCharCodes(named).contains('2023:06:25'), isFalse);
@@ -356,7 +356,7 @@ void main() {
     shot.exif.gpsIfd['GPSLongitude'] = img.IfdValueRational(10, 1);
     final bytes = Uint8List.fromList(img.encodeJpg(shot));
     final decoded = img.decodeJpg(bytes)!;
-    final named = jpegMaxEdge(bytes);
+    final named = jpegMaxEdge(bytes)!;
     final stored = img.decodeJpg(named)!;
     expect(stored.width, decoded.width);
     expect(stored.height, decoded.height);
@@ -374,7 +374,7 @@ void main() {
       0xff, 0xd9,
     ]);
     expect(img.decodeImage(bytes), isNull);
-    final named = jpegMaxEdge(bytes);
+    final named = jpegMaxEdge(bytes)!;
     expect(named, [
       0xff, 0xd8, //
       0xff, 0xda, 0x00, 0x02, 0x01, 0x02, 0x03, //
@@ -394,9 +394,10 @@ void main() {
     ]);
     expect(img.decodeImage(withXmp), isNull);
     expect(
-      String.fromCharCodes(jpegMaxEdge(withXmp)).contains('GPSLAT'),
+      String.fromCharCodes(jpegMaxEdge(withXmp)!).contains('GPSLAT'),
       isFalse,
     );
+    expect(jpegMaxEdge(Uint8List.fromList(const [1, 2, 3])), isNull);
   });
 
   test('Slovak book order keeps č and ch in place', () {
