@@ -83,4 +83,28 @@ void main() {
       ),
     );
   });
+
+  test('the owner can store favorite mushrooms and a guest cannot', () {
+    final rules = File('firebase/firestore.rules').readAsStringSync();
+    expect(
+      rules,
+      contains(
+        'match /users/{uid}/favorites/{latin} {\n'
+        '      allow read: if request.auth != null\n'
+        '        && request.auth.uid == uid\n'
+        "        && request.auth.token.firebase.sign_in_provider != 'anonymous';\n"
+        '      allow create, update: if request.auth != null\n'
+        '        && request.auth.uid == uid\n'
+        "        && request.auth.token.firebase.sign_in_provider != 'anonymous'\n"
+        '        && latin.size() > 0\n'
+        '        && latin.size() < 200\n'
+        "        && request.resource.data.keys().hasOnly(['v'])\n"
+        '        && request.resource.data.v == 1;\n'
+        '      allow delete: if request.auth != null\n'
+        '        && request.auth.uid == uid\n'
+        "        && request.auth.token.firebase.sign_in_provider != 'anonymous';\n"
+        '    }',
+      ),
+    );
+  });
 }

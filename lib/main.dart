@@ -441,6 +441,7 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
   void dispose() {
     widget.settings.removeListener(_onSettings);
     widget.notebook.removeListener(_onNotebook);
+    widget.notebook.stopFavorites();
     Purchases.revision.removeListener(_syncAnalytics);
     WidgetsBinding.instance.removeObserver(this);
     _push.dispose();

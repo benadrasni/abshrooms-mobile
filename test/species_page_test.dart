@@ -634,6 +634,64 @@ void main() {
       lessThan(tester.getTopLeft(find.text('Ilustrácia')).dx),
     );
   });
+
+  testWidgets('a favorite asks for an account, then saves on it', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    var signedIn = false;
+    final saved = <String, bool>{};
+    await _pump(
+      tester,
+      _notebook(),
+      isSignedIn: () => signedIn,
+      onSignIn: () async {
+        signedIn = true;
+      },
+      onFavorite: (latin, on) async {
+        saved[latin] = on;
+      },
+    );
+
+    await tester.tap(find.byTooltip('Mark as favorite'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(saved['Boletus edulis'], isTrue);
+    expect(
+      find.text('Favorite mushrooms stay with your account.'),
+      findsOneWidget,
+    );
+    handle.dispose();
+  });
+
+  testWidgets('a signed-in favorite can be removed', (tester) async {
+    final handle = tester.ensureSemantics();
+    final notebook = _notebook()..favorites = {'Boletus edulis'};
+    final saved = <String, bool>{};
+    await _pump(
+      tester,
+      notebook,
+      isSignedIn: () => true,
+      onFavorite: (latin, on) async {
+        saved[latin] = on;
+        if (on) {
+          notebook.favorites = {...notebook.favorites, latin};
+        } else {
+          notebook.favorites = {...notebook.favorites}..remove(latin);
+        }
+      },
+    );
+
+    await tester.tap(find.byTooltip('Remove from favorites'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(saved['Boletus edulis'], isFalse);
+    expect(find.text('Removed from Favorite mushrooms.'), findsOneWidget);
+    expect(find.byTooltip('Mark as favorite'), findsOneWidget);
+    handle.dispose();
+  });
 }
 
 final _jpeg = Uint8List.fromList(img.encodeJpg(img.Image(width: 2, height: 2)));
@@ -661,6 +719,9 @@ Future<void> _pump(
   Map<String, Map<String, dynamic>> synonyms = const {},
   Future<List<SpeciesSighting>> Function(String latin)? sightings,
   Size size = const Size(800, 1600),
+  bool Function()? isSignedIn,
+  Future<void> Function()? onSignIn,
+  Future<void> Function(String latin, bool on)? onFavorite,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -688,6 +749,9 @@ Future<void> _pump(
     latin: 'Boletus edulis',
     pickSeen: pick,
     loadSightings: sightings,
+    isSignedIn: isSignedIn,
+    onSignIn: onSignIn,
+    onFavorite: onFavorite,
   );
   await tester.pumpWidget(
     GuideScope(

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/data/favorites.dart';
+import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/phone_verify.dart';
 import 'package:whats_that_mushroom/purchase/store_proof.dart';
@@ -71,8 +73,9 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
     }
   }
 
+  final notebook = GuideScope.of(context).notebook;
   try {
-    await _deleteUser();
+    await _deleteUser(notebook);
     await hideSpinner();
     return DeleteAccountResult.success;
   } on FirebaseAuthException catch (error) {
@@ -89,7 +92,7 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
     try {
-      await _deleteUser();
+      await _deleteUser(notebook);
       await hideSpinner();
       return DeleteAccountResult.success;
     } catch (_) {
@@ -102,12 +105,14 @@ Future<DeleteAccountResult> confirmAndDeleteAccount(
   }
 }
 
-Future<void> _deleteUser() async {
+Future<void> _deleteUser(Notebook notebook) async {
   final user = Auth.firebaseAuth.currentUser;
   if (user == null || user.isAnonymous) {
     throw StateError('not signed in');
   }
   await deleteOwnedSightings(user.uid);
+  await notebook.forgetPhoneFavorites();
+  await deleteAccountFavorites(user.uid);
   await releaseStorePurchases();
   await clearPushToken(user.uid);
   await user.delete();
@@ -147,9 +152,13 @@ Future<DeleteAccountResult> reauthenticateCurrentUser(
     }
     if (providers.contains('password')) {
       final email = user.email;
-      if (email == null || !context.mounted) return DeleteAccountResult.canceled;
+      if (email == null || !context.mounted) {
+        return DeleteAccountResult.canceled;
+      }
       final password = await _askPassword(context);
-      if (password == null || password.isEmpty) return DeleteAccountResult.canceled;
+      if (password == null || password.isEmpty) {
+        return DeleteAccountResult.canceled;
+      }
       await user.reauthenticateWithCredential(
         EmailAuthProvider.credential(email: email, password: password),
       );
@@ -157,9 +166,13 @@ Future<DeleteAccountResult> reauthenticateCurrentUser(
     }
     if (providers.contains('phone')) {
       final phone = user.phoneNumber;
-      if (phone == null || !context.mounted) return DeleteAccountResult.canceled;
+      if (phone == null || !context.mounted) {
+        return DeleteAccountResult.canceled;
+      }
       final signed = await _reauthenticatePhone(context, user, phone);
-      return signed ? DeleteAccountResult.success : DeleteAccountResult.canceled;
+      return signed
+          ? DeleteAccountResult.success
+          : DeleteAccountResult.canceled;
     }
   } on GoogleSignInException catch (error) {
     return reauthResultOf(error);

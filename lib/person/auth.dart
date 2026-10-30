@@ -151,7 +151,7 @@ class Auth {
       password: password,
     );
     _logAuth(result, 'password', false);
-    publish();
+    if (result.user?.emailVerified == true) publish();
     return result.user;
   }
 
@@ -166,7 +166,7 @@ class Auth {
               password: password,
             );
       _logAuth(result, 'password', true);
-      publish();
+      if (result.user?.emailVerified == true) publish();
       return result.user;
     } on FirebaseAuthException catch (error) {
       if (guest == null ||

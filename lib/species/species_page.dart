@@ -11,6 +11,8 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/person/sign_in_page.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/guide_links.dart';
@@ -46,12 +48,24 @@ class SpeciesPage extends StatefulWidget {
   /// Where this page was opened. Sent with the species event.
   final String source;
 
+  /// Replaces [Auth.appUser] in tests.
+  final bool Function()? isSignedIn;
+
+  /// Replaces the sign-in page in tests.
+  final Future<void> Function()? onSignIn;
+
+  /// Replaces [Notebook.setFavorite] in tests.
+  final Future<void> Function(String latin, bool on)? onFavorite;
+
   const SpeciesPage({
     super.key,
     required this.latin,
     this.source = GuideMushroomSource.list,
     this.pickSeen,
     this.loadSightings,
+    this.isSignedIn,
+    this.onSignIn,
+    this.onFavorite,
   });
 
   @override
@@ -61,6 +75,7 @@ class SpeciesPage extends StatefulWidget {
 class _SpeciesPageState extends State<SpeciesPage> {
   final Map<String, GlobalKey> _sectionKeys = {};
   var _saving = false;
+  var _favoriteBusy = false;
   var _namedNoted = false;
   List<SpeciesSighting> _sightings = const [];
   var _sightingsReady = false;
@@ -184,12 +199,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
         favorite: favorite,
         copy: copy,
         onBack: () => Navigator.maybePop(context),
-        onFavorite: () {
-          final on = !favorite;
-          unawaited(scope.notebook.toggleFavorite(species.name));
-          unawaited(GuideAnalytics.favorite(on: on));
-          setState(() {});
-        },
+        onFavorite: () => unawaited(_toggleFavorite(species.name)),
         onShare: () => _share(title, species.name),
       ),
       _NameBlock(
@@ -451,6 +461,55 @@ class _SpeciesPageState extends State<SpeciesPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(GuideScope.of(context).copy.seenFailed)),
     );
+  }
+
+  bool _accountSignedIn() {
+    final check = widget.isSignedIn;
+    if (check != null) return check();
+    return Auth.appUser != null;
+  }
+
+  /// A guest is asked to sign in. The row is written only after that, and
+  /// it is written on, the same way the plants page does.
+  Future<void> _toggleFavorite(String latin) async {
+    if (_favoriteBusy) return;
+    final notebook = GuideScope.of(context).notebook;
+    if (!_accountSignedIn()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(GuideScope.of(context).copy.favoriteAccount)),
+      );
+      final open = widget.onSignIn;
+      if (open != null) {
+        await open();
+      } else {
+        await Navigator.of(context).push<void>(
+          guideRoute<void>(guideScreenSignIn, (_) => const SignInPage()),
+        );
+      }
+      if (!mounted || !_accountSignedIn()) return;
+      await _writeFavorite(latin, true);
+      return;
+    }
+    await _writeFavorite(latin, !notebook.isFavorite(latin));
+  }
+
+  Future<void> _writeFavorite(String latin, bool on) async {
+    setState(() => _favoriteBusy = true);
+    try {
+      final write =
+          widget.onFavorite ?? GuideScope.of(context).notebook.setFavorite;
+      await write(latin, on);
+      unawaited(GuideAnalytics.favorite(on: on));
+      if (!mounted) return;
+      final copy = GuideScope.of(context).copy;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(on ? copy.favoriteAdded : copy.favoriteRemoved)),
+      );
+    } catch (error) {
+      debugPrint('favorite $latin: $error');
+    } finally {
+      if (mounted) setState(() => _favoriteBusy = false);
+    }
   }
 
   void _openSeen() {
