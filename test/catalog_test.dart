@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/data/search.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/species/seen_photo.dart';
 
 Catalog _catalog() {
   return buildCatalog(
@@ -312,6 +315,88 @@ void main() {
     final resized = img.decodeJpg(jpegMaxEdge(bytes, edge: 1280))!;
     expect(resized.width, 1280);
     expect(resized.height, 640);
+  });
+
+  test('a photo sent for a name drops the date and the place', () {
+    for (final size in const [(8, 4), (2000, 1000)]) {
+      final shot = img.Image(width: size.$1, height: size.$2);
+      shot.exif.exifIfd['DateTimeOriginal'] = '2023:06:25 15:33:04';
+      shot.exif.gpsIfd['GPSLatitudeRef'] = img.IfdValueAscii('N');
+      shot.exif.gpsIfd['GPSLatitude'] = img.IfdValueRational(481, 10);
+      shot.exif.gpsIfd['GPSLongitudeRef'] = img.IfdValueAscii('W');
+      shot.exif.gpsIfd['GPSLongitude'] = img.IfdValueRational(171, 10);
+      final bytes = Uint8List.fromList(img.encodeJpg(shot));
+      final place = photoPositionFromBytes(bytes);
+      expect(place, isNotNull);
+      expect(place!.latitude, closeTo(48.1, 0.0001));
+      expect(place.longitude, closeTo(-17.1, 0.0001));
+      expect(photoDateFromBytes(bytes), DateTime(2023, 6, 25, 15, 33, 4));
+
+      final named = jpegMaxEdge(bytes, edge: 1280);
+      expect(photoPositionFromBytes(named), isNull);
+      expect(photoDateFromBytes(named), isNull);
+      expect(String.fromCharCodes(named).contains('2023:06:25'), isFalse);
+      final stored = img.decodeJpg(named)!;
+      expect(stored.exif.gpsIfd['GPSLatitude'], isNull);
+      expect(stored.exif.exifIfd['DateTimeOriginal'], isNull);
+      if (size.$1 == 2000) {
+        expect(stored.width, 1280);
+        expect(stored.height, 640);
+      }
+    }
+  });
+
+  test('a turned photo stays turned after the place is dropped', () {
+    final shot = img.Image(width: 4, height: 2);
+    shot.setPixelRgb(0, 0, 255, 0, 0);
+    shot.exif.imageIfd.orientation = 6;
+    shot.exif.gpsIfd['GPSLatitudeRef'] = img.IfdValueAscii('N');
+    shot.exif.gpsIfd['GPSLatitude'] = img.IfdValueRational(10, 1);
+    shot.exif.gpsIfd['GPSLongitudeRef'] = img.IfdValueAscii('E');
+    shot.exif.gpsIfd['GPSLongitude'] = img.IfdValueRational(10, 1);
+    final bytes = Uint8List.fromList(img.encodeJpg(shot));
+    final decoded = img.decodeJpg(bytes)!;
+    final named = jpegMaxEdge(bytes);
+    final stored = img.decodeJpg(named)!;
+    expect(stored.width, decoded.width);
+    expect(stored.height, decoded.height);
+    expect(photoPositionFromBytes(named), isNull);
+    expect(stored.exif.imageIfd.orientation, isNull);
+  });
+
+  test('a photo that cannot be read still drops its place', () {
+    final bytes = Uint8List.fromList([
+      0xff, 0xd8, //
+      0xff, 0xe1, 0x00, 0x0e, //
+      0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // Exif
+      0x47, 0x50, 0x53, 0x4c, 0x41, 0x54, // GPSLAT
+      0xff, 0xda, 0x00, 0x02, 0x01, 0x02, 0x03, //
+      0xff, 0xd9,
+    ]);
+    expect(img.decodeImage(bytes), isNull);
+    final named = jpegMaxEdge(bytes);
+    expect(named, [
+      0xff, 0xd8, //
+      0xff, 0xda, 0x00, 0x02, 0x01, 0x02, 0x03, //
+      0xff, 0xd9,
+    ]);
+
+    final xmp = [
+      ...'http://ns.adobe.com/xap/1.0/\x00'.codeUnits,
+      ...'GPSLAT'.codeUnits,
+    ];
+    final xmpLength = xmp.length + 2;
+    final withXmp = Uint8List.fromList([
+      0xff, 0xd8, //
+      0xff, 0xe1, xmpLength >> 8, xmpLength & 0xff, //
+      ...xmp,
+      0xff, 0xd9,
+    ]);
+    expect(img.decodeImage(withXmp), isNull);
+    expect(
+      String.fromCharCodes(jpegMaxEdge(withXmp)).contains('GPSLAT'),
+      isFalse,
+    );
   });
 
   test('Slovak book order keeps č and ch in place', () {

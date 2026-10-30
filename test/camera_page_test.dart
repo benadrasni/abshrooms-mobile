@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
 import 'package:whats_that_mushroom/camera/plant_id.dart';
@@ -123,6 +126,26 @@ void main() {
     expect(notebook.finds.single.latitude, closeTo(48.1, 0.0001));
     expect(notebook.finds.single.longitude, closeTo(-17.1, 0.0001));
     expect(notebook.finds.single.latin, 'Boletus edulis');
+  });
+
+  testWidgets('a gallery photo sent for a name drops the place on the file', (
+    tester,
+  ) async {
+    await _namedWithoutPlace(
+      tester,
+      button: const Key('guide-camera-roll'),
+      datedFromPhoto: true,
+    );
+  });
+
+  testWidgets('a shutter photo saved to the notebook drops the place', (
+    tester,
+  ) async {
+    await _namedWithoutPlace(
+      tester,
+      button: const Key('guide-camera-shutter'),
+      datedFromPhoto: false,
+    );
   });
 
   testWidgets('a shutter photo is dated when it is named', (tester) async {
@@ -603,6 +626,75 @@ Widget _scope({
   );
 }
 
+/// [button] is the gallery or the shutter. Both save the resized JPEG.
+/// The place is read from the original bytes and kept on the find.
+Future<void> _namedWithoutPlace(
+  WidgetTester tester, {
+  required Key button,
+  required bool datedFromPhoto,
+}) async {
+  final notebook = Notebook();
+  final root = Directory.systemTemp.createTempSync('camera-exif');
+  addTearDown(() {
+    if (root.existsSync()) root.deleteSync(recursive: true);
+  });
+  notebook.useStorage(root);
+  final shot = img.Image(width: 8, height: 4);
+  shot.exif.exifIfd['DateTimeOriginal'] = '2023:06:25 15:33:04';
+  shot.exif.gpsIfd['GPSLatitudeRef'] = img.IfdValueAscii('N');
+  shot.exif.gpsIfd['GPSLatitude'] = img.IfdValueRational(481, 10);
+  shot.exif.gpsIfd['GPSLongitudeRef'] = img.IfdValueAscii('W');
+  shot.exif.gpsIfd['GPSLongitude'] = img.IfdValueRational(171, 10);
+  final original = Uint8List.fromList(img.encodeJpg(shot));
+  final place = photoPositionFromBytes(original);
+  expect(place, isNotNull);
+  expect(photoDateFromBytes(original), DateTime(2023, 6, 25, 15, 33, 4));
+  final before = DateTime.now().millisecondsSinceEpoch;
+
+  Uint8List? named;
+  await _open(
+    tester,
+    notebook: notebook,
+    signedIn: true,
+    onOpenSpecies: (_) {},
+    readPhoto: (_) async => jpegMaxEdge(original),
+    photoTakenAt: (_) async => photoDateFromBytes(original),
+    photoPosition: (_) async => photoPositionFromBytes(original),
+    identify: (jpeg, _) async {
+      named = Uint8List.fromList(jpeg);
+      return const [
+        NameGuess(
+          scientificName: 'Boletus edulis',
+          probability: 0.82,
+          commonNames: ['penny bun'],
+        ),
+      ];
+    },
+  );
+  await tester.tap(find.byKey(button));
+  await tester.pumpAndSettle();
+
+  expect(named, isNotNull);
+  expect(photoPositionFromBytes(named!), isNull);
+  expect(photoDateFromBytes(named!), isNull);
+  final findRecord = notebook.finds.single;
+  if (datedFromPhoto) {
+    expect(
+      findRecord.millis,
+      DateTime(2023, 6, 25, 15, 33, 4).millisecondsSinceEpoch,
+    );
+  } else {
+    expect(findRecord.millis, greaterThanOrEqualTo(before));
+  }
+  expect(findRecord.latitude, closeTo(place!.latitude, 0.0001));
+  expect(findRecord.longitude, closeTo(place.longitude, 0.0001));
+  final stored = File(findRecord.photoPath!).readAsBytesSync();
+  expect(photoPositionFromBytes(stored), isNull);
+  expect(photoDateFromBytes(stored), isNull);
+  expect(stored, named);
+  expect(photoPositionFromBytes(original), isNotNull);
+}
+
 Future<void> _open(
   WidgetTester tester, {
   Notebook? notebook,
@@ -617,6 +709,8 @@ Future<void> _open(
   void Function(int index)? onTab,
   Future<DateTime?> Function(String path)? photoTakenAt,
   Future<PhotoPlace?> Function(String path)? photoPosition,
+  Future<String?> Function(ImageSource source)? pickPhoto,
+  Future<Uint8List> Function(String path)? readPhoto,
 }) async {
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 1;
@@ -644,8 +738,11 @@ Future<void> _open(
                     builder: (_) => CameraPage(
                       livePreview: (_) =>
                           const ColoredBox(color: Color(0xFF224422)),
-                      pickPhoto: (_) async => '/tmp/mushroom-shot.jpg',
-                      readPhoto: (_) async => Uint8List.fromList(const [1]),
+                      pickPhoto:
+                          pickPhoto ?? (_) async => '/tmp/mushroom-shot.jpg',
+                      readPhoto:
+                          readPhoto ??
+                          (_) async => Uint8List.fromList(const [1]),
                       photoTakenAt: photoTakenAt,
                       photoPosition: photoPosition ?? (_) async => null,
                       identify: identify,
