@@ -1,8 +1,12 @@
 /** Minimum gap between refreshEntitlements store reads for one user. */
 export const refreshEntitlementsMinGapMs = 60_000;
 
-/** The callable rejects a missing App Check token. */
-export const refreshEntitlementsEnforceAppCheck = true;
+/**
+ * A sideloaded release cannot mint a Play Integrity token. This callable is
+ * what clears an ended test subscription after restore returns nothing, so
+ * App Check stays off. Sign-in is checked in the function.
+ */
+export const refreshEntitlementsEnforceAppCheck = false;
 
 export function refreshedAtOf(node: unknown): number | null {
   if (!node || typeof node !== 'object') return null;

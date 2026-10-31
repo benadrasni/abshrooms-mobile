@@ -239,9 +239,10 @@ export const playStoreNotification = onRequest(
  * Reads this account's stored subscription tokens and writes the current
  * Play or App Store state. The phone calls this when a stored expiry is due,
  * because a restore often returns nothing for an ended test subscription.
- * App Check is required. A second call inside the window is throttled and
- * does not load purchase tokens. An unverified lookup is returned as retry
- * and is not written.
+ * App Check is off: a sideloaded release cannot mint a Play Integrity token,
+ * and this is the call that drops that ended plan. A second call inside the
+ * window is throttled and does not load purchase tokens. An unverified
+ * lookup is returned as retry and is not written.
  */
 export const refreshEntitlements = onCall(
   {

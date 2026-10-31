@@ -47,7 +47,7 @@ test('a refresh stamp keeps the products and ignores a call inside the window', 
 
   const again = stampRefresh(first.entitlements, now + refreshEntitlementsMinGapMs - 1);
   assert.equal(again.reserved, false);
-  assert.equal(refreshEntitlementsEnforceAppCheck, true);
+  assert.equal(refreshEntitlementsEnforceAppCheck, false);
 });
 
 test('throttle skips the lookup, and the slot is reserved only when a lookup starts', async () => {
