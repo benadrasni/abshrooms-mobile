@@ -175,6 +175,25 @@ void main() {
     await tester.tap(find.byKey(offlineUpdateKey));
     await tester.pump();
     expect(updated, isTrue);
+
+    await pump(
+      tester,
+      const OfflinePage(
+        view: OfflineView(
+          species: 62,
+          canDownload: true,
+          stored: true,
+          pending: [],
+          alreadyDone: 8,
+          totalFiles: 8,
+          missingSpecies: 0,
+          catalogStale: true,
+          catalogBytes: 2000000,
+        ),
+      ),
+    );
+    expect(find.text('Update'), findsWidgets);
+    expect(find.text('62 mushrooms · about 2 MB'), findsOneWidget);
   });
 
   testWidgets('a running download can pause', (tester) async {

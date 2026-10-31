@@ -7,7 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:whats_that_mushroom/data/repository.dart';
+import 'package:whats_that_mushroom/data/catalog_pack.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/offline/offline_plan.dart';
@@ -16,6 +16,7 @@ const _keyBook = 'offline_book';
 const _keyFiles = 'offline_files';
 const _keySkipped = 'offline_skipped';
 const _keySpecies = 'offline_species';
+const _keyCatalog = 'offline_catalog_revision';
 const _folder = 'offline';
 
 enum OfflineStart { started, needsWifi, skipped }
@@ -28,6 +29,17 @@ class OfflineBook {
   static var speciesSaved = 0;
   static final saved = <String>{};
   static final skipped = <String>{};
+
+  /// Revision of the snapshot in [root]/offline/catalog. Empty until a
+  /// download finishes the words.
+  static var catalogRevision = '';
+
+  /// Revision offered by the bucket this session. Empty until a check.
+  static var remoteRevision = '';
+  static var remoteBytes = 0;
+
+  /// Replaces the manifest fetch. Tests use it.
+  static Future<CatalogManifest?> Function()? readManifest;
 
   static var useMemory = false;
   static String? rootOverride;
@@ -47,9 +59,19 @@ class OfflineBook {
     speciesSaved = 0;
     saved.clear();
     skipped.clear();
+    catalogRevision = '';
+    remoteRevision = '';
+    remoteBytes = 0;
+    readManifest = null;
     rootOverride = null;
     _root = null;
     revision.value = 0;
+  }
+
+  /// The stored book is behind the snapshot on the bucket.
+  static bool get catalogStale {
+    if (!stored || remoteRevision.isEmpty) return false;
+    return remoteRevision != catalogRevision;
   }
 
   /// A file already on this phone, or null when the picture must come from
@@ -90,6 +112,9 @@ class OfflineBook {
     }
     stored = book == 'all';
     speciesSaved = count ?? 0;
+    catalogRevision = await _getString(_keyCatalog) ?? '';
+    remoteRevision = '';
+    remoteBytes = 0;
     saved
       ..clear()
       ..addAll(files);
@@ -112,10 +137,14 @@ class OfflineBook {
     speciesSaved = 0;
     saved.clear();
     skipped.clear();
+    catalogRevision = '';
+    remoteRevision = '';
+    remoteBytes = 0;
     await _remove(_keyBook);
     await _remove(_keyFiles);
     await _remove(_keySkipped);
     await _remove(_keySpecies);
+    await _remove(_keyCatalog);
     final directory = root;
     if (directory != null) {
       final folder = Directory('$directory/$_folder');
@@ -123,25 +152,34 @@ class OfflineBook {
     }
     revision.value++;
   }
-}
 
-/// Caches the active language, and the other one when it can, so the words
-/// open with the pictures.
-Future<void> warmOfflineWords(
-  CatalogRepository catalog,
-  String language,
-) async {
-  await catalog.load(language);
-  if (catalog.error != null || catalog.data == null) {
-    final error = catalog.error;
-    if (error != null) throw error;
-    throw StateError('catalog');
+  static Future<void> rememberCatalog(String next, int bytes) async {
+    catalogRevision = next;
+    remoteRevision = next;
+    remoteBytes = bytes;
+    await _setString(_keyCatalog, next);
+    revision.value++;
   }
-  final other = language == 'sk' ? 'en' : 'sk';
-  try {
-    await fetchCatalog(other);
-  } catch (error) {
-    debugPrint('offline words: $error');
+
+  /// Reads the published revision. A missing manifest leaves the offer as it
+  /// was. A stored book with a different revision is ready to update.
+  static Future<void> watchRemoteCatalog() async {
+    if (!stored) return;
+    try {
+      final manifest = readManifest != null
+          ? await readManifest!()
+          : await fetchCatalogManifest();
+      if (manifest == null) return;
+      if (remoteRevision == manifest.revision &&
+          remoteBytes == manifest.bytes) {
+        return;
+      }
+      remoteRevision = manifest.revision;
+      remoteBytes = manifest.bytes;
+      revision.value++;
+    } catch (error) {
+      debugPrint('catalog manifest: $error');
+    }
   }
 }
 
@@ -154,6 +192,12 @@ class OfflineRequest {
   final bool markStored;
   final bool update;
 
+  /// Download the published words as well as the pictures.
+  final bool includeCatalog;
+
+  /// Text bytes to add to an update bar. Pictures keep their own estimate.
+  final int catalogBytes;
+
   const OfflineRequest({
     required this.title,
     required this.species,
@@ -162,6 +206,8 @@ class OfflineRequest {
     required this.totalFiles,
     required this.markStored,
     required this.update,
+    this.includeCatalog = false,
+    this.catalogBytes = 0,
   });
 }
 
@@ -171,11 +217,11 @@ Future<OfflineStart> startOfflineDownload({
   required void Function() onFinished,
   required void Function() onFailed,
   Future<bool> Function()? wifi,
-  Future<void> Function()? warm,
   Future<List<int>?> Function(String relative)? fetch,
 }) async {
-  if (request.totalFiles <= 0 ||
-      (request.pending.isEmpty && request.alreadyDone >= request.totalFiles)) {
+  final picturesDone =
+      request.pending.isEmpty && request.alreadyDone >= request.totalFiles;
+  if ((request.totalFiles <= 0 || picturesDone) && !request.includeCatalog) {
     if (request.markStored) await _markStored(request.species);
     onFinished();
     return OfflineStart.started;
@@ -189,7 +235,6 @@ Future<OfflineStart> startOfflineDownload({
     onProgress: onProgress,
     onFinished: onFinished,
     onFailed: onFailed,
-    warm: warm,
     fetch: fetch,
   );
   OfflineBook.idle = running;
@@ -202,18 +247,29 @@ Future<void> _run({
   required void Function(int done, int total) onProgress,
   required void Function() onFinished,
   required void Function() onFailed,
-  required Future<void> Function()? warm,
   required Future<List<int>?> Function(String relative)? fetch,
 }) async {
   final client = fetch == null ? HttpClient() : null;
   if (client != null) OfflineBook._client = client;
   try {
-    if (warm != null) {
-      await warm();
-      if (!OfflineBook.owns(generation)) return;
-    }
     final directory = await _directory();
     if (!OfflineBook.owns(generation)) return;
+    final read = fetch ?? (String path) => _http(client!, path);
+    if (request.includeCatalog) {
+      final pulled = await _pullCatalog(
+        directory: directory,
+        generation: generation,
+        fetch: read,
+      );
+      if (!pulled || !OfflineBook.owns(generation)) return;
+    }
+    if (request.pending.isEmpty) {
+      onProgress(1, 1);
+      if (request.markStored) await _markStored(request.species);
+      if (!OfflineBook.owns(generation)) return;
+      onFinished();
+      return;
+    }
     var done = request.alreadyDone;
     final total = request.totalFiles;
     onProgress(done, total);
@@ -225,9 +281,7 @@ Future<void> _run({
         onProgress(done, total);
         continue;
       }
-      final bytes = await (fetch ?? (String path) => _http(client!, path))(
-        relative,
-      );
+      final bytes = await read(relative);
       if (!OfflineBook.owns(generation)) return;
       if (bytes == null) {
         if (offlineOptional(relative)) {
@@ -266,6 +320,96 @@ Future<void> _run({
     if (identical(OfflineBook._client, client)) OfflineBook._client = null;
     client?.close(force: true);
   }
+}
+
+/// Writes the snapshot under offline/catalog, then records its revision.
+/// A missing manifest leaves the current words in place and still lets the
+/// pictures download. Returns false when this download was paused.
+Future<bool> _pullCatalog({
+  required String directory,
+  required int generation,
+  required Future<List<int>?> Function(String relative) fetch,
+}) async {
+  final raw = await fetch(catalogManifestPath);
+  if (!OfflineBook.owns(generation)) return false;
+  if (raw == null || raw.isEmpty) {
+    debugPrint('catalog pack: no manifest');
+    return true;
+  }
+  final manifest = parseCatalogManifest(jsonDecode(utf8.decode(raw)));
+  if (_packMatches(directory, manifest)) return true;
+  await _deleteStaging(directory);
+  final staging = Directory('$directory/$_folder/catalog-next');
+  try {
+    await _write(directory, 'catalog-next/manifest.json', raw);
+    final bodies = <String, List<int>>{};
+    for (final relative in manifest.files) {
+      if (!OfflineBook.owns(generation)) {
+        await _deleteStaging(directory);
+        return false;
+      }
+      if (relative == catalogManifestPath) continue;
+      final bytes = await fetch(relative);
+      if (!OfflineBook.owns(generation)) {
+        await _deleteStaging(directory);
+        return false;
+      }
+      if (bytes == null || bytes.isEmpty) {
+        throw StateError('missing $relative');
+      }
+      bodies[relative] = bytes;
+      await _write(
+        directory,
+        'catalog-next/${relative.substring('catalog/'.length)}',
+        bytes,
+      );
+    }
+    final species = bodies['catalog/species.json'];
+    if (species == null) throw StateError('missing catalog/species.json');
+    final decoded = jsonDecode(utf8.decode(species));
+    if (decoded is! Map || decoded.length != manifest.speciesCount) {
+      throw StateError('catalog species count');
+    }
+    if (!OfflineBook.owns(generation)) {
+      await _deleteStaging(directory);
+      return false;
+    }
+    _swapCatalog(directory, staging);
+    await OfflineBook.rememberCatalog(manifest.revision, manifest.bytes);
+    return true;
+  } catch (error) {
+    await _deleteStaging(directory);
+    rethrow;
+  }
+}
+
+bool _packMatches(String directory, CatalogManifest manifest) {
+  if (OfflineBook.catalogRevision != manifest.revision) return false;
+  final pack = Directory('$directory/$_folder/catalog');
+  return File('${pack.path}/manifest.json').existsSync() &&
+      File('${pack.path}/species.json').existsSync() &&
+      File('${pack.path}/translations/en.json').existsSync();
+}
+
+void _swapCatalog(String directory, Directory staging) {
+  final live = Directory('$directory/$_folder/catalog');
+  final previous = Directory('$directory/$_folder/catalog-previous');
+  if (previous.existsSync()) previous.deleteSync(recursive: true);
+  if (live.existsSync()) live.renameSync(previous.path);
+  try {
+    staging.renameSync(live.path);
+  } catch (error) {
+    if (!live.existsSync() && previous.existsSync()) {
+      previous.renameSync(live.path);
+    }
+    rethrow;
+  }
+  if (previous.existsSync()) previous.deleteSync(recursive: true);
+}
+
+Future<void> _deleteStaging(String directory) async {
+  final staging = Directory('$directory/$_folder/catalog-next');
+  if (staging.existsSync()) staging.deleteSync(recursive: true);
 }
 
 Future<List<int>?> _http(HttpClient client, String relative) async {

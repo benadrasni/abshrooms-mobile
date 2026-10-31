@@ -270,6 +270,11 @@ class _PersonPageState extends State<PersonPage> {
                 stored: OfflineBook.stored,
                 species: scope.catalogData?.species.length,
                 updateSpecies: _offlineUpdates(scope.catalogData),
+                updateBytes: OfflineBook.catalogStale
+                    ? (OfflineBook.remoteBytes > 0
+                          ? OfflineBook.remoteBytes
+                          : 1)
+                    : 0,
               ),
               onTap: () => Navigator.of(context).push(
                 guideRoute<void>(

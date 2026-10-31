@@ -133,6 +133,7 @@ class _StartupState extends State<_Startup>
       await lists;
       await adoptOutsideFinds(notebook, catalog.data);
       if (!mounted) return;
+      unawaited(OfflineBook.watchRemoteCatalog());
       setState(() {
         _settings = settings;
         _notebook = notebook;
@@ -268,6 +269,7 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
         notebook: widget.notebook,
         syncSightings: syncSightings,
       );
+      await OfflineBook.watchRemoteCatalog();
     } catch (error) {
       debugPrint('guide refresh: $error');
     } finally {

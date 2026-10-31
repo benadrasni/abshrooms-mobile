@@ -146,6 +146,12 @@ class OfflineView {
   final int totalFiles;
   final int missingSpecies;
 
+  /// The published words are newer than the copy on this phone.
+  final bool catalogStale;
+
+  /// Size of those words, from the manifest.
+  final int catalogBytes;
+
   const OfflineView({
     required this.species,
     required this.canDownload,
@@ -154,9 +160,11 @@ class OfflineView {
     required this.alreadyDone,
     required this.totalFiles,
     required this.missingSpecies,
+    this.catalogStale = false,
+    this.catalogBytes = 0,
   });
 
-  bool get hasUpdate => stored && pending.isNotEmpty;
+  bool get hasUpdate => stored && (pending.isNotEmpty || catalogStale);
 
   OfflineView copyWith({bool? canDownload, bool? stored}) {
     return OfflineView(
@@ -167,8 +175,19 @@ class OfflineView {
       alreadyDone: alreadyDone,
       totalFiles: totalFiles,
       missingSpecies: missingSpecies,
+      catalogStale: catalogStale,
+      catalogBytes: catalogBytes,
     );
   }
+}
+
+/// Picture estimate plus the text snapshot, when that snapshot is newer.
+int offlinePackUpdateBytes(OfflineView view) {
+  final pictures = offlineUpdateBytes(view.missingSpecies);
+  final words = view.catalogStale ? view.catalogBytes : 0;
+  final total = pictures + words;
+  if (total > 0) return total;
+  return view.catalogStale ? 1 : 0;
 }
 
 OfflineView offlineViewOf({
@@ -177,6 +196,8 @@ OfflineView offlineViewOf({
   required bool stored,
   required Set<String> saved,
   required Set<String> skipped,
+  bool catalogStale = false,
+  int catalogBytes = 0,
 }) {
   final files = bookMedia(species);
   final pending = [
@@ -195,6 +216,8 @@ OfflineView offlineViewOf({
       saved: saved,
       skipped: skipped,
     ),
+    catalogStale: catalogStale,
+    catalogBytes: catalogBytes,
   );
 }
 
@@ -205,6 +228,7 @@ String offlineMenuLine(
   required bool stored,
   required int? species,
   required int updateSpecies,
+  int updateBytes = 0,
 }) {
   final size = species == null
       ? null
@@ -217,10 +241,9 @@ String offlineMenuLine(
   } else {
     line = size == null ? copy.offlineWholeBook : copy.offlineMenuBook(size);
   }
-  if (!stored || updateSpecies <= 0) return line;
-  final update = offlineAbout(
-    copy,
-    OfflineAmount.ofBytes(offlineUpdateBytes(updateSpecies)),
-  );
+  final pictures = updateSpecies > 0 ? offlineUpdateBytes(updateSpecies) : 0;
+  final total = pictures + (updateBytes > 0 ? updateBytes : 0);
+  if (!stored || total <= 0) return line;
+  final update = offlineAbout(copy, OfflineAmount.ofBytes(total));
   return copy.offlineMenuUpdate(line, update);
 }

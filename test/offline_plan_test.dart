@@ -98,6 +98,19 @@ void main() {
     );
     expect(done.pending, isEmpty);
     expect(done.hasUpdate, isFalse);
+
+    final words = offlineViewOf(
+      species: [species],
+      canDownload: true,
+      stored: true,
+      saved: bookMedia([species]).toSet(),
+      skipped: const {},
+      catalogStale: true,
+      catalogBytes: 8000000,
+    );
+    expect(words.pending, isEmpty);
+    expect(words.hasUpdate, isTrue);
+    expect(offlinePackUpdateBytes(words), 8000000);
   });
 
   test('sizes follow the plants rounding', () {
@@ -161,6 +174,17 @@ void main() {
         updateSpecies: 1,
       ),
       'On this phone · about 40 MB · Update about 0.7 MB',
+    );
+    expect(
+      offlineMenuLine(
+        english,
+        canDownload: true,
+        stored: true,
+        species: 62,
+        updateSpecies: 0,
+        updateBytes: 8000000,
+      ),
+      'On this phone · about 40 MB · Update about 8 MB',
     );
     expect(slovak.offlineTitle, 'Režim offline');
     expect(

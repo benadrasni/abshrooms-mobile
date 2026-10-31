@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:whats_that_mushroom/data/catalog_pack.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
+import 'package:whats_that_mushroom/offline/offline_book.dart';
 
 /// Reads one language of the book. [server] skips the on-disk cache.
 typedef CatalogRead = Future<Catalog> Function(
@@ -25,7 +28,8 @@ class CatalogRepository {
   /// a newer one. Permission-denied stays an empty snapshot.
   Future<void> loadCuratedLists() async {
     final ticket = ++_listsTicket;
-    final snapshot = await fetchCuratedLists();
+    final packed = _packedLists();
+    final snapshot = packed ?? await fetchCuratedLists();
     if (ticket != _listsTicket) return;
     curatedLists = snapshot;
   }
@@ -48,16 +52,19 @@ class CatalogRepository {
   }
 
   /// Reads the book from the server. The copy already on screen stays when
-  /// the phone is offline. A warm process otherwise keeps the launch
-  /// snapshot, so Seen, Seen lately, and New in the book change only after
-  /// the app is killed. Returns false when this read lost to a newer one
-  /// or the server could not be reached.
+  /// the phone is offline. A stored offline book is read from that snapshot
+  /// instead, so the words stay with the pictures. A warm process otherwise
+  /// keeps the launch snapshot, so Seen, Seen lately, and New in the book
+  /// change only after the app is killed. Returns false when this read lost
+  /// to a newer one or the server could not be reached.
   Future<bool> refresh() async {
     final ticket = ++_ticket;
     try {
       final next = await _readCatalog(language, server: true);
       if (ticket != _ticket) return false;
       data = next;
+      final lists = _packedLists();
+      if (lists != null) curatedLists = lists;
       error = null;
       loading = false;
       return true;
@@ -70,8 +77,41 @@ class CatalogRepository {
   }
 }
 
-Future<Catalog> _readLiveCatalog(String language, {required bool server}) {
+Future<Catalog> _readLiveCatalog(
+  String language, {
+  required bool server,
+}) async {
+  final packed = _packedCatalog(language);
+  if (packed != null) return packed;
   return fetchCatalog(language, source: server ? Source.server : null);
+}
+
+Catalog? _packedCatalog(String language) {
+  if (!OfflineBook.stored) return null;
+  final root = OfflineBook.root;
+  if (root == null) return null;
+  try {
+    return readPackedCatalog(
+      root,
+      language,
+      revision: OfflineBook.catalogRevision,
+    );
+  } catch (error) {
+    debugPrint('catalog pack: $error');
+    return null;
+  }
+}
+
+CuratedListsSnapshot? _packedLists() {
+  if (!OfflineBook.stored) return null;
+  final root = OfflineBook.root;
+  if (root == null) return null;
+  try {
+    return readPackedLists(root, revision: OfflineBook.catalogRevision);
+  } catch (error) {
+    debugPrint('catalog pack: $error');
+    return null;
+  }
 }
 
 Future<Catalog> fetchCatalog(String language, {Source? source}) async {

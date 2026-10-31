@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/field_guide/field_guide_page.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
 import 'package:whats_that_mushroom/offline/offline_plan.dart';
@@ -124,6 +125,7 @@ class _OfflinePageState extends State<OfflinePage> {
     final ticket = ++_ticket;
     final scope = GuideScope.of(context);
     try {
+      await OfflineBook.watchRemoteCatalog();
       if (scope.catalog.data == null || scope.catalog.error != null) {
         await scope.catalog.load(scope.settings.language);
       }
@@ -133,13 +135,7 @@ class _OfflinePageState extends State<OfflinePage> {
         throw scope.catalog.error ?? StateError('catalog');
       }
       setState(() {
-        _view = offlineViewOf(
-          species: catalog.species,
-          canDownload: Purchases.hasFieldGuide(),
-          stored: OfflineBook.stored,
-          saved: OfflineBook.saved,
-          skipped: OfflineBook.skipped,
-        );
+        _view = _viewOf(catalog.species);
         _loading = false;
         _failed = false;
       });
@@ -161,6 +157,8 @@ class _OfflinePageState extends State<OfflinePage> {
       return;
     }
     final copy = GuideScope.of(context).copy;
+    final catalog = GuideScope.of(context).catalog;
+    final language = GuideScope.of(context).settings.language;
     final bar = _barMb(request);
     final scope = request.update ? 'update' : 'everything';
     var finished = false;
@@ -180,6 +178,8 @@ class _OfflinePageState extends State<OfflinePage> {
         },
         onFinished: () {
           finished = true;
+          unawaited(catalog.load(language));
+          unawaited(catalog.loadCuratedLists());
           unawaited(GuideAnalytics.offlinePack(scope: scope, result: 'ok'));
           if (!mounted) return;
           setState(() {
@@ -230,13 +230,23 @@ class _OfflinePageState extends State<OfflinePage> {
     required void Function() onFinished,
     required void Function() onFailed,
   }) {
-    final scope = GuideScope.of(context);
     return startOfflineDownload(
       request: request,
       onProgress: onProgress,
       onFinished: onFinished,
       onFailed: onFailed,
-      warm: () => warmOfflineWords(scope.catalog, scope.settings.language),
+    );
+  }
+
+  OfflineView _viewOf(List<Species> species) {
+    return offlineViewOf(
+      species: species,
+      canDownload: Purchases.hasFieldGuide(),
+      stored: OfflineBook.stored,
+      saved: OfflineBook.saved,
+      skipped: OfflineBook.skipped,
+      catalogStale: OfflineBook.catalogStale,
+      catalogBytes: OfflineBook.remoteBytes,
     );
   }
 
@@ -254,6 +264,8 @@ class _OfflinePageState extends State<OfflinePage> {
       stored: OfflineBook.stored,
       saved: OfflineBook.saved,
       skipped: OfflineBook.skipped,
+      catalogStale: OfflineBook.catalogStale,
+      catalogBytes: OfflineBook.remoteBytes,
     );
   }
 
@@ -435,12 +447,14 @@ class _OfflinePageState extends State<OfflinePage> {
               if (view.hasUpdate && job == null)
                 _UpdateCard(
                   detail: copy.offlineAdd(
-                    copy.count(view.missingSpecies),
+                    copy.count(
+                      view.missingSpecies > 0
+                          ? view.missingSpecies
+                          : view.species,
+                    ),
                     offlineAbout(
                       copy,
-                      OfflineAmount.ofBytes(
-                        offlineUpdateBytes(view.missingSpecies),
-                      ),
+                      OfflineAmount.ofBytes(offlinePackUpdateBytes(view)),
                     ),
                   ),
                   label: view.canDownload
@@ -485,6 +499,7 @@ class _OfflinePageState extends State<OfflinePage> {
         totalFiles: view.totalFiles,
         markStored: true,
         update: false,
+        includeCatalog: true,
       ),
     );
   }
@@ -504,12 +519,14 @@ class _OfflinePageState extends State<OfflinePage> {
     await _download(
       OfflineRequest(
         title: copy.offlineUpdate,
-        species: view.missingSpecies,
+        species: view.missingSpecies > 0 ? view.missingSpecies : view.species,
         pending: view.pending,
         alreadyDone: view.alreadyDone,
         totalFiles: view.totalFiles,
         markStored: true,
         update: true,
+        includeCatalog: true,
+        catalogBytes: view.catalogStale ? view.catalogBytes : 0,
       ),
     );
   }
@@ -517,12 +534,19 @@ class _OfflinePageState extends State<OfflinePage> {
 
 int _barMb(OfflineRequest request) {
   if (request.update) {
-    return OfflineAmount.ofBytes(offlineUpdateBytes(request.species)).barMb;
+    final pictures = request.pending.isEmpty
+        ? 0
+        : offlineUpdateBytes(request.species);
+    final bytes = pictures + request.catalogBytes;
+    return OfflineAmount.ofBytes(bytes <= 0 ? 1 : bytes).barMb;
   }
   return OfflineAmount.ofSpecies(request.species).barMb;
 }
 
 int _doneMb(OfflineRequest request, int done, int bar) {
+  if (request.update && request.pending.isEmpty) {
+    return done > 0 ? bar : 0;
+  }
   final span = request.update ? request.pending.length : request.totalFiles;
   final finished = request.update ? done - request.alreadyDone : done;
   if (span <= 0 || bar <= 0) return 0;
