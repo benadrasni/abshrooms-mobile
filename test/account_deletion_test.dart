@@ -31,10 +31,7 @@ void main() {
       ),
       DeleteAccountResult.canceled,
     );
-    expect(
-      reauthResultOf(StateError('network')),
-      DeleteAccountResult.failed,
-    );
+    expect(reauthResultOf(StateError('network')), DeleteAccountResult.failed);
   });
 
   test('sign-out starts a guest when the user is gone', () async {
@@ -87,6 +84,103 @@ void main() {
     expect(published, 2);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('guest_created'), isNull);
+  });
+
+  test('an unverified password account is signed out before a guest', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    var signedOut = 0;
+    var signedIn = 0;
+    var published = 0;
+    await Auth.startGuest(
+      firebaseReady: true,
+      hasCurrentUser: true,
+      unverifiedPassword: true,
+      signOutCurrent: () async {
+        signedOut += 1;
+      },
+      signInAnonymously: () async {
+        signedIn += 1;
+      },
+      notify: () {
+        published += 1;
+      },
+    );
+    expect(signedOut, 1);
+    expect(signedIn, 1);
+    expect(published, 1);
+  });
+
+  test('a failed sign-out still drops the unverified account', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    var signedIn = 0;
+    var published = 0;
+    await Auth.startGuest(
+      firebaseReady: true,
+      hasCurrentUser: true,
+      unverifiedPassword: true,
+      signOutCurrent: () async {
+        throw StateError('offline');
+      },
+      signInAnonymously: () async {
+        signedIn += 1;
+      },
+      notify: () {
+        published += 1;
+      },
+    );
+    expect(published, 1);
+    expect(signedIn, 0);
+  });
+
+  test('a password account stays out until the email is verified', () {
+    expect(
+      passwordEmailUnverified(
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['password'],
+      ),
+      isTrue,
+    );
+    expect(
+      passwordEmailUnverified(
+        anonymous: false,
+        emailVerified: true,
+        providerIds: const ['password'],
+      ),
+      isFalse,
+    );
+    expect(
+      passwordEmailUnverified(
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['google.com'],
+      ),
+      isFalse,
+    );
+    expect(
+      passwordEmailUnverified(
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['apple.com'],
+      ),
+      isFalse,
+    );
+    expect(
+      passwordEmailUnverified(
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['phone'],
+      ),
+      isFalse,
+    );
+    expect(
+      passwordEmailUnverified(
+        anonymous: true,
+        emailVerified: false,
+        providerIds: const ['password'],
+      ),
+      isFalse,
+    );
   });
 
   test('a guest uid is not an analytics id', () {

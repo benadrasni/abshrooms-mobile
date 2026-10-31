@@ -398,10 +398,6 @@ class Notebook extends ChangeNotifier {
 
   bool isFavorite(String latin) => favorites.contains(latin.trim());
 
-  Future<void> toggleFavorite(String latin) {
-    return setFavorite(latin, !isFavorite(latin));
-  }
-
   /// Writes `users/{uid}/favorites/{latin}` as 1, or removes it.
   /// Does nothing useful when nobody is signed in: the list stays on the
   /// account, and a guest sees an empty list.

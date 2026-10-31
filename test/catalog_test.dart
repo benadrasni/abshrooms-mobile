@@ -400,6 +400,91 @@ void main() {
     expect(jpegMaxEdge(Uint8List.fromList(const [1, 2, 3])), isNull);
   });
 
+  test('a photo that cannot be read drops APP2, APP13, and comments', () {
+    final cases = <int, List<int>>{
+      0xe2: [...'MPF\x00'.codeUnits, ...'GPSLAT'.codeUnits],
+      0xed: [...'Photoshop 3.0\x00'.codeUnits, ...'GPSLAT'.codeUnits],
+      0xfe: [...'GPSLAT'.codeUnits],
+    };
+    for (final entry in cases.entries) {
+      final payload = entry.value;
+      final length = payload.length + 2;
+      final bytes = Uint8List.fromList([
+        0xff, 0xd8, //
+        0xff, entry.key, length >> 8, length & 0xff, //
+        ...payload,
+        0xff, 0xda, 0x00, 0x02, 0x01, //
+        0xff, 0xd9,
+      ]);
+      expect(img.decodeImage(bytes), isNull, reason: 'marker ${entry.key}');
+      expect(jpegMaxEdge(bytes), [
+        0xff, 0xd8, //
+        0xff, 0xda, 0x00, 0x02, 0x01, //
+        0xff, 0xd9,
+      ]);
+      expect(
+        String.fromCharCodes(jpegMaxEdge(bytes)!).contains('GPSLAT'),
+        isFalse,
+      );
+    }
+  });
+
+  test('a photo that cannot be read drops a place written after the scan', () {
+    final app0 = _jpegSegment(0xe0, [...'JFIF\x00'.codeUnits, 1, 1]);
+    final dqt = _jpegSegment(0xdb, [0]);
+    final dht = _jpegSegment(0xc4, [0]);
+    final dri = _jpegSegment(0xdd, [0, 1]);
+    final sof = _jpegSegment(0xc0, [8, 0, 1, 0, 1, 1, 0]);
+    final sos = _jpegSegment(0xda, const []);
+    final app1 = _jpegSegment(0xe1, [...'Exif\x00\x00GPSLAT'.codeUnits]);
+    final app2 = _jpegSegment(0xe2, [...'MPF\x00GPSLAT'.codeUnits]);
+    final app13 = _jpegSegment(0xed, [...'Photoshop 3.0\x00GPSLAT'.codeUnits]);
+    final comment = _jpegSegment(0xfe, [...'GPSLAT'.codeUnits]);
+    // No baseline frame before the first scan, so the decoder leaves the
+    // bytes alone and the fallback has to strip them.
+    final bytes = Uint8List.fromList([
+      0xff, 0xd8, //
+      ...app0,
+      ...app2,
+      ...dqt,
+      ...dht,
+      ...dri,
+      ...sos,
+      0x11, 0xff, 0x00, 0x22, //
+      ...app1,
+      ...app13,
+      ...comment,
+      0xff, 0xd9, //
+      0x00, //
+      0xff, 0xd8, //
+      ...app2,
+      ...app1,
+      ...sof,
+      ...sos,
+      0x44, //
+      0xff, 0xd9,
+    ]);
+    expect(img.decodeImage(bytes), isNull);
+    final named = jpegMaxEdge(bytes)!;
+    expect(named, [
+      0xff, 0xd8, //
+      ...app0,
+      ...dqt,
+      ...dht,
+      ...dri,
+      ...sos,
+      0x11, 0xff, 0x00, 0x22, //
+      0xff, 0xd9, //
+      0xff, 0xd8, //
+      ...sof,
+      ...sos,
+      0x44, //
+      0xff, 0xd9,
+    ]);
+    expect(String.fromCharCodes(named).contains('GPSLAT'), isFalse);
+    expect(String.fromCharCodes(named).contains('JFIF'), isTrue);
+  });
+
   test('Slovak book order keeps č and ch in place', () {
     expect(compareTitle('cibula', 'červená', 'sk'), lessThan(0));
     expect(compareTitle('huba', 'chránená', 'sk'), lessThan(0));
@@ -413,6 +498,11 @@ void main() {
     expect(copy.count(3), '3 huby');
     expect(copy.count(5), '5 húb');
   });
+}
+
+List<int> _jpegSegment(int marker, List<int> payload) {
+  final length = payload.length + 2;
+  return [0xff, marker, length >> 8, length & 0xff, ...payload];
 }
 
 class _FunctionsException extends FirebaseFunctionsException {
