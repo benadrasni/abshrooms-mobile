@@ -81,9 +81,51 @@ void main() {
       },
       notify: notify,
     );
-    expect(published, 2);
+    expect(published, 3);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('guest_created'), isNull);
+  });
+
+  test('an offline guest still publishes after sign-in fails', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    var signedOut = 0;
+    var published = 0;
+    await Auth.startGuest(
+      firebaseReady: true,
+      hasCurrentUser: true,
+      unverifiedPassword: true,
+      signOutCurrent: () async {
+        signedOut += 1;
+      },
+      signInAnonymously: () async {
+        throw StateError('offline');
+      },
+      notify: () {
+        published += 1;
+      },
+    );
+    expect(signedOut, 1);
+    expect(published, 1);
+  });
+
+  test('an unverified password sign-in is not an analytics login', () {
+    var logged = 0;
+    var published = 0;
+    publishVerifiedPassword(
+      emailVerified: false,
+      log: () => logged += 1,
+      publish: () => published += 1,
+    );
+    expect(logged, 0);
+    expect(published, 0);
+
+    publishVerifiedPassword(
+      emailVerified: true,
+      log: () => logged += 1,
+      publish: () => published += 1,
+    );
+    expect(logged, 1);
+    expect(published, 1);
   });
 
   test('an unverified password account is signed out before a guest', () async {

@@ -51,8 +51,9 @@ Uint8List? jpegMaxEdge(Uint8List bytes, {int edge = 1280}) {
   return Uint8List.fromList(img.encodeJpg(sized, quality: 85));
 }
 
-/// Drops APPn (0xE1-0xEF) and COM segments, including any after the scan.
+/// Drops APPn (0xE1-0xEF) and COM segments up to the first end of image.
 /// APP0, tables, the frame, the restart interval, and the scan stay.
+/// A broken marker is null, and nothing after the first end of image is sent.
 /// Null when [bytes] has no JPEG start.
 Uint8List? _jpegWithoutMetadata(Uint8List bytes) {
   if (bytes.length < 2 || bytes[0] != 0xff || bytes[1] != 0xd8) return null;
@@ -60,62 +61,55 @@ Uint8List? _jpegWithoutMetadata(Uint8List bytes) {
     ..addByte(0xff)
     ..addByte(0xd8);
   var i = 2;
-  var finishedImage = false;
   while (i + 1 < bytes.length) {
-    if (bytes[i] != 0xff) {
-      if (!finishedImage) {
-        kept.add(bytes.sublist(i));
-        return kept.takeBytes();
-      }
-      i++;
-      continue;
-    }
+    if (bytes[i] != 0xff) return null;
     if (bytes[i + 1] == 0xff) {
       kept.addByte(0xff);
       i++;
       continue;
     }
     final marker = bytes[i + 1];
-    if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
+    if (marker == 0xd9) {
+      kept
+        ..addByte(0xff)
+        ..addByte(0xd9);
+      return kept.takeBytes();
+    }
+    if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
       kept
         ..addByte(0xff)
         ..addByte(marker);
       i += 2;
-      if (marker == 0xd9) finishedImage = true;
       continue;
     }
-    if (i + 3 >= bytes.length) {
-      kept.add(bytes.sublist(i));
-      return kept.takeBytes();
-    }
+    if (i + 3 >= bytes.length) return null;
     final length = (bytes[i + 2] << 8) | bytes[i + 3];
-    if (length < 2 || i + 2 + length > bytes.length) {
-      kept.add(bytes.sublist(i));
-      return kept.takeBytes();
-    }
+    if (length < 2 || i + 2 + length > bytes.length) return null;
     final end = i + 2 + length;
     final metadata = marker == 0xfe || (marker >= 0xe1 && marker <= 0xef);
     if (!metadata) kept.add(bytes.sublist(i, end));
     i = end;
-    if (marker == 0xda) i = _copyJpegScan(bytes, i, kept);
+    if (marker == 0xda) {
+      final next = _copyJpegScan(bytes, i, kept);
+      if (next == null) return null;
+      i = next;
+    }
   }
-  if (i < bytes.length) kept.add(bytes.sublist(i));
+  if (i < bytes.length) return null;
   return kept.takeBytes();
 }
 
 /// Copies entropy-coded bytes from [i] until the next marker.
 /// A stuffed 0xFF and restart markers stay in the scan.
-int _copyJpegScan(Uint8List bytes, int i, BytesBuilder kept) {
+/// Null when a marker byte has no partner.
+int? _copyJpegScan(Uint8List bytes, int i, BytesBuilder kept) {
   while (i < bytes.length) {
     if (bytes[i] != 0xff) {
       kept.addByte(bytes[i]);
       i++;
       continue;
     }
-    if (i + 1 >= bytes.length) {
-      kept.addByte(0xff);
-      return bytes.length;
-    }
+    if (i + 1 >= bytes.length) return null;
     final marker = bytes[i + 1];
     if (marker == 0x00 || (marker >= 0xd0 && marker <= 0xd7)) {
       kept

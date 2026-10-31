@@ -429,7 +429,38 @@ void main() {
     }
   });
 
-  test('a photo that cannot be read drops a place written after the scan', () {
+  test('a broken marker is not sent', () {
+    final gps = [...'GPSLAT'.codeUnits];
+    final truncated = Uint8List.fromList([0xff, 0xd8, 0xff, 0xe1, 0x00]);
+    expect(img.decodeImage(truncated), isNull);
+    expect(jpegMaxEdge(truncated), isNull);
+
+    final cases = <Uint8List>[
+      // Length shorter than a segment header, with the place still in the file.
+      Uint8List.fromList([0xff, 0xd8, 0xff, 0xe1, 0x00, 0x01, ...gps]),
+      // APP2 length runs past the end of the file.
+      Uint8List.fromList([
+        0xff, 0xd8, //
+        0xff, 0xe2, 0x00, 0x20, //
+        ...gps,
+      ]),
+      // A stray byte before the next marker.
+      Uint8List.fromList([
+        0xff, 0xd8, //
+        0x00, //
+        0xff, 0xe1, 0x00, 0x08, //
+        ...gps,
+        0xff, 0xd9,
+      ]),
+    ];
+    for (final bytes in cases) {
+      expect(img.decodeImage(bytes), isNull);
+      expect(jpegMaxEdge(bytes), isNull);
+      expect(String.fromCharCodes(bytes).contains('GPSLAT'), isTrue);
+    }
+  });
+
+  test('a photo that cannot be read stops at the first end of image', () {
     final app0 = _jpegSegment(0xe0, [...'JFIF\x00'.codeUnits, 1, 1]);
     final dqt = _jpegSegment(0xdb, [0]);
     final dht = _jpegSegment(0xc4, [0]);
@@ -474,15 +505,13 @@ void main() {
       ...dri,
       ...sos,
       0x11, 0xff, 0x00, 0x22, //
-      0xff, 0xd9, //
-      0xff, 0xd8, //
-      ...sof,
-      ...sos,
-      0x44, //
       0xff, 0xd9,
     ]);
+    expect(named[named.length - 2], 0xff);
+    expect(named.last, 0xd9);
     expect(String.fromCharCodes(named).contains('GPSLAT'), isFalse);
     expect(String.fromCharCodes(named).contains('JFIF'), isTrue);
+    expect(named.contains(0x44), isFalse);
   });
 
   test('Slovak book order keeps č and ch in place', () {

@@ -2,9 +2,63 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
+import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
 
 void main() {
+  test('an unverified password account cannot publish a sighting', () {
+    expect(
+      sightingAccountSignedIn(
+        firebaseReady: true,
+        hasUser: true,
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['password'],
+      ),
+      isFalse,
+    );
+    expect(
+      sightingAccountSignedIn(
+        firebaseReady: true,
+        hasUser: true,
+        anonymous: false,
+        emailVerified: true,
+        providerIds: const ['password'],
+      ),
+      isTrue,
+    );
+    expect(
+      sightingAccountSignedIn(
+        firebaseReady: true,
+        hasUser: true,
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['google.com'],
+      ),
+      isTrue,
+    );
+    expect(
+      sightingAccountSignedIn(
+        firebaseReady: true,
+        hasUser: true,
+        anonymous: true,
+        emailVerified: false,
+        providerIds: const [],
+      ),
+      isFalse,
+    );
+    expect(
+      sightingAccountSignedIn(
+        firebaseReady: false,
+        hasUser: true,
+        anonymous: false,
+        emailVerified: true,
+        providerIds: const ['password'],
+      ),
+      isFalse,
+    );
+  });
+
   test('share is only for a confirmed catalog species with a photo', () {
     final dir = Directory.systemTemp.createTempSync('seen-share');
     addTearDown(() => dir.deleteSync(recursive: true));
@@ -16,10 +70,7 @@ void main() {
       photoPath: photo.path,
       confirmed: true,
     );
-    expect(
-      seenChip(ready, inBook: true, catalogKnown: true),
-      SeenChip.share,
-    );
+    expect(seenChip(ready, inBook: true, catalogKnown: true), SeenChip.share);
     expect(
       seenChip(ready, inBook: false, catalogKnown: true),
       SeenChip.outside,
@@ -46,10 +97,7 @@ void main() {
       ),
       isNull,
     );
-    expect(
-      seenChip(ready, inBook: true, catalogKnown: false),
-      isNull,
-    );
+    expect(seenChip(ready, inBook: true, catalogKnown: false), isNull);
     expect(
       seenChip(
         ready.copyWith(share: FindShare.review),
@@ -91,10 +139,10 @@ void main() {
     );
     final open = FindRecord(id: 'o', millis: 1);
     expect(seenSharedCount([shared, review, open]), 1);
-    expect(
-      seenHidingShared([shared, review, open]).map((find) => find.id),
-      ['r', 'o'],
-    );
+    expect(seenHidingShared([shared, review, open]).map((find) => find.id), [
+      'r',
+      'o',
+    ]);
   });
 
   test('a stored share name and a public status both read back', () {
@@ -112,6 +160,10 @@ void main() {
     );
     final again = FindRecord.fromJson(record.toJson());
     expect(again.share, FindShare.review);
-    expect(FindRecord.fromJson(record.copyWith(share: FindShare.none).toJson()).share, FindShare.none);
+    expect(
+      FindRecord.fromJson(record.copyWith(share: FindShare.none).toJson())
+          .share,
+      FindShare.none,
+    );
   });
 }

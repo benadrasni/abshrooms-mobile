@@ -76,7 +76,8 @@ class _SignInPageState extends State<SignInPage> {
     super.dispose();
   }
 
-  bool get _showApple => widget.showApple ?? defaultTargetPlatform == TargetPlatform.iOS;
+  bool get _showApple =>
+      widget.showApple ?? defaultTargetPlatform == TargetPlatform.iOS;
 
   void _leave() {
     if (!mounted) return;
@@ -166,7 +167,9 @@ class _SignInPageState extends State<SignInPage> {
         final googleUser = await GoogleSignIn.instance.authenticate();
         final idToken = googleUser.authentication.idToken;
         if (idToken == null) return;
-        await Auth.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+        await Auth.signInWithCredential(
+          GoogleAuthProvider.credential(idToken: idToken),
+        );
         _leave();
       } on GoogleSignInException catch (error) {
         if (error.code == GoogleSignInExceptionCode.canceled) return;
@@ -203,7 +206,10 @@ class _SignInPageState extends State<SignInPage> {
         _leave();
       case EmailFollowUp.needsVerification:
         await _showVerify();
-        if (widget.onEmail == null && mounted) await Auth.signOut();
+        await signOutAfterEmailVerification(
+          customEmail: widget.onEmail != null,
+          mounted: mounted,
+        );
       case EmailFollowUp.wrongPassword:
         setState(() => _error = copy.signInWrongPassword);
       case EmailFollowUp.shortPassword:
@@ -295,7 +301,10 @@ class _SignInPageState extends State<SignInPage> {
           throw FirebaseAuthException(code: 'session-expired');
         }
         await Auth.signInWithCredential(
-          PhoneAuthProvider.credential(verificationId: verificationId, smsCode: code),
+          PhoneAuthProvider.credential(
+            verificationId: verificationId,
+            smsCode: code,
+          ),
         );
       }
       _leave();
@@ -391,7 +400,9 @@ class _SignInPageState extends State<SignInPage> {
         backgroundColor: colors.paper,
         body: SafeArea(
           bottom: false,
-          child: _step == _Step.providers ? _providers(context) : _form(context),
+          child: _step == _Step.providers
+              ? _providers(context)
+              : _form(context),
         ),
       ),
     );
@@ -458,7 +469,10 @@ class _SignInPageState extends State<SignInPage> {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
           child: Column(
             children: [
-              _Perk(title: copy.signInPerkAccount, note: copy.signInPerkAccountNote),
+              _Perk(
+                title: copy.signInPerkAccount,
+                note: copy.signInPerkAccountNote,
+              ),
               _Perk(title: copy.signInPerkHere, note: copy.signInPerkHereNote),
               _Perk(title: copy.signInPerkOut, note: copy.signInPerkOutNote),
             ],
@@ -472,9 +486,15 @@ class _SignInPageState extends State<SignInPage> {
               if (_showApple) ...[
                 _ProviderButton(
                   label: copy.signInApple,
-                  icon: _AppleMark(dark ? const Color(0xFF000000) : const Color(0xFFFFFFFF)),
-                  background: dark ? const Color(0xFFFFFFFF) : const Color(0xFF000000),
-                  foreground: dark ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+                  icon: _AppleMark(
+                    dark ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+                  ),
+                  background: dark
+                      ? const Color(0xFFFFFFFF)
+                      : const Color(0xFF000000),
+                  foreground: dark
+                      ? const Color(0xFF000000)
+                      : const Color(0xFFFFFFFF),
                   spinning: _busy == _Busy.apple,
                   onPressed: _busy == null ? () => unawaited(_apple()) : null,
                 ),
@@ -483,9 +503,15 @@ class _SignInPageState extends State<SignInPage> {
               _ProviderButton(
                 label: copy.signInGoogle,
                 icon: Image.asset('assets/go-logo.png', width: 20, height: 20),
-                background: dark ? const Color(0xFF131314) : const Color(0xFFFFFFFF),
-                foreground: dark ? const Color(0xFFE3E3E3) : const Color(0xFF1F1F1F),
-                border: dark ? const Color(0xFF8E918F) : const Color(0xFF747775),
+                background: dark
+                    ? const Color(0xFF131314)
+                    : const Color(0xFFFFFFFF),
+                foreground: dark
+                    ? const Color(0xFFE3E3E3)
+                    : const Color(0xFF1F1F1F),
+                border: dark
+                    ? const Color(0xFF8E918F)
+                    : const Color(0xFF747775),
                 spinning: _busy == _Busy.google,
                 onPressed: _busy == null ? () => unawaited(_google()) : null,
               ),
@@ -495,26 +521,38 @@ class _SignInPageState extends State<SignInPage> {
                   Expanded(
                     child: _ProviderButton(
                       label: copy.signInEmail,
-                      icon: Icon(Icons.mail_outline, size: 20, color: colors.ink2),
+                      icon: Icon(
+                        Icons.mail_outline,
+                        size: 20,
+                        color: colors.ink2,
+                      ),
                       background: colors.cream,
                       foreground: colors.ink,
                       border: colors.rule,
                       fontSize: 15,
                       iconStart: 16,
-                      onPressed: _busy == null ? () => _show(_Step.email) : null,
+                      onPressed: _busy == null
+                          ? () => _show(_Step.email)
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _ProviderButton(
                       label: copy.signInPhone,
-                      icon: Icon(Icons.smartphone_outlined, size: 20, color: colors.ink2),
+                      icon: Icon(
+                        Icons.smartphone_outlined,
+                        size: 20,
+                        color: colors.ink2,
+                      ),
                       background: colors.cream,
                       foreground: colors.ink,
                       border: colors.rule,
                       fontSize: 15,
                       iconStart: 16,
-                      onPressed: _busy == null ? () => _show(_Step.phone) : null,
+                      onPressed: _busy == null
+                          ? () => _show(_Step.phone)
+                          : null,
                     ),
                   ),
                 ],
@@ -561,7 +599,8 @@ class _SignInPageState extends State<SignInPage> {
               const SizedBox(height: 6),
               _PrimaryButton(
                 label: _primaryLabel(copy),
-                spinning: _busy == _Busy.email ||
+                spinning:
+                    _busy == _Busy.email ||
                     (_step == _Step.phone && _busy == _Busy.phone) ||
                     _busy == _Busy.code,
                 onPressed: _busy == null ? _primary() : null,
@@ -634,7 +673,11 @@ class _SignInPageState extends State<SignInPage> {
     }
   }
 
-  List<Widget> _formFields(BuildContext context, Copy copy, GuideColors colors) {
+  List<Widget> _formFields(
+    BuildContext context,
+    Copy copy,
+    GuideColors colors,
+  ) {
     switch (_step) {
       case _Step.email:
         return [
@@ -695,6 +738,21 @@ class _SignInPageState extends State<SignInPage> {
         return const [];
     }
   }
+}
+
+/// Signs the password session out after the verification dialog.
+///
+/// [mounted] is not consulted. The page can already be gone, and sign-out
+/// does not need it. A test email handler does not sign the session out.
+@visibleForTesting
+Future<void> signOutAfterEmailVerification({
+  required bool customEmail,
+  required bool mounted,
+  Future<void> Function()? signOut,
+}) async {
+  if (customEmail) return;
+  // [mounted] does not gate this. The dialog can close after the page is gone.
+  await (signOut ?? Auth.signOut)();
 }
 
 /// Signs in, or creates the account when Firebase has no user for this email.
@@ -935,7 +993,10 @@ class _ProviderButton extends StatelessWidget {
                     ? SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: foreground),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: foreground,
+                        ),
                       )
                     : Text(
                         label,
@@ -951,7 +1012,8 @@ class _ProviderButton extends StatelessWidget {
                         ),
                       ),
               ),
-              if (!spinning) PositionedDirectional(start: iconStart, child: icon),
+              if (!spinning)
+                PositionedDirectional(start: iconStart, child: icon),
             ],
           ),
         ),
@@ -972,15 +1034,29 @@ class _OrRule extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4, bottom: 12),
       child: Row(
         children: [
-          Expanded(child: DecoratedBox(decoration: BoxDecoration(color: colors.rule), child: const SizedBox(height: 1))),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: colors.rule),
+              child: const SizedBox(height: 1),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(
               label,
-              style: TextStyle(fontFamily: GuideType.sans, fontSize: 13, color: colors.ink2),
+              style: TextStyle(
+                fontFamily: GuideType.sans,
+                fontSize: 13,
+                color: colors.ink2,
+              ),
             ),
           ),
-          Expanded(child: DecoratedBox(decoration: BoxDecoration(color: colors.rule), child: const SizedBox(height: 1))),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: colors.rule),
+              child: const SizedBox(height: 1),
+            ),
+          ),
         ],
       ),
     );
@@ -1015,7 +1091,10 @@ class _PrimaryButton extends StatelessWidget {
                 ? SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: colors.onMoss),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.onMoss,
+                    ),
                   )
                 : Text(
                     label,
@@ -1102,11 +1181,19 @@ class _Field extends StatelessWidget {
           autocorrect: false,
           enableSuggestions: !obscure,
           cursorColor: colors.moss,
-          style: TextStyle(fontFamily: GuideType.sans, color: colors.ink, fontSize: 16),
+          style: TextStyle(
+            fontFamily: GuideType.sans,
+            color: colors.ink,
+            fontSize: 16,
+          ),
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(fontFamily: GuideType.sans, color: colors.ink2, fontSize: 16),
+            hintStyle: TextStyle(
+              fontFamily: GuideType.sans,
+              color: colors.ink2,
+              fontSize: 16,
+            ),
             filled: true,
             fillColor: colors.cream,
             isDense: false,
@@ -1155,7 +1242,11 @@ class _CallingCode extends StatelessWidget {
                 code,
                 maxLines: 1,
                 softWrap: false,
-                style: TextStyle(fontFamily: GuideType.sans, color: colors.ink, fontSize: 16),
+                style: TextStyle(
+                  fontFamily: GuideType.sans,
+                  color: colors.ink,
+                  fontSize: 16,
+                ),
               ),
             ),
           ),
@@ -1368,7 +1459,10 @@ class _CallingCodeSheetState extends State<_CallingCodeSheet> {
                   controller: _query,
                   autofocus: true,
                   cursorColor: colors.moss,
-                  style: TextStyle(fontFamily: GuideType.sans, color: colors.ink),
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    color: colors.ink,
+                  ),
                   decoration: InputDecoration(
                     hintText: GuideScope.of(context).copy.signInCountry,
                     filled: true,
@@ -1384,11 +1478,17 @@ class _CallingCodeSheetState extends State<_CallingCodeSheet> {
                     return ListTile(
                       title: Text(
                         country.name,
-                        style: TextStyle(fontFamily: GuideType.sans, color: colors.ink),
+                        style: TextStyle(
+                          fontFamily: GuideType.sans,
+                          color: colors.ink,
+                        ),
                       ),
                       trailing: Text(
                         '+${country.phoneCode}',
-                        style: TextStyle(fontFamily: GuideType.sans, color: colors.ink2),
+                        style: TextStyle(
+                          fontFamily: GuideType.sans,
+                          color: colors.ink2,
+                        ),
                       ),
                       onTap: () => Navigator.of(context).pop(country),
                     );

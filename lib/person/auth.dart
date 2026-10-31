@@ -135,9 +135,10 @@ class Auth {
     }
     try {
       await (signInAnonymously ?? () => firebaseAuth.signInAnonymously())();
-      tell();
     } catch (error) {
       debugPrint('guest account: $error');
+    } finally {
+      tell();
     }
   }
 
@@ -177,8 +178,11 @@ class Auth {
       email: email,
       password: password,
     );
-    _logAuth(result, 'password', false);
-    if (result.user?.emailVerified == true) publish();
+    publishVerifiedPassword(
+      emailVerified: result.user?.emailVerified == true,
+      log: () => _logAuth(result, 'password', false),
+      publish: publish,
+    );
     return result.user;
   }
 
@@ -195,8 +199,11 @@ class Auth {
               email: email,
               password: password,
             );
-      _logAuth(result, 'password', true);
-      if (result.user?.emailVerified == true) publish();
+      publishVerifiedPassword(
+        emailVerified: result.user?.emailVerified == true,
+        log: () => _logAuth(result, 'password', true),
+        publish: publish,
+      );
       return result.user;
     } on FirebaseAuthException catch (error) {
       if (guest == null ||
@@ -242,12 +249,24 @@ class Auth {
   }
 }
 
+/// A password sign-in is recorded and published only after the email is
+/// verified. An unverified account does not set an analytics user id.
+@visibleForTesting
+void publishVerifiedPassword({
+  required bool emailVerified,
+  required void Function() log,
+  required void Function() publish,
+}) {
+  if (!emailVerified) return;
+  log();
+  publish();
+}
+
 /// Password sign-in whose email is not verified.
 ///
 /// Google, Apple, and phone accounts are left as they are. The verification
 /// dialog signs the password session out, so a later launch must not treat
 /// it as the signed-in account.
-@visibleForTesting
 bool passwordEmailUnverified({
   required bool anonymous,
   required bool emailVerified,

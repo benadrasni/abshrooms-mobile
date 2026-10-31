@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/person/account.dart';
+import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/sign_in_page.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
@@ -170,6 +171,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(codes, ['123456']);
     expect(find.text('open'), findsOneWidget);
+  });
+
+  test('verification signs out even when the page is already gone', () async {
+    var calls = 0;
+    final before = Auth.revision.value;
+    await signOutAfterEmailVerification(
+      customEmail: false,
+      mounted: false,
+      signOut: () async {
+        calls += 1;
+      },
+    );
+    expect(calls, 1);
+    await signOutAfterEmailVerification(customEmail: false, mounted: false);
+    expect(Auth.revision.value, before + 1);
+
+    await signOutAfterEmailVerification(
+      customEmail: true,
+      mounted: true,
+      signOut: () async {
+        calls += 1;
+      },
+    );
+    expect(calls, 1);
+    expect(Auth.revision.value, before + 1);
+  });
+
+  testWidgets('a test email handler does not sign out when the page is gone', (
+    tester,
+  ) async {
+    final before = Auth.revision.value;
+    await _open(
+      tester,
+      SignInPage(
+        showApple: false,
+        plate: _plate,
+        onEmail: (_, _) async => EmailFollowUp.needsVerification,
+      ),
+    );
+    await tester.tap(find.text('Email'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('guideSignInEmail')),
+      'ada@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('guideSignInPassword')),
+      'secret1',
+    );
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Verify your account'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(Auth.revision.value, before);
   });
 
   testWidgets('phone does not assume +1 when the locale has no country', (
