@@ -32,7 +32,7 @@ class NameGuess {
 /// Null when [bytes] is not a JPEG.
 Uint8List? jpegMaxEdge(Uint8List bytes, {int edge = 1280}) {
   final decoded = img.decodeImage(bytes);
-  if (decoded == null) return _jpegWithoutApp1(bytes);
+  if (decoded == null) return _jpegWithoutMetadata(bytes);
   decoded.exif = img.ExifData();
   final longest = decoded.width > decoded.height
       ? decoded.width
@@ -51,51 +51,81 @@ Uint8List? jpegMaxEdge(Uint8List bytes, {int edge = 1280}) {
   return Uint8List.fromList(img.encodeJpg(sized, quality: 85));
 }
 
-/// Drops every APP1 segment before the scan and copies the rest.
+/// Drops APPn (0xE1-0xEF) and COM segments up to the first end of image.
+/// APP0, tables, the frame, the restart interval, and the scan stay.
+/// A broken marker is null, and nothing after the first end of image is sent.
 /// Null when [bytes] has no JPEG start.
-Uint8List? _jpegWithoutApp1(Uint8List bytes) {
+Uint8List? _jpegWithoutMetadata(Uint8List bytes) {
   if (bytes.length < 2 || bytes[0] != 0xff || bytes[1] != 0xd8) return null;
   final kept = BytesBuilder(copy: false)
     ..addByte(0xff)
     ..addByte(0xd8);
   var i = 2;
   while (i + 1 < bytes.length) {
-    if (bytes[i] != 0xff) {
-      kept.add(bytes.sublist(i));
-      return kept.takeBytes();
-    }
-    final marker = bytes[i + 1];
-    if (marker == 0xff) {
+    if (bytes[i] != 0xff) return null;
+    if (bytes[i + 1] == 0xff) {
       kept.addByte(0xff);
       i++;
       continue;
     }
-    if (marker == 0xda || marker == 0xd9) {
-      kept.add(bytes.sublist(i));
+    final marker = bytes[i + 1];
+    if (marker == 0xd9) {
+      kept
+        ..addByte(0xff)
+        ..addByte(0xd9);
       return kept.takeBytes();
     }
-    if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+    if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
       kept
         ..addByte(0xff)
         ..addByte(marker);
       i += 2;
       continue;
     }
-    if (i + 3 >= bytes.length) {
-      kept.add(bytes.sublist(i));
-      return kept.takeBytes();
-    }
+    if (i + 3 >= bytes.length) return null;
     final length = (bytes[i + 2] << 8) | bytes[i + 3];
-    if (length < 2 || i + 2 + length > bytes.length) {
-      kept.add(bytes.sublist(i));
-      return kept.takeBytes();
-    }
+    if (length < 2 || i + 2 + length > bytes.length) return null;
     final end = i + 2 + length;
-    if (marker != 0xe1) kept.add(bytes.sublist(i, end));
+    final metadata = marker == 0xfe || (marker >= 0xe1 && marker <= 0xef);
+    if (!metadata) kept.add(bytes.sublist(i, end));
     i = end;
+    if (marker == 0xda) {
+      final next = _copyJpegScan(bytes, i, kept);
+      if (next == null) return null;
+      i = next;
+    }
   }
-  if (i < bytes.length) kept.add(bytes.sublist(i));
+  if (i < bytes.length) return null;
   return kept.takeBytes();
+}
+
+/// Copies entropy-coded bytes from [i] until the next marker.
+/// A stuffed 0xFF and restart markers stay in the scan.
+/// Null when a marker byte has no partner.
+int? _copyJpegScan(Uint8List bytes, int i, BytesBuilder kept) {
+  while (i < bytes.length) {
+    if (bytes[i] != 0xff) {
+      kept.addByte(bytes[i]);
+      i++;
+      continue;
+    }
+    if (i + 1 >= bytes.length) return null;
+    final marker = bytes[i + 1];
+    if (marker == 0x00 || (marker >= 0xd0 && marker <= 0xd7)) {
+      kept
+        ..addByte(0xff)
+        ..addByte(marker);
+      i += 2;
+      continue;
+    }
+    if (marker == 0xff) {
+      kept.addByte(0xff);
+      i++;
+      continue;
+    }
+    return i;
+  }
+  return i;
 }
 
 List<NameGuess> guessesFrom(Object? data) {

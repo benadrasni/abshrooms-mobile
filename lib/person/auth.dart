@@ -18,15 +18,19 @@ const googleWebClientId =
 const googleIosClientId =
     '968595882184-5ueoqks0upo9baodegbj2q9o9u7jr0ql.apps.googleusercontent.com';
 
-/// The signed-in account. Anonymous guests are not one. Listen to [revision].
+/// The signed-in account. Anonymous guests are not one, and neither is a
+/// password account whose email is not verified. Listen to [revision].
 class Auth {
   static FirebaseAuth get firebaseAuth => FirebaseAuth.instance;
 
   static final revision = ValueNotifier<int>(0);
   static User? appUser;
 
-  static User? _signedIn(User? user) =>
-      user == null || user.isAnonymous ? null : user;
+  static User? _signedIn(User? user) {
+    if (user == null || user.isAnonymous) return null;
+    if (_passwordAwaitingVerification(user)) return null;
+    return user;
+  }
 
   /// The anonymous account created at first launch, while no one is signed in.
   static User? get guestUser {
@@ -56,6 +60,7 @@ class Auth {
       debugPrint('analytics account: $error');
       return;
     }
+    if (_passwordAwaitingVerification(user)) user = null;
     final id = signedInAnalyticsId(
       user?.uid,
       anonymous: user == null || user.isAnonymous,
@@ -90,27 +95,50 @@ class Auth {
 
   /// Creates a guest when nobody is signed in, including after sign-out.
   ///
+  /// A password account whose email is not verified is signed out first.
+  /// The verification dialog signs that session out; killing the app on
+  /// the dialog must not leave it signed in.
+  ///
   /// The optional arguments are the Firebase reads and writes. Production
   /// leaves them unset.
   static Future<void> startGuest({
     bool? firebaseReady,
     bool? hasCurrentUser,
+    bool unverifiedPassword = false,
+    Future<void> Function()? signOutCurrent,
     Future<void> Function()? signInAnonymously,
     void Function()? notify,
   }) async {
     final ready = firebaseReady ?? Firebase.apps.isNotEmpty;
     if (!ready) return;
-    final signedIn = hasCurrentUser ?? firebaseAuth.currentUser != null;
     final tell = notify ?? publish;
+    var signedIn = hasCurrentUser;
+    var dropUnverified = unverifiedPassword;
+    if (signedIn == null) {
+      final user = firebaseAuth.currentUser;
+      signedIn = user != null;
+      dropUnverified = _passwordAwaitingVerification(user);
+    }
+    if (signedIn && dropUnverified) {
+      try {
+        await (signOutCurrent ?? () => firebaseAuth.signOut())();
+      } catch (error) {
+        debugPrint('unverified account: $error');
+        tell();
+        return;
+      }
+      signedIn = false;
+    }
     if (signedIn) {
       tell();
       return;
     }
     try {
       await (signInAnonymously ?? () => firebaseAuth.signInAnonymously())();
-      tell();
     } catch (error) {
       debugPrint('guest account: $error');
+    } finally {
+      tell();
     }
   }
 
@@ -150,13 +178,19 @@ class Auth {
       email: email,
       password: password,
     );
-    _logAuth(result, 'password', false);
-    if (result.user?.emailVerified == true) publish();
+    publishVerifiedPassword(
+      emailVerified: result.user?.emailVerified == true,
+      log: () => _logAuth(result, 'password', false),
+      publish: publish,
+    );
     return result.user;
   }
 
   static Future<User?> signUpWithEmail(String email, String password) async {
-    final credential = EmailAuthProvider.credential(email: email, password: password);
+    final credential = EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
     final guest = guestUser;
     try {
       final result = guest != null
@@ -165,8 +199,11 @@ class Auth {
               email: email,
               password: password,
             );
-      _logAuth(result, 'password', true);
-      if (result.user?.emailVerified == true) publish();
+      publishVerifiedPassword(
+        emailVerified: result.user?.emailVerified == true,
+        log: () => _logAuth(result, 'password', true),
+        publish: publish,
+      );
       return result.user;
     } on FirebaseAuthException catch (error) {
       if (guest == null ||
@@ -212,6 +249,42 @@ class Auth {
   }
 }
 
+/// A password sign-in is recorded and published only after the email is
+/// verified. An unverified account does not set an analytics user id.
+@visibleForTesting
+void publishVerifiedPassword({
+  required bool emailVerified,
+  required void Function() log,
+  required void Function() publish,
+}) {
+  if (!emailVerified) return;
+  log();
+  publish();
+}
+
+/// Password sign-in whose email is not verified.
+///
+/// Google, Apple, and phone accounts are left as they are. The verification
+/// dialog signs the password session out, so a later launch must not treat
+/// it as the signed-in account.
+bool passwordEmailUnverified({
+  required bool anonymous,
+  required bool emailVerified,
+  required Iterable<String> providerIds,
+}) {
+  if (anonymous || emailVerified) return false;
+  return providerIds.contains(EmailAuthProvider.PROVIDER_ID);
+}
+
+bool _passwordAwaitingVerification(User? user) {
+  if (user == null) return false;
+  return passwordEmailUnverified(
+    anonymous: user.isAnonymous,
+    emailVerified: user.emailVerified,
+    providerIds: [for (final info in user.providerData) info.providerId],
+  );
+}
+
 /// Crashlytics and Analytics user id. A guest uid is not one.
 String? signedInAnalyticsId(String? uid, {required bool anonymous}) {
   if (anonymous) return null;
@@ -226,7 +299,9 @@ AccountView? readSignedInAccount() {
     return null;
   }
   final user = Auth.firebaseAuth.currentUser;
-  if (user == null || user.isAnonymous) return null;
+  if (user == null || user.isAnonymous || _passwordAwaitingVerification(user)) {
+    return null;
+  }
   return accountFrom(
     signedIn: true,
     displayName: user.displayName,
@@ -238,7 +313,8 @@ AccountView? readSignedInAccount() {
 
 Future<void> prepareGoogleSignIn() async {
   try {
-    final apple = defaultTargetPlatform == TargetPlatform.iOS ||
+    final apple =
+        defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
     await GoogleSignIn.instance.initialize(
       clientId: apple ? googleIosClientId : null,

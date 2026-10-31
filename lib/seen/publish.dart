@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
+import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
 import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
@@ -235,14 +236,43 @@ Future<void> deleteOwnedSightings(String uid) async {
   }
 }
 
+/// Whether [publishSighting] may write for this Firebase user.
+/// An unverified password account is not signed in.
+@visibleForTesting
+bool sightingAccountSignedIn({
+  required bool firebaseReady,
+  required bool hasUser,
+  required bool anonymous,
+  required bool emailVerified,
+  required Iterable<String> providerIds,
+}) {
+  if (!firebaseReady || !hasUser || anonymous) return false;
+  return !passwordEmailUnverified(
+    anonymous: anonymous,
+    emailVerified: emailVerified,
+    providerIds: providerIds,
+  );
+}
+
 User? _account() {
+  User? user;
+  var ready = false;
   try {
-    if (Firebase.apps.isEmpty) return null;
+    ready = Firebase.apps.isNotEmpty;
+    if (ready) user = FirebaseAuth.instance.currentUser;
   } catch (_) {
     return null;
   }
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null || user.isAnonymous) return null;
+  if (user == null ||
+      !sightingAccountSignedIn(
+        firebaseReady: ready,
+        hasUser: true,
+        anonymous: user.isAnonymous,
+        emailVerified: user.emailVerified,
+        providerIds: [for (final info in user.providerData) info.providerId],
+      )) {
+    return null;
+  }
   return user;
 }
 
