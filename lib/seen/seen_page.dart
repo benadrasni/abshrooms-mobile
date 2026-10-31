@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/camera/open_camera.dart';
 import 'package:whats_that_mushroom/camera/outside_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
@@ -416,8 +416,7 @@ class _SeenPageState extends State<SeenPage> {
   }
 
   void _openCamera() {
-    Navigator.of(context)
-        .push(guideRoute<void>(guideScreenCamera, (_) => const CameraPage()));
+    openGuideCamera(context);
   }
 
   void _openStatistics() {

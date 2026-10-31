@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/taxon_page.dart';
-import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/camera/open_camera.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/search.dart';
@@ -103,10 +103,7 @@ class _SearchPageState extends State<SearchPage> {
         sentence: copy.searchEmpty,
         photo: copy.searchTryPhoto,
         keyLabel: copy.searchKeyOut,
-        onPhoto: () =>
-            Navigator.of(context).push(
-              guideRoute(guideScreenCamera, (_) => const CameraPage()),
-            ),
+        onPhoto: () => openGuideCamera(context),
         onKey: _keyOut,
       );
     }
@@ -147,11 +144,7 @@ class _SearchPageState extends State<SearchPage> {
       plate: plate,
       onTap: () {
         _logSearch(sections);
-        openSpecies(
-          context,
-          species.name,
-          source: GuideMushroomSource.search,
-        );
+        openSpecies(context, species.name, source: GuideMushroomSource.search);
       },
     );
   }

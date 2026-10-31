@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/book_page.dart';
-import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/camera/open_camera.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/find/key_glyph.dart';
@@ -102,8 +102,7 @@ class FindPage extends StatelessWidget {
         _CameraCard(
           copy: copy,
           colors: colors,
-          onTap: () => Navigator.of(context)
-              .push(guideRoute(guideScreenCamera, (_) => const CameraPage())),
+          onTap: () => openGuideCamera(context),
         ),
         _KeyCard(
           copy: copy,

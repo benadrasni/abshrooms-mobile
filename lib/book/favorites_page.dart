@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/list_chrome.dart';
-import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/camera/open_camera.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
@@ -247,9 +247,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
               alignment: PlaceholderAlignment.baseline,
               baseline: TextBaseline.alphabetic,
               child: GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  guideRoute(guideScreenCamera, (_) => const CameraPage()),
-                ),
+                onTap: () => openGuideCamera(context),
                 child: Text(
                   copy.searchTryPhoto,
                   style: TextStyle(

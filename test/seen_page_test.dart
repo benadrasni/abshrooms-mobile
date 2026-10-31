@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/camera/camera_page.dart';
+import 'package:whats_that_mushroom/camera/open_camera.dart';
 import 'package:whats_that_mushroom/data/adopt.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
@@ -18,7 +20,10 @@ import 'package:whats_that_mushroom/shell/theme.dart';
 
 void main() {
   setUp(Purchases.resetForTest);
-  tearDown(Purchases.resetForTest);
+  tearDown(() {
+    debugCameraConnectivity = null;
+    Purchases.resetForTest();
+  });
 
   testWidgets('an empty notebook keeps the title, camera, and Field Guide', (
     tester,
@@ -329,11 +334,32 @@ void main() {
   });
 
   testWidgets('the camera button opens the viewfinder', (tester) async {
+    debugCameraConnectivity = () async => [ConnectivityResult.wifi];
     await _pump(tester, Notebook());
     await tester.tap(find.byKey(const Key('guide-seen-camera')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(CameraPage), findsOneWidget);
+    expect(find.text('Connection'), findsNothing);
+  });
+
+  testWidgets('the camera stays closed without a connection', (tester) async {
+    debugCameraConnectivity = () async => [ConnectivityResult.none];
+    await _pump(tester, Notebook());
+    await tester.tap(find.byKey(const Key('guide-seen-camera')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connection'), findsOneWidget);
+    expect(
+      find.text("This feature doesn't work without Internet connection."),
+      findsOneWidget,
+    );
+    expect(find.byType(CameraPage), findsNothing);
+
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Connection'), findsNothing);
+    expect(find.byType(CameraPage), findsNothing);
   });
 
   testWidgets('a find with no photo file has no Share', (tester) async {
