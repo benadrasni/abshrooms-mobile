@@ -144,6 +144,27 @@ void main() {
     expect(find.text('+ Add to Seen'), findsNothing);
   });
 
+  testWidgets('a shared find shows its Storage photo', (tester) async {
+    final notebook = _notebook();
+    const url =
+        'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media';
+    notebook.finds = [
+      FindRecord(
+        id: 'shared',
+        millis: DateTime(2026, 6, 2).millisecondsSinceEpoch,
+        latin: 'Boletus edulis',
+        photoPath: url,
+        confirmed: true,
+      ),
+    ];
+    await _pump(tester, notebook);
+
+    expect(find.textContaining('Seen by you'), findsOneWidget);
+    final photo = tester.widget<GuidePhoto>(find.byType(GuidePhoto));
+    expect(photo.url, url);
+    expect(photo.fit, BoxFit.cover);
+  });
+
   testWidgets('Slovak uses the nálezy wording', (tester) async {
     final notebook = _notebook();
     await _pump(tester, notebook, language: 'sk', pick: () async => null);

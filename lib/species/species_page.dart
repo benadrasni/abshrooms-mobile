@@ -13,6 +13,7 @@ import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/sign_in_page.dart';
+import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/guide_links.dart';
@@ -1588,10 +1589,18 @@ class _SeenByYou extends StatelessWidget {
 }
 
 Widget _thumb(String? path, GuideColors colors) {
+  // A shared find keeps the Storage URL after the file leaves this phone.
+  if (path != null && sightingPhotoIsRemote(path)) {
+    return GuidePhoto(url: path, fit: BoxFit.cover, background: colors.paper2);
+  }
   if (path == null || path.isEmpty) return ColoredBox(color: colors.paper2);
   final file = File(path);
   if (!file.existsSync()) return ColoredBox(color: colors.paper2);
-  return Image.file(file, fit: BoxFit.cover);
+  return Image.file(
+    file,
+    fit: BoxFit.cover,
+    errorBuilder: (_, _, _) => ColoredBox(color: colors.paper2),
+  );
 }
 
 class _AddSeenButton extends StatelessWidget {
