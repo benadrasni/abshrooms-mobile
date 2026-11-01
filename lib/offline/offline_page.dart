@@ -452,9 +452,7 @@ class _OfflinePageState extends State<OfflinePage> {
                 key: offlineEverythingKey,
                 on: _selected,
                 title: copy.offlineEverything,
-                meta: copy.count(
-                  view.stored ? view.onPhoneSpecies : view.species,
-                ),
+                meta: copy.count(view.species),
                 size: view.stored ? copy.offlineOnPhone : bookSize,
                 onPressed: () => setState(() => _selected = !_selected),
               ),

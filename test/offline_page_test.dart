@@ -177,8 +177,7 @@ void main() {
     expect(find.text('Update'), findsWidgets);
     expect(find.text('1 mushroom · about 0.7 MB'), findsOneWidget);
     expect(find.text('61 mushrooms · about 40 MB'), findsOneWidget);
-    expect(find.text('61 mushrooms'), findsOneWidget);
-    expect(find.text('62 mushrooms'), findsNothing);
+    expect(find.text('62 mushrooms'), findsOneWidget);
     expect(find.text('Everything · 62 mushrooms · about 40 MB'), findsNothing);
     await tester.tap(find.byKey(offlineUpdateKey));
     await tester.pump();
