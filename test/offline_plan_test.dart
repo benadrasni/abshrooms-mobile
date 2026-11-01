@@ -140,6 +140,63 @@ void main() {
     expect(offlineUpdateBytes(1), 700000);
   });
 
+  test('on this phone counts mushrooms already kept', () {
+    const english = Copy('en');
+    const complete = OfflineView(
+      species: 62,
+      canDownload: true,
+      stored: true,
+      pending: [],
+      alreadyDone: 1,
+      totalFiles: 1,
+      missingSpecies: 0,
+    );
+    expect(complete.onPhoneSpecies, 62);
+    expect(
+      offlineKeptLine(english, complete),
+      'Everything · 62 mushrooms · about 40 MB',
+    );
+
+    const gap = OfflineView(
+      species: 62,
+      canDownload: true,
+      stored: true,
+      pending: ['photos/new.webp'],
+      alreadyDone: 7,
+      totalFiles: 8,
+      missingSpecies: 1,
+    );
+    expect(gap.onPhoneSpecies, 61);
+    expect(offlineKeptLine(english, gap), '61 mushrooms · about 40 MB');
+    expect(
+      offlineMenuSpecies(species: 62, stored: true, missingSpecies: 1),
+      61,
+    );
+    expect(
+      offlineMenuSpecies(species: 62, stored: false, missingSpecies: 1),
+      62,
+    );
+    expect(
+      offlineMenuSpecies(species: null, stored: true, missingSpecies: 1),
+      isNull,
+    );
+    expect(offlineMenuSpecies(species: 1, stored: true, missingSpecies: 5), 0);
+    expect(
+      offlineMenuLine(
+        english,
+        canDownload: true,
+        stored: true,
+        species: offlineMenuSpecies(
+          species: 2000,
+          stored: true,
+          missingSpecies: 100,
+        ),
+        updateSpecies: 100,
+      ),
+      'On this phone · about 1.3 GB · Update about 70 MB',
+    );
+  });
+
   test('the person row names the whole book and drops regions', () {
     const english = Copy('en');
     const slovak = Copy('sk');

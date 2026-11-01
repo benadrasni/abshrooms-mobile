@@ -437,11 +437,7 @@ class _OfflinePageState extends State<OfflinePage> {
                 ),
               if (view.stored)
                 _KeptCard(
-                  detail: copy.offlineKept(
-                    copy.offlineEverything,
-                    copy.count(view.species),
-                    bookSize,
-                  ),
+                  detail: offlineKeptLine(copy, view),
                   onRemove: _remove,
                 ),
               if (view.hasUpdate && job == null)
@@ -456,7 +452,9 @@ class _OfflinePageState extends State<OfflinePage> {
                 key: offlineEverythingKey,
                 on: _selected,
                 title: copy.offlineEverything,
-                meta: copy.count(view.species),
+                meta: copy.count(
+                  view.stored ? view.onPhoneSpecies : view.species,
+                ),
                 size: view.stored ? copy.offlineOnPhone : bookSize,
                 onPressed: () => setState(() => _selected = !_selected),
               ),

@@ -166,6 +166,13 @@ class OfflineView {
 
   bool get hasUpdate => stored && (pending.isNotEmpty || catalogStale);
 
+  /// Mushrooms whose pictures are already on this phone.
+  int get onPhoneSpecies {
+    final kept = species - missingSpecies;
+    if (kept < 0) return 0;
+    return kept;
+  }
+
   OfflineView copyWith({bool? canDownload, bool? stored}) {
     return OfflineView(
       species: species,
@@ -179,6 +186,32 @@ class OfflineView {
       catalogBytes: catalogBytes,
     );
   }
+}
+
+/// Detail under "On this phone".
+///
+/// A gap names the mushrooms already kept. A complete book names Everything.
+String offlineKeptLine(Copy copy, OfflineView view) {
+  final kept = view.onPhoneSpecies;
+  final size = offlineAbout(copy, OfflineAmount.ofSpecies(kept));
+  if (view.missingSpecies > 0) {
+    return copy.offlineAdd(copy.count(kept), size);
+  }
+  return copy.offlineKept(copy.offlineEverything, copy.count(kept), size);
+}
+
+/// Species count behind the person-row size.
+///
+/// A stored book is sized from the mushrooms already on the phone.
+int? offlineMenuSpecies({
+  required int? species,
+  required bool stored,
+  required int missingSpecies,
+}) {
+  if (species == null || !stored) return species;
+  final kept = species - missingSpecies;
+  if (kept < 0) return 0;
+  return kept;
 }
 
 /// Detail on the update card.

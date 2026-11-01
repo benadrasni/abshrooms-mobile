@@ -146,6 +146,10 @@ void main() {
       ),
     );
     expect(find.text('On this phone'), findsWidgets);
+    expect(
+      find.text('Everything · 62 mushrooms · about 40 MB'),
+      findsOneWidget,
+    );
     expect(find.text('Remove'), findsOneWidget);
     expect(find.text('Update'), findsNothing);
     await tester.tap(find.byKey(offlineRemoveKey));
@@ -172,6 +176,10 @@ void main() {
     );
     expect(find.text('Update'), findsWidgets);
     expect(find.text('1 mushroom · about 0.7 MB'), findsOneWidget);
+    expect(find.text('61 mushrooms · about 40 MB'), findsOneWidget);
+    expect(find.text('61 mushrooms'), findsOneWidget);
+    expect(find.text('62 mushrooms'), findsNothing);
+    expect(find.text('Everything · 62 mushrooms · about 40 MB'), findsNothing);
     await tester.tap(find.byKey(offlineUpdateKey));
     await tester.pump();
     expect(updated, isTrue);
@@ -195,6 +203,10 @@ void main() {
     expect(find.text('Update'), findsWidgets);
     expect(find.text('about 2 MB'), findsOneWidget);
     expect(find.text('62 mushrooms · about 2 MB'), findsNothing);
+    expect(
+      find.text('Everything · 62 mushrooms · about 40 MB'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a running download can pause', (tester) async {

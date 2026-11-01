@@ -139,6 +139,7 @@ class _PersonPageState extends State<PersonPage> {
         ? readSignedInAccount()
         : widget.accountOf!();
     final guide = Purchases.hasFieldGuide();
+    final offlineMissing = _offlineUpdates(scope.catalogData);
     final lines = account == null
         ? null
         : accountLines(
@@ -270,8 +271,12 @@ class _PersonPageState extends State<PersonPage> {
                 copy,
                 canDownload: guide,
                 stored: OfflineBook.stored,
-                species: scope.catalogData?.species.length,
-                updateSpecies: _offlineUpdates(scope.catalogData),
+                species: offlineMenuSpecies(
+                  species: scope.catalogData?.species.length,
+                  stored: OfflineBook.stored,
+                  missingSpecies: offlineMissing,
+                ),
+                updateSpecies: offlineMissing,
                 updateBytes: OfflineBook.catalogStale
                     ? (OfflineBook.remoteBytes > 0
                           ? OfflineBook.remoteBytes
