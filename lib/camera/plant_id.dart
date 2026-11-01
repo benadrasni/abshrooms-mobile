@@ -87,8 +87,13 @@ Uint8List? _jpegWithoutMetadata(Uint8List bytes) {
     final length = (bytes[i + 2] << 8) | bytes[i + 3];
     if (length < 2 || i + 2 + length > bytes.length) return null;
     final end = i + 2 + length;
-    final metadata = marker == 0xfe || (marker >= 0xe1 && marker <= 0xef);
-    if (!metadata) kept.add(bytes.sublist(i, end));
+    if (marker == 0xe0) {
+      final app0 = _app0WithoutThumbnail(bytes, i, end);
+      if (app0 != null) kept.add(app0);
+    } else {
+      final metadata = marker == 0xfe || (marker >= 0xe1 && marker <= 0xef);
+      if (!metadata) kept.add(bytes.sublist(i, end));
+    }
     i = end;
     if (marker == 0xda) {
       final next = _copyJpegScan(bytes, i, kept);
@@ -98,6 +103,40 @@ Uint8List? _jpegWithoutMetadata(Uint8List bytes) {
   }
   if (i < bytes.length) return null;
   return kept.takeBytes();
+}
+
+/// APP0 is kept only as a JFIF header with no thumbnail.
+/// JFXX and any other APP0, including a JPEG thumbnail, are dropped.
+/// A short JFIF that has no thumbnail fields is kept as it is.
+Uint8List? _app0WithoutThumbnail(Uint8List bytes, int start, int end) {
+  final payload = start + 4;
+  final payloadLength = end - payload;
+  if (payloadLength >= 5 && _markerName(bytes, payload, 'JFXX\x00')) {
+    return null;
+  }
+  if (payloadLength < 5 || !_markerName(bytes, payload, 'JFIF\x00')) {
+    return null;
+  }
+  if (payloadLength < 14) return bytes.sublist(start, end);
+  final xThumb = bytes[payload + 12];
+  final yThumb = bytes[payload + 13];
+  if (xThumb == 0 && yThumb == 0 && payloadLength == 14) {
+    return bytes.sublist(start, end);
+  }
+  final minimal = Uint8List(18);
+  minimal[0] = 0xff;
+  minimal[1] = 0xe0;
+  minimal[2] = 0x00;
+  minimal[3] = 16;
+  minimal.setRange(4, 16, bytes, payload);
+  return minimal;
+}
+
+bool _markerName(Uint8List bytes, int offset, String name) {
+  for (var i = 0; i < name.length; i++) {
+    if (bytes[offset + i] != name.codeUnitAt(i)) return false;
+  }
+  return true;
 }
 
 /// Copies entropy-coded bytes from [i] until the next marker.

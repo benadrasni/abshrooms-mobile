@@ -46,17 +46,55 @@ class Entitlements {
   }
 
   static void _onUser(User? user) {
-    final signed = user == null || user.isAnonymous ? null : user;
-    if (signed?.uid == _uid) return;
+    final uid = user == null
+        ? null
+        : (acceptsSignedInUser(
+                anonymous: user.isAnonymous,
+                emailVerified: user.emailVerified,
+                providerIds: [
+                  for (final info in user.providerData) info.providerId,
+                ],
+              )
+              ? user.uid
+              : null);
+    _adopt(uid);
+  }
+
+  /// Applies [uid], or clears the account when it is null.
+  ///
+  /// An unverified password is null, the same check [Auth.appUser] uses.
+  /// Store reads wait until Firebase is up, so a test can adopt a uid.
+  static void _adopt(String? uid) {
+    if (uid == _uid) return;
     _stopDoc();
-    _uid = signed?.uid;
+    _uid = uid;
     Purchases.setLifetimeSubscription(false);
     Purchases.clearAccountProducts();
-    if (signed == null) return;
-    _listen(signed.uid);
+    if (uid == null || Firebase.apps.isEmpty) return;
+    _listen(uid);
     unawaited(rereadLostGrant());
     unawaited(registerStoreAccount());
     unawaited(flushPendingStoreProofs());
+  }
+
+  @visibleForTesting
+  static String? get debugUid => _uid;
+
+  @visibleForTesting
+  static void debugOnAccount({
+    String? uid,
+    bool anonymous = false,
+    bool emailVerified = true,
+    Iterable<String> providerIds = const ['password'],
+  }) {
+    final accepted =
+        uid != null &&
+        acceptsSignedInUser(
+          anonymous: anonymous,
+          emailVerified: emailVerified,
+          providerIds: providerIds,
+        );
+    _adopt(accepted ? uid : null);
   }
 
   static void _listen(String uid) {

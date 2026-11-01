@@ -63,6 +63,45 @@ void main() {
     expect(Purchases.owned, {fieldGuideMonthlyPlay});
   });
 
+  test('an unverified password user is not an entitled account', () {
+    Entitlements.debugOnAccount(
+      uid: 'ada',
+      emailVerified: false,
+      providerIds: const ['password'],
+    );
+    expect(Entitlements.debugUid, isNull);
+
+    Entitlements.debugOnAccount(
+      uid: 'ada',
+      emailVerified: true,
+      providerIds: const ['password'],
+    );
+    expect(Entitlements.debugUid, 'ada');
+    Purchases.setLifetimeSubscription(true);
+
+    Entitlements.debugOnAccount(
+      uid: 'ada',
+      emailVerified: false,
+      providerIds: const ['password'],
+    );
+    expect(Entitlements.debugUid, isNull);
+    expect(Purchases.lifetimeSubscription, isFalse);
+
+    Entitlements.debugOnAccount(
+      uid: 'google',
+      emailVerified: false,
+      providerIds: const ['google.com'],
+    );
+    expect(Entitlements.debugUid, 'google');
+
+    Entitlements.debugOnAccount(
+      uid: 'guest',
+      anonymous: true,
+      providerIds: const ['password'],
+    );
+    expect(Entitlements.debugUid, isNull);
+  });
+
   test('an empty cached entitlements row does not clear a later plan', () {
     final watch = EntitlementWatch();
     expect(

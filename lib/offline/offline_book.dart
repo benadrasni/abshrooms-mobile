@@ -261,7 +261,13 @@ Future<void> _run({
         generation: generation,
         fetch: read,
       );
-      if (!pulled || !OfflineBook.owns(generation)) return;
+      if (pulled == _CatalogPull.paused || !OfflineBook.owns(generation)) {
+        return;
+      }
+      if (pulled == _CatalogPull.missing) {
+        onFailed();
+        return;
+      }
     }
     if (request.pending.isEmpty) {
       onProgress(1, 1);
@@ -322,22 +328,25 @@ Future<void> _run({
   }
 }
 
+enum _CatalogPull { ready, paused, missing }
+
 /// Writes the snapshot under offline/catalog, then records its revision.
-/// A missing manifest leaves the current words in place and still lets the
-/// pictures download. Returns false when this download was paused.
-Future<bool> _pullCatalog({
+/// A missing manifest is not a success: the current words stay, and the
+/// download fails instead of being marked stored. [_CatalogPull.paused]
+/// means this download was superseded.
+Future<_CatalogPull> _pullCatalog({
   required String directory,
   required int generation,
   required Future<List<int>?> Function(String relative) fetch,
 }) async {
   final raw = await fetch(catalogManifestPath);
-  if (!OfflineBook.owns(generation)) return false;
+  if (!OfflineBook.owns(generation)) return _CatalogPull.paused;
   if (raw == null || raw.isEmpty) {
     debugPrint('catalog pack: no manifest');
-    return true;
+    return _CatalogPull.missing;
   }
   final manifest = parseCatalogManifest(jsonDecode(utf8.decode(raw)));
-  if (_packMatches(directory, manifest)) return true;
+  if (_packMatches(directory, manifest)) return _CatalogPull.ready;
   await _deleteStaging(directory);
   final staging = Directory('$directory/$_folder/catalog-next');
   try {
@@ -346,13 +355,13 @@ Future<bool> _pullCatalog({
     for (final relative in manifest.files) {
       if (!OfflineBook.owns(generation)) {
         await _deleteStaging(directory);
-        return false;
+        return _CatalogPull.paused;
       }
       if (relative == catalogManifestPath) continue;
       final bytes = await fetch(relative);
       if (!OfflineBook.owns(generation)) {
         await _deleteStaging(directory);
-        return false;
+        return _CatalogPull.paused;
       }
       if (bytes == null || bytes.isEmpty) {
         throw StateError('missing $relative');
@@ -364,6 +373,10 @@ Future<bool> _pullCatalog({
         bytes,
       );
     }
+    parsePackedFile(catalogManifestPath, raw);
+    for (final entry in bodies.entries) {
+      parsePackedFile(entry.key, entry.value);
+    }
     final species = bodies['catalog/species.json'];
     if (species == null) throw StateError('missing catalog/species.json');
     final decoded = jsonDecode(utf8.decode(species));
@@ -372,11 +385,11 @@ Future<bool> _pullCatalog({
     }
     if (!OfflineBook.owns(generation)) {
       await _deleteStaging(directory);
-      return false;
+      return _CatalogPull.paused;
     }
     _swapCatalog(directory, staging);
     await OfflineBook.rememberCatalog(manifest.revision, manifest.bytes);
-    return true;
+    return _CatalogPull.ready;
   } catch (error) {
     await _deleteStaging(directory);
     rethrow;

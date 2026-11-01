@@ -189,8 +189,8 @@ export async function refreshAccountProofs(
 
 /**
  * One account refresh. A recent `refreshedAt` returns throttled and does not
- * look anything up. The slot is reserved only once a lookup is about to
- * start, not when the read would be skipped.
+ * look anything up. The slot is reserved in one transaction before proofs
+ * are scanned, so parallel calls cannot each read purchase_proofs.
  */
 export async function runEntitlementRefresh(input: {
   db: EntitlementDb;
@@ -204,14 +204,12 @@ export async function runEntitlementRefresh(input: {
   if (!nextRefreshReservation(input.node, input.now).allowed) {
     return { products: {}, retry: false, throttled: true };
   }
-  let reserved = false;
+  const reserved = await input.reserve(input.now);
+  if (!reserved) {
+    return { products: {}, retry: false, throttled: true };
+  }
   return refreshAccountProofs(input.db, input.uid, input.now, async (proof) => {
     if (!input.canFetch(proof)) return { status: 'unavailable' };
-    if (!reserved) {
-      const ok = await input.reserve(input.now);
-      if (!ok) return { status: 'throttled' };
-      reserved = true;
-    }
     return input.lookup(proof);
   });
 }

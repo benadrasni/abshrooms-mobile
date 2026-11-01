@@ -29,6 +29,20 @@ export function nextRefreshReservation(
 }
 
 /**
+ * Mints a Play token only when [node] is outside the refresh window.
+ * A throttled call returns false and does not call [mint].
+ */
+export async function mintPlayBearerIfDue(
+  node: unknown,
+  now: number,
+  mint: () => Promise<void>,
+): Promise<boolean> {
+  if (!nextRefreshReservation(node, now).allowed) return false;
+  await mint();
+  return true;
+}
+
+/**
  * The entitlements object to write when the slot is reserved. Products
  * already on the row stay. A window that is still open returns reserved false
  * and does not change the timestamp.

@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
@@ -27,8 +28,14 @@ class Auth {
   static User? appUser;
 
   static User? _signedIn(User? user) {
-    if (user == null || user.isAnonymous) return null;
-    if (_passwordAwaitingVerification(user)) return null;
+    if (user == null ||
+        !acceptsSignedInUser(
+          anonymous: user.isAnonymous,
+          emailVerified: user.emailVerified,
+          providerIds: [for (final info in user.providerData) info.providerId],
+        )) {
+      return null;
+    }
     return user;
   }
 
@@ -178,9 +185,17 @@ class Auth {
       email: email,
       password: password,
     );
+    final verified = result.user?.emailVerified == true;
+    final pending =
+        verified && await consumeEmailSignUp(result.user?.uid ?? '');
+    final event = passwordAuthEvent(
+      emailVerified: verified,
+      pendingSignUp: pending,
+    );
     publishVerifiedPassword(
-      emailVerified: result.user?.emailVerified == true,
-      log: () => _logAuth(result, 'password', false),
+      emailVerified: verified,
+      signUp: event == PasswordAuthEvent.signUp,
+      log: (signUp) => _logAuth(result, 'password', signUp),
       publish: publish,
     );
     return result.user;
@@ -199,9 +214,12 @@ class Auth {
               email: email,
               password: password,
             );
+      final verified = result.user?.emailVerified == true;
+      if (!verified) await rememberEmailSignUp(result.user?.uid ?? '');
       publishVerifiedPassword(
-        emailVerified: result.user?.emailVerified == true,
-        log: () => _logAuth(result, 'password', true),
+        emailVerified: verified,
+        signUp: true,
+        log: (signUp) => _logAuth(result, 'password', signUp),
         publish: publish,
       );
       return result.user;
@@ -249,17 +267,79 @@ class Auth {
   }
 }
 
+/// What a password account records once Firebase has answered.
+///
+/// An unverified account stays quiet. The first verified sign-in of an
+/// account created here is the sign-up. A later verified sign-in is a login.
+enum PasswordAuthEvent { none, login, signUp }
+
+PasswordAuthEvent passwordAuthEvent({
+  required bool emailVerified,
+  required bool pendingSignUp,
+}) {
+  if (!emailVerified) return PasswordAuthEvent.none;
+  return pendingSignUp ? PasswordAuthEvent.signUp : PasswordAuthEvent.login;
+}
+
+const _pendingEmailSignUps = 'pending_email_sign_up';
+
+/// Remembers [uid] so the first verified sign-in can record the sign-up.
+/// The verification dialog signs the session out before the email is confirmed.
+Future<void> rememberEmailSignUp(String uid) async {
+  if (uid.isEmpty) return;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList(_pendingEmailSignUps) ?? <String>[];
+    if (ids.contains(uid)) return;
+    await prefs.setStringList(_pendingEmailSignUps, [...ids, uid]);
+  } catch (error) {
+    debugPrint('email sign-up: $error');
+  }
+}
+
+/// Takes a pending sign-up for [uid]. A second verified sign-in is a login.
+Future<bool> consumeEmailSignUp(String uid) async {
+  if (uid.isEmpty) return false;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList(_pendingEmailSignUps) ?? <String>[];
+    if (!ids.remove(uid)) return false;
+    await prefs.setStringList(_pendingEmailSignUps, ids);
+    return true;
+  } catch (error) {
+    debugPrint('email sign-up: $error');
+    return false;
+  }
+}
+
 /// A password sign-in is recorded and published only after the email is
-/// verified. An unverified account does not set an analytics user id.
+/// verified. [signUp] is the first verified sign-in of an account created
+/// here. An unverified account does not set an analytics user id.
 @visibleForTesting
 void publishVerifiedPassword({
   required bool emailVerified,
-  required void Function() log,
+  required bool signUp,
+  required void Function(bool signUp) log,
   required void Function() publish,
 }) {
   if (!emailVerified) return;
-  log();
+  log(signUp);
   publish();
+}
+
+/// The signed-in account. A guest and an unverified password are not one.
+/// Google, Apple, and phone stay signed in when the email is unverified.
+bool acceptsSignedInUser({
+  required bool anonymous,
+  required bool emailVerified,
+  required Iterable<String> providerIds,
+}) {
+  if (anonymous) return false;
+  return !passwordEmailUnverified(
+    anonymous: anonymous,
+    emailVerified: emailVerified,
+    providerIds: providerIds,
+  );
 }
 
 /// Password sign-in whose email is not verified.

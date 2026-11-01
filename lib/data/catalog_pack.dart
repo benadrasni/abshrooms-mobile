@@ -26,14 +26,12 @@ class CatalogManifest {
   final String revision;
   final int speciesCount;
   final int bytes;
-  final List<String> languages;
   final List<String> files;
 
   const CatalogManifest({
     required this.revision,
     required this.speciesCount,
     required this.bytes,
-    required this.languages,
     required this.files,
   });
 }
@@ -65,21 +63,37 @@ CatalogManifest parseCatalogManifest(Object? decoded) {
       throw const FormatException('catalog files');
     }
   }
-  final languages = <String>[];
-  final rawLanguages = decoded['languages'];
-  if (rawLanguages is List) {
-    for (final item in rawLanguages) {
-      final code = item?.toString() ?? '';
-      if (RegExp(r'^[a-z]{2}$').hasMatch(code)) languages.add(code);
-    }
-  }
   return CatalogManifest(
     revision: revision,
     speciesCount: _count(decoded['speciesCount']),
     bytes: _count(decoded['bytes']),
-    languages: List.unmodifiable(languages),
     files: List.unmodifiable(files),
   );
+}
+
+/// Throws when [bytes] is not the JSON [relative] is supposed to hold.
+/// Called before a downloaded pack replaces the book already on the phone.
+void parsePackedFile(String relative, List<int> bytes) {
+  final decoded = jsonDecode(utf8.decode(bytes));
+  final name = relative.startsWith('catalog/')
+      ? relative.substring('catalog/'.length)
+      : relative;
+  if (name == 'manifest.json') {
+    parseCatalogManifest(decoded);
+    return;
+  }
+  if (name == 'lists.json') {
+    if (decoded is! List) throw const FormatException('catalog lists');
+    return;
+  }
+  if (name.startsWith('taxonomy/')) {
+    if (decoded is! Map) throw const FormatException('catalog taxonomy');
+    return;
+  }
+  if (decoded is! Map) throw const FormatException('catalog object');
+  for (final value in decoded.values) {
+    if (value is! Map) throw const FormatException('catalog object');
+  }
 }
 
 /// Storage path for one snapshot file. Other hosts and parent segments fail.

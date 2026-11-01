@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { refreshEntitlementsEnforceAppCheck, refreshEntitlementsMinGapMs, stampRefresh } from './refresh_limit';
+import {
+  mintPlayBearerIfDue,
+  refreshEntitlementsEnforceAppCheck,
+  refreshEntitlementsMinGapMs,
+  stampRefresh,
+} from './refresh_limit';
 import type { VerifiedPurchase } from './entitlements';
 import { runEntitlementRefresh, type EntitlementDb } from './store_handlers';
 
@@ -50,7 +55,22 @@ test('a refresh stamp keeps the products and ignores a call inside the window', 
   assert.equal(refreshEntitlementsEnforceAppCheck, false);
 });
 
-test('throttle skips the lookup, and the slot is reserved only when a lookup starts', async () => {
+test('a throttled refresh does not mint a Play bearer', async () => {
+  const events: string[] = [];
+  const blocked = await mintPlayBearerIfDue({ refreshedAt: now }, now + 1_000, async () => {
+    events.push('bearer');
+  });
+  assert.equal(blocked, false);
+  assert.equal(events.length, 0);
+
+  const opened = await mintPlayBearerIfDue(null, now, async () => {
+    events.push('bearer');
+  });
+  assert.equal(opened, true);
+  assert.deepEqual(events, ['bearer']);
+});
+
+test('throttle skips the lookup, and the slot is reserved before proofs are scanned', async () => {
   const db = proofDb();
   let node: unknown = { refreshedAt: now };
   const blocked: string[] = [];
@@ -92,7 +112,7 @@ test('throttle skips the lookup, and the slot is reserved only when a lookup sta
   });
   assert.equal(skipped.throttled, false);
   assert.equal(skipped.retry, true);
-  assert.deepEqual(idle, []);
+  assert.deepEqual(idle, ['reserve']);
 
   const startedEvents: string[] = [];
   const started = await runEntitlementRefresh({
@@ -136,6 +156,75 @@ test('throttle skips the lookup, and the slot is reserved only when a lookup sta
   assert.equal(second.throttled, true);
   assert.equal(second.retry, false);
   assert.deepEqual(again, []);
+});
+
+test('parallel refreshes reserve once and scan the proofs once', async () => {
+  let slot: unknown = null;
+  let scans = 0;
+  const proofs = {
+    play_1: {
+      uid,
+      store: 'play',
+      productId: 'field_guide_monthly',
+      token: 'play-token-1',
+      subscription: true,
+      active: true,
+      updatedAt: 1,
+    },
+  };
+  const db: EntitlementDb = {
+    async get(path) {
+      if (path === 'purchase_proofs') {
+        scans += 1;
+        return proofs;
+      }
+      return null;
+    },
+    async set() {},
+    async remove() {},
+    async transaction() {
+      return false;
+    },
+    async authExists() {
+      return true;
+    },
+  };
+  let chain = Promise.resolve();
+  const reserve = (at: number) => {
+    const run = chain.then(() => {
+      const stamped = stampRefresh(slot, at);
+      if (!stamped.reserved) return false;
+      slot = stamped.entitlements;
+      return true;
+    });
+    chain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  };
+  const [first, second] = await Promise.all([
+    runEntitlementRefresh({
+      db,
+      uid,
+      now,
+      node: null,
+      canFetch: () => true,
+      reserve,
+      lookup: async () => ({ status: 'unavailable' }),
+    }),
+    runEntitlementRefresh({
+      db,
+      uid,
+      now,
+      node: null,
+      canFetch: () => true,
+      reserve,
+      lookup: async () => ({ status: 'unavailable' }),
+    }),
+  ]);
+  assert.equal(scans, 1);
+  assert.equal(first.throttled !== second.throttled, true);
 });
 
 function samplePurchase(): VerifiedPurchase {

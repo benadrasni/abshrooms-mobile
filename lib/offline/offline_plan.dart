@@ -181,6 +181,19 @@ class OfflineView {
   }
 }
 
+/// Detail on the update card.
+///
+/// Picture updates name the mushrooms still missing. A words-only update is
+/// the text size, not the count of the whole book.
+String offlineUpdateLine(Copy copy, OfflineView view) {
+  final size = offlineAbout(
+    copy,
+    OfflineAmount.ofBytes(offlinePackUpdateBytes(view)),
+  );
+  if (view.missingSpecies <= 0) return size;
+  return copy.offlineAdd(copy.count(view.missingSpecies), size);
+}
+
 /// Picture estimate plus the text snapshot, when that snapshot is newer.
 int offlinePackUpdateBytes(OfflineView view) {
   final pictures = offlineUpdateBytes(view.missingSpecies);

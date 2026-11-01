@@ -111,6 +111,20 @@ void main() {
     expect(words.pending, isEmpty);
     expect(words.hasUpdate, isTrue);
     expect(offlinePackUpdateBytes(words), 8000000);
+    expect(offlineUpdateLine(const Copy('en'), words), 'about 8 MB');
+    expect(
+      offlineUpdateLine(
+        const Copy('en'),
+        offlineViewOf(
+          species: [species],
+          canDownload: true,
+          stored: true,
+          saved: saved,
+          skipped: const {},
+        ),
+      ),
+      '1 mushroom · about 0.7 MB',
+    );
   });
 
   test('sizes follow the plants rounding', () {

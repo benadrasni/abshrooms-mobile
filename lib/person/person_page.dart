@@ -23,6 +23,7 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/seen/stats_page.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
+import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
 class PersonPage extends StatefulWidget {
@@ -818,7 +819,7 @@ class LanguagePage extends StatelessWidget {
             _LanguageChoice(
               name: copy.english,
               selected: englishInterface(selected),
-              onTap: () => _choose(context, 'en'),
+              onTap: () => _choose(context, deviceEnglishChoice()),
             ),
             _LanguageChoice(
               name: copy.estonian,
