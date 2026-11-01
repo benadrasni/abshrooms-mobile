@@ -173,6 +173,57 @@ void main() {
     expect(find.text('open'), findsOneWidget);
   });
 
+  test('verification signs out when the page is already gone', () async {
+    var shown = 0;
+    var signedOut = 0;
+    await completeEmailSignIn(
+      follow: EmailFollowUp.needsVerification,
+      mounted: false,
+      customEmail: false,
+      showVerify: () async {
+        shown += 1;
+      },
+      signOut: () async {
+        signedOut += 1;
+      },
+      leave: () => fail('left'),
+      showError: (_) => fail('error'),
+    );
+    expect(shown, 0);
+    expect(signedOut, 1);
+
+    await completeEmailSignIn(
+      follow: EmailFollowUp.needsVerification,
+      mounted: true,
+      customEmail: false,
+      showVerify: () async {
+        throw StateError('gone');
+      },
+      signOut: () async {
+        signedOut += 1;
+      },
+      leave: () => fail('left'),
+      showError: (_) => fail('error'),
+    );
+    expect(signedOut, 2);
+
+    await completeEmailSignIn(
+      follow: EmailFollowUp.needsVerification,
+      mounted: false,
+      customEmail: true,
+      showVerify: () async {
+        shown += 1;
+      },
+      signOut: () async {
+        signedOut += 1;
+      },
+      leave: () {},
+      showError: (_) {},
+    );
+    expect(shown, 0);
+    expect(signedOut, 2);
+  });
+
   test('verification signs out even when the page is already gone', () async {
     var calls = 0;
     final before = Auth.revision.value;

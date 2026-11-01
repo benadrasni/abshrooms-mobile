@@ -201,24 +201,21 @@ class _SignInPageState extends State<SignInPage> {
           ? await signInWithEmail(email, password)
           : await widget.onEmail!(email, password);
     });
-    if (!mounted || follow == null) return;
-    switch (follow!) {
-      case EmailFollowUp.signedIn:
-        _leave();
-      case EmailFollowUp.needsVerification:
-        await _showVerify();
-        await signOutAfterEmailVerification(
-          customEmail: widget.onEmail != null,
-          mounted: mounted,
-        );
-      case EmailFollowUp.wrongPassword:
-        setState(() => _error = copy.signInWrongPassword);
-      case EmailFollowUp.shortPassword:
-        setState(() => _error = copy.signInShortPassword);
-      case EmailFollowUp.tryCreate:
-      case EmailFollowUp.failed:
-        setState(() => _error = copy.signInFailed);
-    }
+    await completeEmailSignIn(
+      follow: follow,
+      mounted: mounted,
+      customEmail: widget.onEmail != null,
+      showVerify: _showVerify,
+      leave: _leave,
+      showError: (outcome) {
+        final message = switch (outcome) {
+          EmailFollowUp.wrongPassword => copy.signInWrongPassword,
+          EmailFollowUp.shortPassword => copy.signInShortPassword,
+          _ => copy.signInFailed,
+        };
+        setState(() => _error = message);
+      },
+    );
   }
 
   Future<void> _reset() async {
@@ -743,6 +740,51 @@ class _SignInPageState extends State<SignInPage> {
       case _Step.providers:
         return const [];
     }
+  }
+}
+
+/// Finishes the email form after Firebase answers.
+///
+/// Verification signs the password session out even when this page is already
+/// gone, including when the dialog is dismissed by the page being popped.
+/// A test email handler does not sign the session out.
+@visibleForTesting
+Future<void> completeEmailSignIn({
+  required EmailFollowUp? follow,
+  required bool mounted,
+  required bool customEmail,
+  required Future<void> Function() showVerify,
+  required void Function() leave,
+  required void Function(EmailFollowUp follow) showError,
+  Future<void> Function()? signOut,
+}) async {
+  if (follow == null) return;
+  if (follow == EmailFollowUp.needsVerification) {
+    if (mounted) {
+      try {
+        await showVerify();
+      } catch (error) {
+        debugPrint('sign-in: $error');
+      }
+    }
+    await signOutAfterEmailVerification(
+      customEmail: customEmail,
+      mounted: mounted,
+      signOut: signOut,
+    );
+    return;
+  }
+  if (!mounted) return;
+  switch (follow) {
+    case EmailFollowUp.signedIn:
+      leave();
+    case EmailFollowUp.wrongPassword:
+    case EmailFollowUp.shortPassword:
+    case EmailFollowUp.tryCreate:
+    case EmailFollowUp.failed:
+      showError(follow);
+    case EmailFollowUp.needsVerification:
+      break;
   }
 }
 

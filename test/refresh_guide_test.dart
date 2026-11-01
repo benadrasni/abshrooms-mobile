@@ -69,15 +69,17 @@ void main() {
 
   test('a failed refresh keeps the book on screen', () async {
     final kept = _catalog([_species('Boletus edulis', added: '2026-10-22')]);
+    final asked = <bool>[];
     final repo = CatalogRepository(
       readCatalog: (language, {required bool server}) async {
-        expect(server, isTrue);
+        asked.add(server);
         throw StateError('offline');
       },
     )..data = kept;
 
     expect(await repo.refresh(), isFalse);
     expect(identical(repo.data, kept), isTrue);
+    expect(asked, [true, false]);
     expect(repo.error, isNull);
     expect(repo.loading, isFalse);
   });
@@ -133,6 +135,9 @@ void main() {
     final gate = Completer<Catalog>();
     final repo = CatalogRepository(
       readCatalog: (language, {required bool server}) async {
+        if (language == 'sk') {
+          return _catalog([_species('Suillus grevillei')]);
+        }
         if (server) return gate.future;
         return _catalog([_species('Suillus grevillei')]);
       },

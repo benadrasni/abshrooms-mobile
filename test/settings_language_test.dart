@@ -61,6 +61,37 @@ void main() {
     expect(materialLocale('en_US'), const Locale('en', 'US'));
     expect(materialLocale('en'), const Locale('en', 'US'));
     expect(materialLocale('sk'), const Locale('sk'));
+    expect(englishRegionForDevice(const [Locale('en', 'GB')]), 'en_GB');
+    expect(englishRegionForDevice(const [Locale('en', 'UK')]), 'en_GB');
+    expect(englishRegionForDevice(const [Locale('en', 'US')]), 'en_US');
+    expect(englishRegionForDevice(const [Locale('sk', 'SK')]), 'en_US');
+    expect(
+      englishRegionForDevice(const [
+        Locale('sk', 'SK'),
+      ], platformLocaleName: 'en_GB'),
+      'en_GB',
+    );
+    expect(
+      storedGuideLanguage('en', locales: const [Locale('en', 'GB')]),
+      'en_GB',
+    );
+    expect(
+      storedGuideLanguage('en', locales: const [Locale('en', 'US')]),
+      'en_US',
+    );
+    expect(
+      storedGuideLanguage('en_GB', locales: const [Locale('en', 'US')]),
+      'en_GB',
+    );
+    expect(
+      storedGuideLanguage('en_US', locales: const [Locale('en', 'GB')]),
+      'en_US',
+    );
+    expect(
+      storedGuideLanguage('de', locales: const [Locale('en', 'GB')]),
+      'de',
+    );
+    expect(storedGuideLanguage(null, locales: const []), isNull);
   });
 
   test('British English keeps colour, grey, and favourite', () {
@@ -155,23 +186,8 @@ void main() {
     expect(prefs.getString('language'), 'pl');
   });
 
-  testWidgets('a saved English choice is American even on a British phone', (
-    tester,
-  ) async {
+  testWidgets('a saved bare English follows the device region', (tester) async {
     SharedPreferences.setMockInitialValues({'language': 'en'});
-    tester.platformDispatcher.localesTestValue = const [Locale('en', 'GB')];
-    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-
-    final settings = GuideSettings();
-    await settings.restore();
-
-    expect(settings.language, 'en_US');
-  });
-
-  testWidgets('a British phone uses British English until a language is picked', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
     tester.platformDispatcher.localesTestValue = const [Locale('en', 'GB')];
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
 
@@ -180,10 +196,55 @@ void main() {
 
     expect(settings.language, 'en_GB');
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('language'), isNull);
+    expect(prefs.getString('language'), 'en');
+  });
 
-    await settings.setLanguage('en');
+  testWidgets(
+    'a British phone uses British English until a language is picked',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.platformDispatcher.localesTestValue = const [Locale('en', 'GB')];
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+
+      final settings = GuideSettings();
+      await settings.restore();
+
+      expect(settings.language, 'en_GB');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('language'), isNull);
+
+      await settings.setLanguage('en');
+      expect(settings.language, 'en_GB');
+      expect(prefs.getString('language'), 'en_GB');
+    },
+  );
+
+  testWidgets('choosing English on an American phone stores en_US', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+
+    final settings = GuideSettings();
+    await settings.restore();
+    await settings.setLanguage(deviceEnglishChoice());
+
     expect(settings.language, 'en_US');
+    final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('language'), 'en_US');
+  });
+
+  testWidgets('a saved British English stays on an American phone', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'language': 'en_GB'});
+    tester.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+
+    final settings = GuideSettings();
+    await settings.restore();
+
+    expect(settings.language, 'en_GB');
   });
 }

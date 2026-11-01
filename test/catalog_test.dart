@@ -514,6 +514,44 @@ void main() {
     expect(named.contains(0x44), isFalse);
   });
 
+  test('a JPEG fallback drops JFIF thumbnails and JFXX', () {
+    final jfif = _jpegSegment(0xe0, [
+      ...'JFIF\x00'.codeUnits,
+      1, 1, // version
+      0, // units
+      0, 1, // X density
+      0, 1, // Y density
+      2, 1, // thumbnail
+      ...'GPSLAT'.codeUnits,
+    ]);
+    final jfxx = _jpegSegment(0xe0, [
+      ...'JFXX\x00'.codeUnits,
+      0x10,
+      ...'GPSLAT'.codeUnits,
+    ]);
+    final dqt = _jpegSegment(0xdb, [0]);
+    final sos = _jpegSegment(0xda, const []);
+    final bytes = Uint8List.fromList([
+      0xff, 0xd8, //
+      ...jfif,
+      ...jfxx,
+      ...dqt,
+      ...sos,
+      0x11, //
+      0xff, 0xd9,
+    ]);
+    expect(img.decodeImage(bytes), isNull);
+    final named = jpegMaxEdge(bytes)!;
+    expect(String.fromCharCodes(named).contains('GPSLAT'), isFalse);
+    expect(String.fromCharCodes(named).contains('JFXX'), isFalse);
+    expect(String.fromCharCodes(named).contains('JFIF'), isTrue);
+    expect(named.sublist(0, 6), [0xff, 0xd8, 0xff, 0xe0, 0x00, 16]);
+    expect(named[18], 0);
+    expect(named[19], 0);
+    expect(named[20], 0xff);
+    expect(named[21], 0xdb);
+  });
+
   test('Slovak book order keeps č and ch in place', () {
     expect(compareTitle('cibula', 'červená', 'sk'), lessThan(0));
     expect(compareTitle('huba', 'chránená', 'sk'), lessThan(0));

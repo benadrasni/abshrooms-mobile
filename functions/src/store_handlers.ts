@@ -188,9 +188,12 @@ export async function refreshAccountProofs(
 }
 
 /**
- * One account refresh. A recent `refreshedAt` returns throttled and does not
- * look anything up. The slot is reserved only once a lookup is about to
- * start, not when the read would be skipped.
+ * One account refresh.
+ *
+ * A closed window returns throttled and does not mint. The slot is reserved
+ * before a Play token is minted and before proofs are scanned. If the reserve
+ * loses, nothing is minted. A call that cannot reach Play or the App Store
+ * returns retry and does not reserve.
  */
 export async function runEntitlementRefresh(input: {
   db: EntitlementDb;
@@ -200,18 +203,24 @@ export async function runEntitlementRefresh(input: {
   canFetch: (proof: ProofRecord) => boolean;
   reserve: (now: number) => Promise<boolean>;
   lookup: (proof: ProofRecord) => Promise<Exclude<ProofLookup, { status: 'throttled' }>>;
+  /** False when Play credentials and the App Store key are both missing. */
+  canReachStore?: boolean;
+  /** Mints the Play bearer after the slot is held. */
+  mint?: () => Promise<void>;
 }): Promise<RefreshRun> {
   if (!nextRefreshReservation(input.node, input.now).allowed) {
     return { products: {}, retry: false, throttled: true };
   }
-  let reserved = false;
+  if (input.canReachStore === false) {
+    return { products: {}, retry: true, throttled: false };
+  }
+  const reserved = await input.reserve(input.now);
+  if (!reserved) {
+    return { products: {}, retry: false, throttled: true };
+  }
+  if (input.mint) await input.mint();
   return refreshAccountProofs(input.db, input.uid, input.now, async (proof) => {
     if (!input.canFetch(proof)) return { status: 'unavailable' };
-    if (!reserved) {
-      const ok = await input.reserve(input.now);
-      if (!ok) return { status: 'throttled' };
-      reserved = true;
-    }
     return input.lookup(proof);
   });
 }

@@ -262,19 +262,22 @@ export const refreshEntitlements = onCall(
     const privateKey = appStorePrivateKey.value();
     const apple: AppStoreCredentials | null =
       issuer && keyId && privateKey ? { issuerId: issuer, keyId, privateKey } : null;
+    const node = await db.get(`users/${uid}/entitlements`);
     let bearer: string | undefined;
-    if (play) {
-      try {
-        bearer = await playBearer(play, fetch, now);
-      } catch (error) {
-        logger.error('refreshEntitlements: play auth', { error: String(error) });
-      }
-    }
     const outcome = await runEntitlementRefresh({
       db,
       uid,
       now,
-      node: await db.get(`users/${uid}/entitlements`),
+      node,
+      canReachStore: Boolean(play) || apple != null,
+      mint: async () => {
+        if (!play) return;
+        try {
+          bearer = await playBearer(play, fetch, now);
+        } catch (error) {
+          logger.error('refreshEntitlements: play auth', { error: String(error) });
+        }
+      },
       canFetch: (proof) => (proof.store === 'app_store' ? apple != null : Boolean(play && bearer)),
       reserve: (at) => reserveEntitlementRefresh(uid, at),
       lookup: async (proof) => {

@@ -193,7 +193,8 @@ void main() {
       ),
     );
     expect(find.text('Update'), findsWidgets);
-    expect(find.text('62 mushrooms · about 2 MB'), findsOneWidget);
+    expect(find.text('about 2 MB'), findsOneWidget);
+    expect(find.text('62 mushrooms · about 2 MB'), findsNothing);
   });
 
   testWidgets('a running download can pause', (tester) async {

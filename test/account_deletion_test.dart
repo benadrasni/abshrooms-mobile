@@ -109,23 +109,44 @@ void main() {
   });
 
   test('an unverified password sign-in is not an analytics login', () {
-    var logged = 0;
+    final logged = <bool>[];
     var published = 0;
     publishVerifiedPassword(
       emailVerified: false,
-      log: () => logged += 1,
+      signUp: true,
+      log: logged.add,
       publish: () => published += 1,
     );
-    expect(logged, 0);
+    expect(logged, isEmpty);
     expect(published, 0);
 
     publishVerifiedPassword(
       emailVerified: true,
-      log: () => logged += 1,
+      signUp: true,
+      log: logged.add,
       publish: () => published += 1,
     );
-    expect(logged, 1);
+    expect(logged, [true]);
     expect(published, 1);
+
+    publishVerifiedPassword(
+      emailVerified: true,
+      signUp: false,
+      log: logged.add,
+      publish: () => published += 1,
+    );
+    expect(logged, [true, false]);
+    expect(published, 2);
+  });
+
+  test('the first verified sign-in records the email sign-up once', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    await rememberEmailSignUp('ada');
+    await rememberEmailSignUp('ada');
+    expect(await consumeEmailSignUp('ada'), isTrue);
+    expect(await consumeEmailSignUp('ada'), isFalse);
+    expect(await consumeEmailSignUp(''), isFalse);
   });
 
   test('an unverified password account is signed out before a guest', () async {
@@ -219,6 +240,38 @@ void main() {
       passwordEmailUnverified(
         anonymous: true,
         emailVerified: false,
+        providerIds: const ['password'],
+      ),
+      isFalse,
+    );
+    expect(
+      acceptsSignedInUser(
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['password'],
+      ),
+      isFalse,
+    );
+    expect(
+      acceptsSignedInUser(
+        anonymous: false,
+        emailVerified: true,
+        providerIds: const ['password'],
+      ),
+      isTrue,
+    );
+    expect(
+      acceptsSignedInUser(
+        anonymous: false,
+        emailVerified: false,
+        providerIds: const ['google.com'],
+      ),
+      isTrue,
+    );
+    expect(
+      acceptsSignedInUser(
+        anonymous: true,
+        emailVerified: true,
         providerIds: const ['password'],
       ),
       isFalse,

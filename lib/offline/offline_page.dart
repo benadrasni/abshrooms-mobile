@@ -446,17 +446,7 @@ class _OfflinePageState extends State<OfflinePage> {
                 ),
               if (view.hasUpdate && job == null)
                 _UpdateCard(
-                  detail: copy.offlineAdd(
-                    copy.count(
-                      view.missingSpecies > 0
-                          ? view.missingSpecies
-                          : view.species,
-                    ),
-                    offlineAbout(
-                      copy,
-                      OfflineAmount.ofBytes(offlinePackUpdateBytes(view)),
-                    ),
-                  ),
+                  detail: offlineUpdateLine(copy, view),
                   label: view.canDownload
                       ? copy.offlineUpdate
                       : copy.fieldGuide,
@@ -519,7 +509,7 @@ class _OfflinePageState extends State<OfflinePage> {
     await _download(
       OfflineRequest(
         title: copy.offlineUpdate,
-        species: view.missingSpecies > 0 ? view.missingSpecies : view.species,
+        species: view.missingSpecies,
         pending: view.pending,
         alreadyDone: view.alreadyDone,
         totalFiles: view.totalFiles,
