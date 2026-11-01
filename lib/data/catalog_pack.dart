@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/language.dart';
 import 'package:whats_that_mushroom/offline/offline_plan.dart';
 
 /// Public catalog snapshot published beside the plates.
@@ -207,7 +208,8 @@ Map<String, String> _taxonomyFile(Directory pack, String name) {
 }
 
 String _language(String language) {
-  return RegExp(r'^[a-z]{2}$').hasMatch(language) ? language : 'en';
+  final code = contentLanguage(language);
+  return RegExp(r'^[a-z]{2}$').hasMatch(code) ? code : 'en';
 }
 
 int _count(Object? value) {

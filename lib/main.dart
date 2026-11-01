@@ -248,9 +248,9 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
     if (state != AppLifecycleState.resumed) return;
     unawaited(_checkVersion());
     Entitlements.onResume();
-    // Launch reads the book once. Coming back has to read it again, or
-    // Seen, Seen lately, and New in the book stay on that first snapshot
-    // until the process is killed.
+    // Launch reads the book once. Coming back, and opening New in the book,
+    // read it again. Otherwise Seen, Seen lately, and New in the book stay
+    // on that first snapshot until the process is killed.
     unawaited(_refreshBook());
   }
 
@@ -514,6 +514,7 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
       settings: widget.settings,
       reload: _load,
       reloadLists: _reloadLists,
+      refreshBook: _refreshBook,
       selectTab: _selectTab,
       child: MaterialApp(
         navigatorKey: _navigatorKey,
@@ -554,9 +555,11 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
         theme: guideTheme(Brightness.light),
         darkTheme: guideTheme(Brightness.dark),
         themeMode: widget.settings.themeMode,
-        locale: Locale(widget.settings.language),
+        locale: materialLocale(widget.settings.language),
         supportedLocales: const [
           Locale('en'),
+          Locale('en', 'US'),
+          Locale('en', 'GB'),
           Locale('sk'),
           Locale('cs'),
           Locale('de'),

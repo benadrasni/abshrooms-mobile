@@ -9,6 +9,7 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/field_guide/catalog.dart';
 import 'package:whats_that_mushroom/field_guide/field_guide_page.dart';
+import 'package:whats_that_mushroom/language.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
 import 'package:whats_that_mushroom/offline/offline_page.dart';
 import 'package:whats_that_mushroom/offline/offline_plan.dart';
@@ -214,7 +215,7 @@ class _PersonPageState extends State<PersonPage> {
                 'cs' => copy.czech,
                 'da' => copy.danish,
                 'nl' => copy.dutch,
-                'en' => copy.english,
+                'en' || 'en_US' || 'en_GB' => copy.english,
                 'et' => copy.estonian,
                 'fi' => copy.finnish,
                 'fr' => copy.french,
@@ -816,7 +817,7 @@ class LanguagePage extends StatelessWidget {
             ),
             _LanguageChoice(
               name: copy.english,
-              selected: selected == 'en',
+              selected: englishInterface(selected),
               onTap: () => _choose(context, 'en'),
             ),
             _LanguageChoice(

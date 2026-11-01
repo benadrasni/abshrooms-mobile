@@ -2,7 +2,7 @@ import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 
 export 'package:whats_that_mushroom/data/models.dart'
-    show colorChoices, underChoices, whereChoices;
+    show colorChoices, underChoices, underSkip, whereChoices;
 
 const seasonChoices = ['spring', 'summer', 'autumn', 'winter'];
 

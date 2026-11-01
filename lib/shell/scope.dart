@@ -12,6 +12,10 @@ class GuideScope extends InheritedWidget {
   final GuideSettings settings;
   final Future<void> Function() reload;
   final Future<void> Function() reloadLists;
+
+  /// Reads the book from the server. Opening New in the book calls this so
+  /// a species added while the app stayed open shows up.
+  final Future<void> Function() refreshBook;
   final void Function(int index) selectTab;
 
   /// Snapshots taken when this widget is built. The repository, notebook,
@@ -34,7 +38,9 @@ class GuideScope extends InheritedWidget {
     required this.selectTab,
     required super.child,
     Future<void> Function()? reloadLists,
+    Future<void> Function()? refreshBook,
   }) : reloadLists = reloadLists ?? _ignore,
+       refreshBook = refreshBook ?? _ignore,
        catalogData = catalog.data,
        catalogLoading = catalog.loading,
        catalogError = catalog.error,

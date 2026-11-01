@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/book/list_chrome.dart';
 import 'package:whats_that_mushroom/data/models.dart';
@@ -8,6 +10,10 @@ import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
 
 /// New in the book: the latest species, grouped by the day they were added.
+///
+/// Opening the page reads the book from the server. A stored offline book
+/// is used only when that read fails. The list already on screen stays
+/// until the read finishes, then shows what was added.
 class NewPage extends StatefulWidget {
   const NewPage({super.key});
 
@@ -17,6 +23,21 @@ class NewPage extends StatefulWidget {
 
 class _NewPageState extends State<NewPage> {
   bool _plates = false;
+  var _asked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_asked) return;
+    _asked = true;
+    unawaited(_reload(GuideScope.of(context).refreshBook));
+  }
+
+  /// [refreshBook] replaces the catalog. Rebuild so this list reads it.
+  Future<void> _reload(Future<void> Function() refresh) async {
+    await refresh();
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {

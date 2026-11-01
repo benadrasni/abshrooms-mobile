@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/data/catalog_pack.dart';
+import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
 
@@ -16,6 +17,8 @@ void main() {
   });
 
   tearDown(() {
+    debugCatalogRead = null;
+    debugCuratedListsRead = null;
     OfflineBook.resetForTest();
     if (directory.existsSync()) directory.deleteSync(recursive: true);
   });
@@ -45,6 +48,12 @@ void main() {
     await _install(directory, description: 'A bolete.', slovak: 'Hríb.');
     OfflineBook.stored = true;
 
+    debugCatalogRead = (language, {required bool server}) async {
+      throw StateError('offline');
+    };
+    debugCuratedListsRead = () async {
+      throw StateError('offline');
+    };
     final repo = CatalogRepository();
     await repo.load('en');
     expect(repo.error, isNull);
@@ -104,6 +113,18 @@ void main() {
         revision: 'rev-a',
       );
       expect(catalog!.local['Boletus edulis']!.description, 'A bolete.');
+      expect(
+        readPackedCatalog(
+          directory.path,
+          'en_US',
+          revision: 'rev-a',
+        )!.local['Boletus edulis']!.description,
+        'A bolete.',
+      );
+      expect(
+        readPackedCatalog(directory.path, 'en_GB', revision: 'rev-a')!.language,
+        'en',
+      );
 
       await startOfflineDownload(
         request: const OfflineRequest(
@@ -201,6 +222,60 @@ void main() {
       )!.local['Boletus edulis']!.description,
       'A bolete.',
     );
+  });
+
+  test('an ordinary load asks the database before the stored pack', () async {
+    await _install(directory, description: 'A bolete.');
+    OfflineBook.stored = true;
+    debugCatalogRead = (language, {required bool server}) async {
+      expect(server, isFalse);
+      return buildCatalog(
+        language: 'en',
+        speciesDocs: [
+          Doc('Agaricus augustus', {
+            'id': 9,
+            'name': 'Agaricus augustus',
+            'added': '2026-10-31',
+          }),
+        ],
+        local: const {},
+        english: const {},
+        synonyms: const {},
+        taxa: const {},
+      );
+    };
+    final repo = CatalogRepository();
+    await repo.load('en');
+    expect(repo.data!.species.single.name, 'Agaricus augustus');
+    expect(repo.error, isNull);
+  });
+
+  test('a server refresh replaces the stored pack', () async {
+    await _install(directory, description: 'A bolete.');
+    OfflineBook.stored = true;
+    final repo = CatalogRepository()..language = 'en';
+    debugCatalogRead = (language, {required bool server}) async {
+      expect(language, 'en');
+      expect(server, isTrue);
+      return buildCatalog(
+        language: 'en',
+        speciesDocs: [
+          Doc('Agaricus augustus', {
+            'id': 9,
+            'name': 'Agaricus augustus',
+            'added': '2026-10-29',
+          }),
+        ],
+        local: const {},
+        english: const {},
+        synonyms: const {},
+        taxa: const {},
+      );
+    };
+
+    expect(await repo.refresh(), isTrue);
+    expect(repo.data!.species.single.name, 'Agaricus augustus');
+    expect(repo.data!.species.single.added, '2026-10-29');
   });
 
   test('a newer remote revision marks the stored book stale', () async {

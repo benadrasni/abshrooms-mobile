@@ -112,16 +112,16 @@ void main() {
 
     await tester.tap(find.text('With trees'));
     await tester.pumpAndSettle();
-    expect(find.text('What colour is the cap?'), findsNothing);
+    expect(find.text('What color is the cap?'), findsNothing);
 
     await tester.tap(find.text('On wood'));
     await tester.pumpAndSettle();
-    expect(find.text('What colour is the cap?'), findsOneWidget);
+    expect(find.text('What color is the cap?'), findsOneWidget);
 
-    Navigator.of(tester.element(find.text('What colour is the cap?'))).pop();
+    Navigator.of(tester.element(find.text('What color is the cap?'))).pop();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Anywhere'));
     await tester.pumpAndSettle();
-    expect(find.text('What colour is the cap?'), findsOneWidget);
+    expect(find.text('What color is the cap?'), findsOneWidget);
   });
 }

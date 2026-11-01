@@ -115,6 +115,14 @@ void main() {
         'us-state-mushrooms',
         'deadly-poisonous',
       ]);
+      expect(selectCuratedLists(lists, 'en_US').map((list) => list.id).toList(), [
+        'us-state-mushrooms',
+        'deadly-poisonous',
+      ]);
+      expect(selectCuratedLists(lists, 'en_GB').map((list) => list.id).toList(), [
+        'us-state-mushrooms',
+        'deadly-poisonous',
+      ]);
       expect(selectCuratedLists(lists, 'sk').map((list) => list.id).toList(), [
         'deadly-poisonous',
       ]);

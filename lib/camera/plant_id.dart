@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:image/image.dart' as img;
 import 'package:whats_that_mushroom/copy.dart';
+import 'package:whats_that_mushroom/language.dart';
 import 'package:whats_that_mushroom/purchase/names.dart';
 import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
@@ -211,7 +212,7 @@ Future<List<NameGuess>> identifyMushroom(
   try {
     final result = await callable.call<Object?>({
       'image': base64Encode(jpeg),
-      'language': language,
+      'language': contentLanguage(language),
     });
     _applyQuota(result.data);
     return guessesFrom(result.data);

@@ -248,11 +248,32 @@ void main() {
     await tester.pump();
     expect(find.text('Enter a valid phone number'), findsOneWidget);
   });
+
+  testWidgets('an English spelling locale does not assume +1', (tester) async {
+    final settings = GuideSettings()..language = 'en_US';
+    await _open(
+      tester,
+      const SignInPage(showApple: false, plate: _plate),
+      locale: const Locale('en', 'US'),
+      settings: settings,
+      supportedLocales: const [Locale('en', 'US'), Locale('en'), Locale('sk')],
+    );
+    await tester.tap(find.text('Phone'));
+    await tester.pumpAndSettle();
+    expect(find.text('+1'), findsNothing);
+    expect(find.text('+'), findsOneWidget);
+  });
 }
 
 Widget _plate(BuildContext context) => const SizedBox.shrink(key: Key('plate'));
 
-Future<void> _open(WidgetTester tester, Widget page, {Locale? locale}) async {
+Future<void> _open(
+  WidgetTester tester,
+  Widget page, {
+  Locale? locale,
+  GuideSettings? settings,
+  List<Locale>? supportedLocales,
+}) async {
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -261,13 +282,14 @@ Future<void> _open(WidgetTester tester, Widget page, {Locale? locale}) async {
     GuideScope(
       catalog: CatalogRepository(),
       notebook: Notebook(),
-      settings: GuideSettings(),
+      settings: settings ?? GuideSettings(),
       reload: () async {},
       selectTab: (_) {},
       child: MaterialApp(
         theme: guideTheme(Brightness.light),
         locale: locale ?? const Locale('en'),
-        supportedLocales: const [Locale('en'), Locale('sk')],
+        supportedLocales:
+            supportedLocales ?? const [Locale('en'), Locale('sk')],
         home: Scaffold(
           body: Builder(
             builder: (context) {

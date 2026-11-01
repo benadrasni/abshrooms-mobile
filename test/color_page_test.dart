@@ -102,36 +102,36 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.text('Gills')).dy,
-      lessThan(tester.getTopLeft(find.text('What colour is the cap?')).dy),
+      lessThan(tester.getTopLeft(find.text('What color is the cap?')).dy),
     );
     expect(find.text('KEY IT OUT · 3 OF 3'), findsOneWidget);
     expect(find.text('ALWAYS FREE'), findsOneWidget);
-    expect(find.text('What colour is the cap?'), findsOneWidget);
+    expect(find.text('What color is the cap?'), findsOneWidget);
     expect(
       find.text(
         'Yellow includes orange. Red includes pink. Dark is grey or black. '
-        'A cap can match more than one colour.',
+        'A cap can match more than one color.',
       ),
       findsOneWidget,
     );
     expect(
-      tester.getTopLeft(find.text('What colour is the cap?')).dy,
+      tester.getTopLeft(find.text('What color is the cap?')).dy,
       lessThan(
         tester.getTopLeft(find.textContaining('Yellow includes orange')).dy,
       ),
     );
     expect(
       tester.getTopLeft(find.textContaining('Yellow includes orange')).dy,
-      lessThan(tester.getTopLeft(find.text('Any colour')).dy),
+      lessThan(tester.getTopLeft(find.text('Any color')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('Any colour')).dy,
+      tester.getTopLeft(find.text('Any color')).dy,
       lessThan(tester.getTopLeft(find.text('White')).dy),
     );
     final anyFill = tester.widget<Material>(
       find
           .ancestor(
-            of: find.text('Any colour'),
+            of: find.text('Any color'),
             matching: find.byType(Material),
           )
           .first,
@@ -188,12 +188,12 @@ void main() {
 
     await tester.tap(find.text('White'));
     await tester.pumpAndSettle();
-    expect(find.text('What colour is the cap?'), findsOneWidget);
+    expect(find.text('What color is the cap?'), findsOneWidget);
     expect(find.text('1 mushroom'), findsNothing);
 
     await tester.tap(find.text('Brown'));
     await tester.pumpAndSettle();
-    expect(find.text('Colour'), findsOneWidget);
+    expect(find.text('Color'), findsOneWidget);
     expect(find.text('Any season'), findsOneWidget);
     expect(find.text('1 mushroom', findRichText: true), findsOneWidget);
     expect(find.text('FRUITING NOW · 1'), findsOneWidget);
@@ -235,9 +235,9 @@ void main() {
 
     await tester.tap(find.text('Brown'));
     await tester.pumpAndSettle();
-    expect(find.text('What colour is the cap?'), findsOneWidget);
+    expect(find.text('What color is the cap?'), findsOneWidget);
 
-    await tester.tap(find.text('Any colour'));
+    await tester.tap(find.text('Any color'));
     await tester.pumpAndSettle();
     expect(find.text('1 mushroom', findRichText: true), findsOneWidget);
     expect(find.text('Brown'), findsNothing);
@@ -308,7 +308,7 @@ void main() {
     await tester.tap(find.text('Gills'));
     await tester.pumpAndSettle();
     expect(find.text('Find'), findsOneWidget);
-    expect(find.text('What colour is the cap?'), findsNothing);
+    expect(find.text('What color is the cap?'), findsNothing);
     expect(find.text('Where is it growing?'), findsNothing);
   });
 }

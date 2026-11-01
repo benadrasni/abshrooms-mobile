@@ -41,6 +41,7 @@ class FindPage extends StatelessWidget {
       );
     }
     final counts = optionCounts(catalog.species, const KeySelection(), 'under');
+    final openCount = catalog.species.length;
     final recent = scope.notebook.finds.take(5).toList();
     final fresh = newInBook(catalog.species);
     final favorites =
@@ -108,6 +109,7 @@ class FindPage extends StatelessWidget {
           copy: copy,
           colors: colors,
           counts: counts,
+          openCount: openCount,
           onUnder: (id) => Navigator.of(context).push(
             guideRoute(
               guideScreenWhere,
@@ -422,18 +424,20 @@ class _KeyCard extends StatelessWidget {
   final Copy copy;
   final GuideColors colors;
   final Map<String, int> counts;
+  final int openCount;
   final ValueChanged<String> onUnder;
 
   const _KeyCard({
     required this.copy,
     required this.colors,
     required this.counts,
+    required this.openCount,
     required this.onUnder,
   });
 
   @override
   Widget build(BuildContext context) {
-    final rows = (underChoices.length + 3) ~/ 4;
+    final rows = (_underTiles.length + 3) ~/ 4;
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 0),
       child: Column(
@@ -466,17 +470,20 @@ class _KeyCard extends StatelessWidget {
     );
   }
 
+  List<String> get _underTiles => [...underChoices, underSkip];
+
   Widget _cell(int index) {
-    if (index >= underChoices.length) return const SizedBox.shrink();
-    final id = underChoices[index];
-    final count = counts[id] ?? 0;
+    if (index >= _underTiles.length) return const SizedBox.shrink();
+    final id = _underTiles[index];
+    final skip = id == underSkip;
+    final count = skip ? openCount : (counts[id] ?? 0);
     return _UnderPill(
       label: copy.underLabel(id),
       example: copy.underExample(id),
       count: count,
       glyph: id,
       colors: colors,
-      onTap: count > 0 ? () => onUnder(id) : null,
+      onTap: count > 0 ? () => onUnder(skip ? '' : id) : null,
     );
   }
 }

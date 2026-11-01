@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:whats_that_mushroom/book/new_page.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
+import 'package:whats_that_mushroom/language.dart';
 import 'package:whats_that_mushroom/lists/curated_list_page.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
@@ -200,7 +201,7 @@ class GuidePush {
 
   /// Leaves the previous language topic and joins `notifications-{code}`.
   Future<void> setLanguage(String code) async {
-    final next = code.trim().isEmpty ? 'en' : code.trim();
+    final next = contentLanguage(code.trim().isEmpty ? 'en' : code.trim());
     language = next;
     final topic = 'notifications-$next';
     if (_topic == topic) return;

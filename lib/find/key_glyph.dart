@@ -103,6 +103,10 @@ const _glyphs = <String, _Glyph>{
     rings: [_Dot(36, 30, 16)],
     dots: [_Dot(30, 28, 1.4), _Dot(38, 24, 1.4), _Dot(42, 32, 1.4)],
   ),
+  'unclear': _Glyph(
+    strokes: ['M22 32C22 14 54 12 50 30C46 44 38 42 38 54'],
+    dots: [_Dot(38, 64, 2.4)],
+  ),
   'wood': _Glyph(
     strokes: [
       'M20 28h36c8 0 12 4 12 12c0 8-4 12-12 12H20',

@@ -9,6 +9,9 @@ const underChoices = [
   'smooth',
   'gleba',
 ];
+
+/// The eighth underside tile. It is not a hymenium code, so it does not filter.
+const underSkip = 'unclear';
 const whereChoices = ['wood', 'ground', 'grass'];
 const colorChoices = [
   'white',

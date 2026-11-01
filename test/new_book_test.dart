@@ -111,6 +111,43 @@ void main() {
     );
   });
 
+  testWidgets('opening New in the book reloads the catalog', (tester) async {
+    final repository = CatalogRepository()
+      ..data = _book('Boletus edulis', '2026-10-22')
+      ..loading = false;
+    var refreshes = 0;
+    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      _harness(
+        repository,
+        Notebook(),
+        () async {},
+        (_) {},
+        refreshBook: () async {
+          refreshes += 1;
+          repository.data = _book('Agaricus augustus', '2026-10-29');
+        },
+      ),
+    );
+
+    await tester.ensureVisible(find.text('New in the book'));
+    await tester.tap(find.text('New in the book'));
+    await tester.pumpAndSettle();
+
+    expect(refreshes, 1);
+    expect(find.text('Agaricus augustus'), findsWidgets);
+    expect(find.text('Boletus edulis'), findsNothing);
+    expect(
+      find.textContaining('The last 1 mushroom added to the book'),
+      findsOneWidget,
+    );
+    await tester.pump();
+    expect(refreshes, 1);
+  });
+
   testWidgets('Find hides Seen until a sighting exists', (tester) async {
     addTearDown(() => BookLists.request.value = 0);
     final catalog = buildCatalog(
@@ -276,6 +313,26 @@ void main() {
   });
 }
 
+Catalog _book(String name, String added) {
+  return buildCatalog(
+    language: 'en',
+    speciesDocs: [
+      Doc(name, {
+        'name': name,
+        'id': 4,
+        'hymenium': 'tubes',
+        'where': ['ground'],
+        'color': ['brown'],
+        'added': added,
+      }),
+    ],
+    local: const {},
+    english: const {},
+    synonyms: const {},
+    taxa: const {},
+  );
+}
+
 void _expectPhotoCard(WidgetTester tester, GuideColors colors) {
   final card = tester.widget<Material>(
     find
@@ -300,12 +357,14 @@ Widget _harness(
   Future<void> Function() reload,
   void Function(int index) selectTab, {
   Brightness brightness = Brightness.light,
+  Future<void> Function()? refreshBook,
 }) {
   return GuideScope(
     catalog: repository,
     notebook: notebook,
     settings: GuideSettings(),
     reload: reload,
+    refreshBook: refreshBook,
     selectTab: selectTab,
     child: MaterialApp(
       theme: guideTheme(brightness),

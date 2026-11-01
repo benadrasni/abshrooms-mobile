@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/language.dart';
 
 /// Firestore collection of editorial lists. Not user lists.
 ///
@@ -176,7 +177,7 @@ String localizedListText(
   String language, {
   String fallback = '',
 }) {
-  final own = texts[language.toLowerCase()];
+  final own = texts[contentLanguage(language).toLowerCase()];
   if (own != null && own.trim().isNotEmpty) return own.trim();
   final english = texts['en'];
   if (english != null && english.trim().isNotEmpty) return english.trim();
@@ -192,7 +193,7 @@ List<CuratedListDoc> selectCuratedLists(
   List<CuratedListDoc> lists,
   String language,
 ) {
-  final code = language.toLowerCase();
+  final code = contentLanguage(language).toLowerCase();
   return [
     for (final list in lists)
       if (list.locales.contains(code) || list.locales.contains('*')) list,

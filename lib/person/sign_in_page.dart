@@ -10,6 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/language.dart';
 import 'package:whats_that_mushroom/legal.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
@@ -373,6 +374,11 @@ class _SignInPageState extends State<SignInPage> {
   Country? _selectedCountry(BuildContext context) {
     final chosen = _country ?? widget.initialCountry;
     if (chosen != null) return chosen;
+    // en_US and en_GB are spellings. Their country is not a calling code,
+    // so English does not become +1 or +44.
+    if (englishInterface(GuideScope.of(context).settings.language)) {
+      return null;
+    }
     return callingCountry(Localizations.localeOf(context).countryCode);
   }
 

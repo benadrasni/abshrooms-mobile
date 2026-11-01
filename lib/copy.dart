@@ -1,6 +1,21 @@
 // Generated copy for 34 languages.
 // Do not edit directly; run scripts/generate_clean_34_master.js.
 
+import 'package:whats_that_mushroom/language.dart';
+
+/// British spellings of the American strings that say "color".
+const _enGB = {
+  'Narrow the catalog by the underside, where it grows, the cap color, and the season. It does not confirm a name, and it is not a guide to eating.':
+      'Narrow the catalog by the underside, where it grows, the cap colour, and the season. It does not confirm a name, and it is not a guide to eating.',
+  'What color is the cap?': 'What colour is the cap?',
+  'Color': 'Colour',
+  'Any color': 'Any colour',
+  'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one color.':
+      'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one colour.',
+  'Underside, place, color, season. Free, always.':
+      'Underside, place, colour, season. Free, always.',
+};
+
 /// English, Slovak, Czech, German, French, Polish, Hungarian, Ukrainian, Russian,
 /// Spanish, Portuguese, Dutch, Danish, Swedish, Norwegian, Finnish, Estonian, Latvian,
 /// Lithuanian, Italian, Croatian, Slovenian, Serbian, Romanian, Bulgarian, Turkish,
@@ -10,7 +25,7 @@ class Copy {
 
   const Copy(this.code);
 
-  bool get en => code == 'en';
+  bool get en => englishInterface(code);
   bool get sk => code == 'sk';
   bool get cs => code == 'cs';
   bool get de => code == 'de';
@@ -80,7 +95,8 @@ class Copy {
     required String he,
     required String fa,
     required String ar,
-  }) => switch (code) {
+  }) {
+    final picked = switch (code) {
     'sk' => sk,
     'cs' => cs,
     'de' => de,
@@ -115,7 +131,10 @@ class Copy {
     'fa' => fa,
     'ar' => ar,
     _ => en,
-  };
+    };
+    if (code != 'en_GB') return picked;
+    return _enGB[picked] ?? picked;
+  }
 
   String shortMonth(int month) {
     return switch (code) {
@@ -745,7 +764,7 @@ class Copy {
     ar: 'مجاني دائما',
   );
   String get keyLede => _t(
-    en: 'Narrow the catalog by the underside, where it grows, the cap colour, and the season. It does not confirm a name, and it is not a guide to eating.',
+    en: 'Narrow the catalog by the underside, where it grows, the cap color, and the season. It does not confirm a name, and it is not a guide to eating.',
     sk: 'Zúžte katalóg podľa spodnej strany, miesta, farby klobúka a obdobia. Neurčuje to meno s istotou a nie je to návod na zber.',
     cs: 'Zužte katalog podle spodní strany, místa růstu, barvy klobouku a období. Neurčuje to jméno s jistotou a není to návod ke sběru.',
     de: 'Grenzen Sie den Katalog nach Unterseite, Standort, Hutfarbe und Jahreszeit ein. Dies bestätigt keinen Namen mit Sicherheit und ist keine Verzehranleitung.',
@@ -997,7 +1016,7 @@ class Copy {
     ar: 'في أي مكان',
   );
   String get colorQuestion => _t(
-    en: 'What colour is the cap?',
+    en: 'What color is the cap?',
     sk: 'Akej farby je klobúk?',
     cs: 'Jakou barvu má klobouk?',
     de: 'Welche Farbe hat der Hut?',
@@ -1033,7 +1052,7 @@ class Copy {
     ar: 'ما هو لون القبعة؟',
   );
   String get colorBack => _t(
-    en: 'Colour',
+    en: 'Color',
     sk: 'Farba',
     cs: 'Barva',
     de: 'Farbe',
@@ -1069,7 +1088,7 @@ class Copy {
     ar: 'اللون',
   );
   String get anyColor => _t(
-    en: 'Any colour',
+    en: 'Any color',
     sk: 'Ktorákoľvek farba',
     cs: 'Jakákoli barva',
     de: 'Jede Farbe',
@@ -1105,7 +1124,7 @@ class Copy {
     ar: 'أي لون',
   );
   String get colorNote => _t(
-    en: 'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one colour.',
+    en: 'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one color.',
     sk: 'Žltá zahŕňa oranžovú. Červená zahŕňa ružovú. Tmavá je sivá alebo čierna. Klobúk môže mať viac farieb.',
     cs: 'Žlutá zahrnuje oranžovou. Červená zahrnuje růžovou. Tmavá je šedá nebo černá. Klobouk může mít více barev.',
     de: 'Gelb schließt Orange ein. Rot schließt Rosa ein. Dunkel bedeutet Grau oder Schwarz. Ein Hut kann mehrere Farben haben.',
@@ -1364,6 +1383,7 @@ class Copy {
     'pits' => _t(en: 'Pits', sk: 'Jamky', cs: 'Jamky', de: 'Waben', fr: 'Alvéoles', pl: 'Jamki', hu: 'Gödröcskék', uk: 'Комірки', ru: 'Ячейки', es: 'Alvéolos', pt: 'Alvéolos', nl: 'Holten', da: 'Gruber', sv: 'Gropar', no: 'Groper', fi: 'Lokerot', et: 'Uurised', lv: 'Iedobumi', lt: 'Duobutės', it: 'Alveoli', hr: 'Jamice', sl: 'Jamice', sr: 'Јамице', ro: 'Alveole', bg: 'Килийки', tr: 'Çukurlar', id: 'Lubang', ja: '網目・くぼみ', ko: '그물눈·구멍', zh: '凹坑', hi: 'गड्ढे', he: 'גומות', fa: 'حفره‌ها', ar: 'حفر'),
     'smooth' => _t(en: 'Smooth', sk: 'Hladký', cs: 'Hladký', de: 'Glatt', fr: 'Lisse', pl: 'Gładki', hu: 'Sima', uk: 'Гладенький', ru: 'Гладкий', es: 'Liso', pt: 'Liso', nl: 'Glad', da: 'Glat', sv: 'Slät', no: 'Glatt', fi: 'Sileä', et: 'Sile', lv: 'Gluda', lt: 'Lygus', it: 'Liscio', hr: 'Glatko', sl: 'Gladko', sr: 'Глатко', ro: 'Neted', bg: 'Гладка', tr: 'Düz', id: 'Halus', ja: '平滑', ko: '매끄러움', zh: '平滑', hi: 'चिकना', he: 'חלק', fa: 'صاف', ar: 'أملس'),
     'gleba' => _t(en: 'Enclosed', sk: 'Vnútri', cs: 'Uvnitř', de: 'Geschlossen', fr: 'Fermé', pl: 'Zamknięty', hu: 'Zárt', uk: 'Всередині', ru: 'Внутри', es: 'Cerrado', pt: 'Fechado', nl: 'Gesloten', da: 'Lukket', sv: 'Innesluten', no: 'Lukket', fi: 'Suljettu', et: 'Suletud', lv: 'Iekapsulēts', lt: 'Uždaras', it: 'Chiuso', hr: 'Zatvoreno', sl: 'Zaprto', sr: 'Затворено', ro: 'Închis', bg: 'Затворено', tr: 'Kapalı', id: 'Gleba tertutup', ja: 'グレバ（内部）', ko: '기본체(내부)', zh: '產孢體', hi: 'ग्लेबा', he: 'פנימי', fa: 'محصور', ar: 'داخلي'),
+    'unclear' => _t(en: 'Not clear', sk: 'Nejasné', cs: 'Nejasné', de: 'Unklar', fr: 'Pas clair', pl: 'Niejasne', hu: 'Nem világos', uk: 'Неясно', ru: 'Неясно', es: 'No está claro', pt: 'Não está claro', nl: 'Onduidelijk', da: 'Uklart', sv: 'Oklart', no: 'Uklart', fi: 'Epäselvä', et: 'Ebaselge', lv: 'Neskaidrs', lt: 'Neaišku', it: 'Non chiaro', hr: 'Nije jasno', sl: 'Nejasno', sr: 'Није јасно', ro: 'Neclar', bg: 'Неясно', tr: 'Belirsiz', id: 'Tidak jelas', ja: 'わからない', ko: '모르겠음', zh: '不清楚', hi: 'अस्पष्ट', he: 'לא ברור', fa: 'نامشخص', ar: 'غير واضح'),
     _ => id,
   };
 
@@ -4097,7 +4117,7 @@ class Copy {
     ar: 'حدده بالمفتاح',
   );
   String get cameraKeyNote => _t(
-    en: 'Underside, place, colour, season. Free, always.',
+    en: 'Underside, place, color, season. Free, always.',
     sk: 'Spodok, miesto, farba, sezóna. Zadarmo, vždy.',
     cs: 'Spodek, místo, barva, sezóna. Zdarma, vždy.',
     de: 'Unterseite, Standort, Farbe, Jahreszeit. Kostenlos, immer.',
