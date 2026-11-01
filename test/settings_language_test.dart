@@ -63,7 +63,7 @@ void main() {
     expect(materialLocale('sk'), const Locale('sk'));
   });
 
-  test('only the colour strings differ between American and British English', () {
+  test('British English keeps colour, grey, and favourite', () {
     const us = Copy('en_US');
     const gb = Copy('en_GB');
     const plain = Copy('en');
@@ -76,6 +76,32 @@ void main() {
     expect(gb.anyColor, 'Any colour');
     expect(us.cameraKeyNote, 'Underside, place, color, season. Free, always.');
     expect(gb.cameraKeyNote, 'Underside, place, colour, season. Free, always.');
+    expect(
+      plain.colorNote,
+      'Yellow includes orange. Red includes pink. Dark is gray or black. A cap can match more than one color.',
+    );
+    expect(us.colorNote, plain.colorNote);
+    expect(
+      gb.colorNote,
+      'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one colour.',
+    );
+    expect(us.favorites, 'Favorites');
+    expect(gb.favorites, 'Favourites');
+    expect(us.favoriteAdd, 'Mark as favorite');
+    expect(gb.favoriteAdd, 'Mark as favourite');
+    expect(us.favoriteRemove, 'Remove from favorites');
+    expect(gb.favoriteRemove, 'Remove from favourites');
+    expect(us.favoriteAdded, 'Added to Favorite mushrooms.');
+    expect(gb.favoriteAdded, 'Added to Favourite mushrooms.');
+    expect(us.favoriteRemoved, 'Removed from Favorite mushrooms.');
+    expect(gb.favoriteRemoved, 'Removed from Favourite mushrooms.');
+    expect(us.favoriteAccount, 'Favorite mushrooms stay with your account.');
+    expect(gb.favoriteAccount, 'Favourite mushrooms stay with your account.');
+    expect(us.favoriteMushrooms, 'Favorite mushrooms');
+    expect(gb.favoriteMushrooms, 'Favourite mushrooms');
+    expect(us.favoritesEmpty, 'There are no favorite mushrooms yet.');
+    expect(gb.favoritesEmpty, 'There are no favourite mushrooms yet.');
+    expect(Copy('sk').favoriteMushrooms, isNot('Favourite mushrooms'));
     expect(gb.underQuestion, us.underQuestion);
     expect(plain.en, isTrue);
     expect(us.en, isTrue);

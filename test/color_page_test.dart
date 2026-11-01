@@ -109,7 +109,7 @@ void main() {
     expect(find.text('What color is the cap?'), findsOneWidget);
     expect(
       find.text(
-        'Yellow includes orange. Red includes pink. Dark is grey or black. '
+        'Yellow includes orange. Red includes pink. Dark is gray or black. '
         'A cap can match more than one color.',
       ),
       findsOneWidget,

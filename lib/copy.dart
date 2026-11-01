@@ -3,17 +3,27 @@
 
 import 'package:whats_that_mushroom/language.dart';
 
-/// British spellings of the American strings that say "color".
+/// British spellings of the American strings that say "color", "gray", or "favorite".
 const _enGB = {
   'Narrow the catalog by the underside, where it grows, the cap color, and the season. It does not confirm a name, and it is not a guide to eating.':
       'Narrow the catalog by the underside, where it grows, the cap colour, and the season. It does not confirm a name, and it is not a guide to eating.',
   'What color is the cap?': 'What colour is the cap?',
   'Color': 'Colour',
   'Any color': 'Any colour',
-  'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one color.':
+  'Yellow includes orange. Red includes pink. Dark is gray or black. A cap can match more than one color.':
       'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one colour.',
   'Underside, place, color, season. Free, always.':
       'Underside, place, colour, season. Free, always.',
+  'Favorites': 'Favourites',
+  'Mark as favorite': 'Mark as favourite',
+  'Remove from favorites': 'Remove from favourites',
+  'Added to Favorite mushrooms.': 'Added to Favourite mushrooms.',
+  'Removed from Favorite mushrooms.': 'Removed from Favourite mushrooms.',
+  'Favorite mushrooms stay with your account.':
+      'Favourite mushrooms stay with your account.',
+  'Favorite mushrooms': 'Favourite mushrooms',
+  'There are no favorite mushrooms yet.':
+      'There are no favourite mushrooms yet.',
 };
 
 /// English, Slovak, Czech, German, French, Polish, Hungarian, Ukrainian, Russian,
@@ -1124,7 +1134,7 @@ class Copy {
     ar: 'أي لون',
   );
   String get colorNote => _t(
-    en: 'Yellow includes orange. Red includes pink. Dark is grey or black. A cap can match more than one color.',
+    en: 'Yellow includes orange. Red includes pink. Dark is gray or black. A cap can match more than one color.',
     sk: 'Žltá zahŕňa oranžovú. Červená zahŕňa ružovú. Tmavá je sivá alebo čierna. Klobúk môže mať viac farieb.',
     cs: 'Žlutá zahrnuje oranžovou. Červená zahrnuje růžovou. Tmavá je šedá nebo černá. Klobouk může mít více barev.',
     de: 'Gelb schließt Orange ein. Rot schließt Rosa ein. Dunkel bedeutet Grau oder Schwarz. Ein Hut kann mehrere Farben haben.',
