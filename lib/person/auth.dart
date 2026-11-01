@@ -188,13 +188,9 @@ class Auth {
     final verified = result.user?.emailVerified == true;
     final pending =
         verified && await consumeEmailSignUp(result.user?.uid ?? '');
-    final event = passwordAuthEvent(
-      emailVerified: verified,
-      pendingSignUp: pending,
-    );
     publishVerifiedPassword(
       emailVerified: verified,
-      signUp: event == PasswordAuthEvent.signUp,
+      signUp: pending,
       log: (signUp) => _logAuth(result, 'password', signUp),
       publish: publish,
     );
@@ -265,20 +261,6 @@ class Auth {
     await firebaseAuth.signOut();
     await startGuest();
   }
-}
-
-/// What a password account records once Firebase has answered.
-///
-/// An unverified account stays quiet. The first verified sign-in of an
-/// account created here is the sign-up. A later verified sign-in is a login.
-enum PasswordAuthEvent { none, login, signUp }
-
-PasswordAuthEvent passwordAuthEvent({
-  required bool emailVerified,
-  required bool pendingSignUp,
-}) {
-  if (!emailVerified) return PasswordAuthEvent.none;
-  return pendingSignUp ? PasswordAuthEvent.signUp : PasswordAuthEvent.login;
 }
 
 const _pendingEmailSignUps = 'pending_email_sign_up';

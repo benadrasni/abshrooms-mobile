@@ -1,11 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import {
-  mintPlayBearerIfDue,
-  refreshEntitlementsEnforceAppCheck,
-  refreshEntitlementsMinGapMs,
-  stampRefresh,
-} from './refresh_limit';
+import { refreshEntitlementsEnforceAppCheck, refreshEntitlementsMinGapMs, stampRefresh } from './refresh_limit';
 import type { VerifiedPurchase } from './entitlements';
 import { runEntitlementRefresh, type EntitlementDb } from './store_handlers';
 
@@ -55,22 +50,7 @@ test('a refresh stamp keeps the products and ignores a call inside the window', 
   assert.equal(refreshEntitlementsEnforceAppCheck, false);
 });
 
-test('a throttled refresh does not mint a Play bearer', async () => {
-  const events: string[] = [];
-  const blocked = await mintPlayBearerIfDue({ refreshedAt: now }, now + 1_000, async () => {
-    events.push('bearer');
-  });
-  assert.equal(blocked, false);
-  assert.equal(events.length, 0);
-
-  const opened = await mintPlayBearerIfDue(null, now, async () => {
-    events.push('bearer');
-  });
-  assert.equal(opened, true);
-  assert.deepEqual(events, ['bearer']);
-});
-
-test('throttle skips the lookup, and the slot is reserved before proofs are scanned', async () => {
+test('throttle skips the lookup, and the slot is reserved before a token is minted', async () => {
   const db = proofDb();
   let node: unknown = { refreshedAt: now };
   const blocked: string[] = [];
@@ -80,6 +60,9 @@ test('throttle skips the lookup, and the slot is reserved before proofs are scan
     now: now + 1_000,
     node,
     canFetch: () => true,
+    mint: async () => {
+      blocked.push('mint');
+    },
     reserve: async () => {
       blocked.push('reserve');
       return true;
@@ -128,6 +111,9 @@ test('throttle skips the lookup, and the slot is reserved before proofs are scan
       node = stamped.entitlements;
       return true;
     },
+    mint: async () => {
+      startedEvents.push('mint');
+    },
     lookup: async () => {
       startedEvents.push('lookup');
       return { status: 'unavailable' };
@@ -135,7 +121,7 @@ test('throttle skips the lookup, and the slot is reserved before proofs are scan
   });
   assert.equal(started.throttled, false);
   assert.equal(started.retry, true);
-  assert.deepEqual(startedEvents, ['reserve', 'lookup']);
+  assert.deepEqual(startedEvents, ['reserve', 'mint', 'lookup']);
 
   const again: string[] = [];
   const second = await runEntitlementRefresh({
@@ -158,9 +144,38 @@ test('throttle skips the lookup, and the slot is reserved before proofs are scan
   assert.deepEqual(again, []);
 });
 
-test('parallel refreshes reserve once and scan the proofs once', async () => {
+test('a call that cannot reach either store does not consume the minute', async () => {
+  const db = proofDb();
+  const events: string[] = [];
+  const missed = await runEntitlementRefresh({
+    db,
+    uid,
+    now,
+    node: null,
+    canReachStore: false,
+    canFetch: () => true,
+    mint: async () => {
+      events.push('mint');
+    },
+    reserve: async () => {
+      events.push('reserve');
+      return true;
+    },
+    lookup: async () => {
+      events.push('lookup');
+      return { status: 'unavailable' };
+    },
+  });
+  assert.equal(missed.throttled, false);
+  assert.equal(missed.retry, true);
+  assert.deepEqual(missed.products, {});
+  assert.deepEqual(events, []);
+});
+
+test('overlapping refreshes mint a Play token at most once', async () => {
   let slot: unknown = null;
   let scans = 0;
+  let mints = 0;
   const proofs = {
     play_1: {
       uid,
@@ -211,6 +226,9 @@ test('parallel refreshes reserve once and scan the proofs once', async () => {
       node: null,
       canFetch: () => true,
       reserve,
+      mint: async () => {
+        mints += 1;
+      },
       lookup: async () => ({ status: 'unavailable' }),
     }),
     runEntitlementRefresh({
@@ -220,10 +238,14 @@ test('parallel refreshes reserve once and scan the proofs once', async () => {
       node: null,
       canFetch: () => true,
       reserve,
+      mint: async () => {
+        mints += 1;
+      },
       lookup: async () => ({ status: 'unavailable' }),
     }),
   ]);
   assert.equal(scans, 1);
+  assert.equal(mints, 1);
   assert.equal(first.throttled !== second.throttled, true);
 });
 

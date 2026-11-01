@@ -26,7 +26,7 @@ import {
   type AppStoreCredentials,
 } from './store_fetch';
 import { authorizePubSub, googlePubSubKey, PubSubKeysUnavailable } from './pubsub_auth';
-import { mintPlayBearerIfDue, refreshEntitlementsEnforceAppCheck } from './refresh_limit';
+import { refreshEntitlementsEnforceAppCheck } from './refresh_limit';
 
 const playPublisherJson = defineSecret('PLAY_PUBLISHER_JSON');
 const playPubsubEmail = defineString('PLAY_PUBSUB_EMAIL', { default: '' });
@@ -264,20 +264,20 @@ export const refreshEntitlements = onCall(
       issuer && keyId && privateKey ? { issuerId: issuer, keyId, privateKey } : null;
     const node = await db.get(`users/${uid}/entitlements`);
     let bearer: string | undefined;
-    const due = await mintPlayBearerIfDue(node, now, async () => {
-      if (!play) return;
-      try {
-        bearer = await playBearer(play, fetch, now);
-      } catch (error) {
-        logger.error('refreshEntitlements: play auth', { error: String(error) });
-      }
-    });
-    if (!due) return { throttled: true };
     const outcome = await runEntitlementRefresh({
       db,
       uid,
       now,
       node,
+      canReachStore: Boolean(play) || apple != null,
+      mint: async () => {
+        if (!play) return;
+        try {
+          bearer = await playBearer(play, fetch, now);
+        } catch (error) {
+          logger.error('refreshEntitlements: play auth', { error: String(error) });
+        }
+      },
       canFetch: (proof) => (proof.store === 'app_store' ? apple != null : Boolean(play && bearer)),
       reserve: (at) => reserveEntitlementRefresh(uid, at),
       lookup: async (proof) => {

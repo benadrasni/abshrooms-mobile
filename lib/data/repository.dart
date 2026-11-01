@@ -6,14 +6,15 @@ import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/language.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
 
-/// Reads one language of the book. [server] skips the on-disk cache.
+/// Reads one language of the book.
+///
+/// [server] true is [Source.server]. [server] false is [Source.cache].
 typedef CatalogRead = Future<Catalog> Function(
   String language, {
   required bool server,
 });
 
-/// Replaces the Firestore read. Tests use it. The stored offline book is
-/// used only when this read fails.
+/// Replaces the Firestore read. Tests use it. [server] false is the cache.
 CatalogRead? debugCatalogRead;
 
 /// Replaces the `curated_lists` read. Tests use it. The stored file is used
@@ -29,8 +30,8 @@ class CatalogRepository {
   var _listsTicket = 0;
   var _ticket = 0;
 
-  /// Pack revision of [data] when the book on screen came from the offline
-  /// snapshot. Null when it came from Firestore.
+  /// Set when [data] is already this pack, so a later offline read does not
+  /// build it again. Null when the book came from Firestore.
   String? _shownPackRevision;
   final CatalogRead _readCatalog;
 
@@ -63,10 +64,7 @@ class CatalogRepository {
     loading = true;
     error = null;
     try {
-      final resolved = await _bookForLoad(language);
-      if (ticket != _ticket) return;
-      data = resolved.catalog;
-      _shownPackRevision = resolved.packRevision;
+      await _resolve(language, ticket);
     } catch (caught) {
       if (ticket != _ticket) return;
       error = caught;
@@ -75,102 +73,115 @@ class CatalogRepository {
     }
   }
 
-  /// Cache first. An empty cache uses the offline pack. The default Firestore
-  /// source falls back to a cached book and would hide that empty cache, so
-  /// a successful empty read is treated like a miss. A cache with species
-  /// stays. The server is asked only when the cache is empty and no pack is
-  /// on the phone.
-  Future<({Catalog catalog, String? packRevision})> _bookForLoad(
-    String language,
-  ) async {
-    Catalog? read;
-    try {
-      read = await _readCatalog(language, server: false);
-    } catch (error) {
-      debugPrint('catalog load: $error');
-    }
-    if (read != null && read.species.isNotEmpty) {
-      return (catalog: read, packRevision: null);
-    }
-    final packed = _packedCatalog(language);
-    if (packed != null) {
-      return (catalog: packed, packRevision: OfflineBook.catalogRevision);
-    }
-    if (read != null) return (catalog: read, packRevision: null);
-    final server = await _readCatalog(language, server: true);
-    return (catalog: server, packRevision: null);
-  }
-
-  /// Reads the book from the database and replaces the copy on screen.
-  /// Offline, the book already on screen stays unless the stored pack is
-  /// newer. Returns false when this read lost to a newer one, or the
-  /// database could not be reached and no newer pack is on the phone.
+  /// Reads the book from the server and replaces the copy on screen.
+  /// When that read has no species, the same offline choice as [load] runs.
+  /// Returns false when this read lost to a newer one, or nothing new was
+  /// put on screen.
   Future<bool> refresh() async {
     final ticket = ++_ticket;
+    final language = this.language;
     try {
-      final next = await _readCatalog(language, server: true);
-      if (ticket != _ticket) return false;
-      data = next;
-      _shownPackRevision = null;
-      error = null;
-      loading = false;
-      return true;
+      return await _resolve(language, ticket);
     } catch (caught) {
       if (ticket != _ticket) return false;
-      final packed = _packedCatalog(language);
-      final replacement = packed == null
-          ? null
-          : newerOfflinePack(
-              current: data,
-              currentRevision: _shownPackRevision,
-              pack: packed,
-              packRevision: OfflineBook.catalogRevision,
-            );
-      loading = false;
-      if (replacement != null) {
-        data = replacement;
-        _shownPackRevision = OfflineBook.catalogRevision;
-        error = null;
-        return true;
-      }
       if (data == null || data!.species.isEmpty) error = caught;
       return false;
+    } finally {
+      if (ticket == _ticket) loading = false;
     }
   }
-}
 
-/// The offline pack when it should replace [current] after a server refresh
-/// failed.
-///
-/// A live cache stays unless the pack's newest `added` day is later. A pack
-/// already on screen is replaced only by a different pack revision, which is
-/// the later download. Revision hashes are not an order by themselves.
-Catalog? newerOfflinePack({
-  required Catalog? current,
-  required String? currentRevision,
-  required Catalog pack,
-  required String packRevision,
-}) {
-  if (packRevision.isEmpty) return null;
-  if (current == null || current.species.isEmpty) return pack;
-  if (currentRevision != null && currentRevision.isNotEmpty) {
-    return currentRevision == packRevision ? null : pack;
+  /// A server catalog with species is the book. Otherwise the pack, unless
+  /// the cache's newest `added` day is strictly later. An empty screen uses
+  /// the pack. [added] is only that species check, not a version of the book.
+  Future<bool> _resolve(String language, int ticket) async {
+    Object? failure;
+    Catalog? server;
+    try {
+      server = await _readCatalog(language, server: true);
+    } catch (error) {
+      failure = error;
+      debugPrint('catalog server: $error');
+    }
+    if (ticket != _ticket) return false;
+    if (server != null && server.species.isNotEmpty) {
+      data = server;
+      _shownPackRevision = null;
+      error = null;
+      return true;
+    }
+
+    Catalog? cache;
+    try {
+      cache = await _readCatalog(language, server: false);
+    } catch (error) {
+      failure ??= error;
+      debugPrint('catalog cache: $error');
+    }
+    if (ticket != _ticket) return false;
+
+    final previous = data;
+    final screenEmpty = previous == null || previous.species.isEmpty;
+    final showingPack = _showingThisPack(language);
+    final pack = showingPack ? previous : _packedCatalog(language);
+    if (screenEmpty && pack != null) {
+      data = pack;
+      _shownPackRevision = OfflineBook.catalogRevision;
+      error = null;
+      return true;
+    }
+    if (!screenEmpty && pack != null && _cacheIsStrictlyLater(cache, pack)) {
+      data = cache;
+      _shownPackRevision = null;
+      error = null;
+      return !identical(previous, cache);
+    }
+    if (pack != null) {
+      if (!showingPack) data = pack;
+      _shownPackRevision = OfflineBook.catalogRevision;
+      error = null;
+      return !showingPack;
+    }
+    if (cache != null && cache.species.isNotEmpty) {
+      data = cache;
+      _shownPackRevision = null;
+      error = null;
+      return !identical(previous, cache);
+    }
+    if (screenEmpty) error = failure ?? StateError('catalog');
+    return false;
   }
-  final packDay = _latestAdded(pack);
-  final currentDay = _latestAdded(current);
-  if (packDay == null) return null;
-  if (currentDay == null || packDay.isAfter(currentDay)) return pack;
-  return null;
+
+  /// True when [data] is already the pack for [language].
+  bool _showingThisPack(String language) {
+    final shown = data;
+    final revision = OfflineBook.catalogRevision;
+    return _shownPackRevision != null &&
+        _shownPackRevision == revision &&
+        revision.isNotEmpty &&
+        shown != null &&
+        shown.species.isNotEmpty &&
+        contentLanguage(shown.language) == contentLanguage(language);
+  }
 }
 
-DateTime? _latestAdded(Catalog catalog) {
-  DateTime? latest;
+/// The cache has a species birthday the pack does not.
+bool _cacheIsStrictlyLater(Catalog? cache, Catalog? pack) {
+  if (cache == null || cache.species.isEmpty || pack == null) return false;
+  final cacheDay = _newestAddedDay(cache);
+  if (cacheDay == null) return false;
+  final packDay = _newestAddedDay(pack);
+  return packDay == null || cacheDay.isAfter(packDay);
+}
+
+DateTime? _newestAddedDay(Catalog catalog) {
+  DateTime? newest;
   for (final species in catalog.species) {
     final day = addedDate(species.added);
     if (day == null) continue;
-    if (latest == null || day.isAfter(latest)) latest = day;
+    if (newest == null || day.isAfter(newest)) newest = day;
   }
-  return latest;
+  return newest;
 }
 
 Future<Catalog> _readLiveCatalog(
@@ -179,10 +190,7 @@ Future<Catalog> _readLiveCatalog(
 }) async {
   final read = debugCatalogRead;
   if (read != null) return await read(language, server: server);
-  // [server] false keeps the default source so an online launch still reads
-  // the database. That source also returns a cached book without throwing,
-  // and [CatalogRepository.load] uses the pack when that book is empty.
-  return fetchCatalog(language, source: server ? Source.server : null);
+  return fetchCatalog(language, source: server ? Source.server : Source.cache);
 }
 
 Catalog? _packedCatalog(String language) {

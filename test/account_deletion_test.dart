@@ -142,19 +142,6 @@ void main() {
   test('the first verified sign-in records the email sign-up once', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
-    expect(
-      passwordAuthEvent(emailVerified: false, pendingSignUp: true),
-      PasswordAuthEvent.none,
-    );
-    expect(
-      passwordAuthEvent(emailVerified: true, pendingSignUp: true),
-      PasswordAuthEvent.signUp,
-    );
-    expect(
-      passwordAuthEvent(emailVerified: true, pendingSignUp: false),
-      PasswordAuthEvent.login,
-    );
-
     await rememberEmailSignUp('ada');
     await rememberEmailSignUp('ada');
     expect(await consumeEmailSignUp('ada'), isTrue);

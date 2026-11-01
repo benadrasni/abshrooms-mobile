@@ -62,7 +62,9 @@ void main() {
     expect(repo.data!.species.single.synonymLines, ['Boletus solidus Sacc.']);
     expect(repo.data!.local['Boletus edulis']!.description, 'A bolete.');
     expect(repo.data!.taxonVernacular('Boletaceae'), 'boletes');
+    final shown = repo.data;
     expect(await repo.refresh(), isFalse);
+    expect(identical(repo.data, shown), isTrue);
     expect(repo.data!.local['Boletus edulis']!.description, 'A bolete.');
 
     await repo.load('sk');
@@ -273,11 +275,11 @@ void main() {
     );
   });
 
-  test('an ordinary load asks the database before the stored pack', () async {
+  test('an ordinary load asks the server before the stored pack', () async {
     await _install(directory, description: 'A bolete.');
     OfflineBook.stored = true;
     debugCatalogRead = (language, {required bool server}) async {
-      expect(server, isFalse);
+      expect(server, isTrue);
       return buildCatalog(
         language: 'en',
         speciesDocs: [
@@ -303,7 +305,7 @@ void main() {
     await _install(directory, description: 'A bolete.', added: '2026-10-22');
     OfflineBook.stored = true;
     debugCatalogRead = (language, {required bool server}) async {
-      expect(server, isFalse);
+      if (server) throw StateError('offline');
       return buildCatalog(
         language: 'en',
         speciesDocs: const [],
@@ -366,8 +368,8 @@ void main() {
       taxa: const {},
     );
     debugCatalogRead = (language, {required bool server}) async {
-      expect(server, isTrue);
-      throw StateError('offline');
+      if (server) throw StateError('offline');
+      return kept;
     };
     final repo = CatalogRepository()
       ..language = 'en'
@@ -405,6 +407,75 @@ void main() {
     expect(repo.data!.species.single.name, 'Boletus edulis');
     expect(repo.data!.species.single.added, '2026-10-31');
     expect(repo.error, isNull);
+  });
+
+  test('a same-day words pack replaces the cached sentences', () async {
+    await _install(
+      directory,
+      description: 'Packed words.',
+      added: '2026-10-22',
+    );
+    OfflineBook.stored = true;
+    final cached = buildCatalog(
+      language: 'en',
+      speciesDocs: [
+        Doc('Boletus edulis', {
+          'id': 1,
+          'name': 'Boletus edulis',
+          'added': '2026-10-22',
+          'hymenium': 'tubes',
+        }),
+      ],
+      local: const {
+        'Boletus edulis': {'description': 'Cached words.'},
+      },
+      english: const {},
+      synonyms: const {},
+      taxa: const {},
+    );
+    debugCatalogRead = (language, {required bool server}) async {
+      if (server) throw StateError('offline');
+      return cached;
+    };
+    final repo = CatalogRepository()
+      ..language = 'en'
+      ..data = cached;
+
+    expect(await repo.refresh(), isTrue);
+    expect(repo.data!.local['Boletus edulis']!.description, 'Packed words.');
+    final shown = repo.data;
+    expect(await repo.refresh(), isFalse);
+    expect(identical(repo.data, shown), isTrue);
+  });
+
+  test('an empty screen uses the pack when the cache day is later', () async {
+    await _install(
+      directory,
+      description: 'Packed words.',
+      added: '2026-10-01',
+    );
+    OfflineBook.stored = true;
+    debugCatalogRead = (language, {required bool server}) async {
+      if (server) throw StateError('offline');
+      return buildCatalog(
+        language: 'en',
+        speciesDocs: [
+          Doc('Agaricus augustus', {
+            'id': 9,
+            'name': 'Agaricus augustus',
+            'added': '2026-10-31',
+          }),
+        ],
+        local: const {},
+        english: const {},
+        synonyms: const {},
+        taxa: const {},
+      );
+    };
+    final repo = CatalogRepository();
+    await repo.load('en');
+    expect(repo.data!.species.single.name, 'Boletus edulis');
+    expect(repo.data!.local['Boletus edulis']!.description, 'Packed words.');
   });
 
   test('an offline refresh with no book uses the pack', () async {
