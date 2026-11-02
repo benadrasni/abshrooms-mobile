@@ -7,13 +7,19 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/seen/country.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
 import 'package:whats_that_mushroom/seen/sighting_storage.dart';
+import 'package:whats_that_mushroom/seen/stats.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
 
 /// Publishes one confirmed find for review. Returns false when there is no
-/// account, no photo, or the write fails. The place stays off the photo.
-Future<bool> publishSighting(FindRecord find) async {
+/// account, no photo, or the write fails. The photo's location is removed.
+/// The document keeps the country and the coordinates when the find has a place.
+Future<bool> publishSighting(
+  FindRecord find, {
+  Future<String?> Function(double latitude, double longitude)? countryOf,
+}) async {
   try {
     final user = _account();
     final latin = find.latin?.trim() ?? '';
@@ -29,18 +35,82 @@ Future<bool> publishSighting(FindRecord find) async {
     await sightingStorage()
         .ref(object)
         .putData(photo.bytes, sightingJpegMetadata());
-    await FirebaseFirestore.instance.collection('sightings').doc(find.id).set({
-      'uid': user.uid,
-      'latin': latin,
-      'millis': find.millis,
-      'status': 'review',
-      'photo': object,
-    });
+    final country = await sightingCountryForShare(find, lookup: countryOf);
+    await FirebaseFirestore.instance
+        .collection('sightings')
+        .doc(find.id)
+        .set(
+          sightingCreateFields(
+            uid: user.uid,
+            id: find.id,
+            latin: latin,
+            millis: find.millis,
+            country: country,
+            latitude: find.latitude,
+            longitude: find.longitude,
+          ),
+        );
     return true;
   } catch (error) {
     debugPrint('seen share: $error');
     return false;
   }
+}
+
+/// Fields for a new Sighting. [country] is a lowercase ISO code. Coordinates
+/// are copied when they are a real place. 0, 0 stays off the document.
+Map<String, Object> sightingCreateFields({
+  required String uid,
+  required String id,
+  required String latin,
+  required int millis,
+  String? country,
+  double? latitude,
+  double? longitude,
+}) {
+  return {
+    'uid': uid,
+    'latin': latin,
+    'millis': millis,
+    'status': 'review',
+    'photo': 'sightings/$uid/$id.jpg',
+    ...sightingPlacePatch(
+      country: country,
+      latitude: latitude,
+      longitude: longitude,
+      remote: const {},
+    ),
+  };
+}
+
+/// Country and coordinates to add. A value the document already has stays.
+Map<String, Object> sightingPlacePatch({
+  required String? country,
+  required double? latitude,
+  required double? longitude,
+  required Map<String, dynamic> remote,
+}) {
+  final patch = <String, Object>{};
+  final code = statCountry(country);
+  if (code != null && statCountry(remote['country']) == null) {
+    patch['country'] = code;
+  }
+  final place = latitude == null || longitude == null
+      ? null
+      : photoPlace(latitude, longitude);
+  if (place != null &&
+      remote['latitude'] is! num &&
+      remote['longitude'] is! num) {
+    patch['latitude'] = place.latitude;
+    patch['longitude'] = place.longitude;
+  }
+  return patch;
+}
+
+/// A place already stored on a Sighting. Anything else is absent.
+PhotoPlace? sightingStoredPlace(Object? latitude, Object? longitude) {
+  if (latitude is! num || longitude is! num) return null;
+  return photoPlace(latitude.toDouble(), longitude.toDouble());
 }
 
 /// Removes a sent find from Sightings. The notebook row stays.
@@ -62,8 +132,9 @@ const sightingGetOptions = GetOptions(source: Source.server);
 /// A document that is not already on the phone is added, with its photo
 /// URL, so Find and Seen show it after sign-in. A sent find whose document
 /// is gone returns to [FindShare.none]. A row whose only photo is that
-/// Sighting is removed, because the document was its only copy. The same
-/// list is not written again.
+/// Sighting is removed, because the document was its only copy. A review
+/// that publishes the find under another catalog name replaces the name
+/// on the phone. The same list is not written again.
 /// The read asks the server. Offline, this keeps the notebook as it is.
 Future<void> syncSightings(Notebook notebook) async {
   try {
@@ -148,8 +219,36 @@ List<FindRecord> mergeAccountSightings(
 FindRecord _withSighting(FindRecord find, Map<String, dynamic> data) {
   final share = findShareFrom(data['status']);
   final photo = _sightingPhoto(find, data);
-  if (share == find.share && photo == find.photoPath) return find;
-  return find.copyWith(share: share, photoPath: photo);
+  final country = statCountry(data['country']) ?? find.country;
+  final latin = _sightingLatin(find, data);
+  final place = sightingStoredPlace(data['latitude'], data['longitude']);
+  final latitude = place?.latitude ?? find.latitude;
+  final longitude = place?.longitude ?? find.longitude;
+  if (share == find.share &&
+      photo == find.photoPath &&
+      country == find.country &&
+      latin == find.latin &&
+      latitude == find.latitude &&
+      longitude == find.longitude) {
+    return find;
+  }
+  return find.copyWith(
+    share: share,
+    photoPath: photo,
+    country: country,
+    latin: latin,
+    latitude: latitude,
+    longitude: longitude,
+    setPlace: true,
+  );
+}
+
+/// Review can publish a find under a different catalog name. The notebook
+/// takes that name. A document with no latin leaves the name on the phone.
+String? _sightingLatin(FindRecord find, Map<String, dynamic> data) {
+  final latin = data['latin']?.toString().trim() ?? '';
+  if (latin.isEmpty) return find.latin;
+  return latin;
 }
 
 /// Keeps a file on this phone. A public Sighting uses the token-less URL.
@@ -199,6 +298,7 @@ FindRecord? _importedSighting(String id, Map<String, dynamic> data) {
   final url = data['status'] == 'public'
       ? sightingPhotoUrl(photo)
       : (_ownerDownloadUrl(data) ?? '');
+  final place = sightingStoredPlace(data['latitude'], data['longitude']);
   return FindRecord(
     id: id,
     millis: millis.round(),
@@ -206,7 +306,53 @@ FindRecord? _importedSighting(String id, Map<String, dynamic> data) {
     photoPath: url.isEmpty ? null : url,
     confirmed: true,
     share: findShareFrom(data['status']),
+    country: statCountry(data['country']),
+    latitude: place?.latitude,
+    longitude: place?.longitude,
   );
+}
+
+/// Writes the ISO country onto this account's Sighting when the document
+/// has none. A missing document or a rules rejection leaves the share in
+/// place. True when the document already has a country, or the write landed.
+Future<bool> writeSightingCountry(String id, String code) async {
+  if (statCountry(code) == null || id.isEmpty) return false;
+  return writeSightingPlace(FindRecord(id: id, millis: 0, country: code));
+}
+
+/// Writes a missing country and missing coordinates onto this account's
+/// Sighting. A value already on the document stays. True when there was
+/// nothing to add, or the write landed.
+Future<bool> writeSightingPlace(FindRecord find) async {
+  final country = statCountry(find.country);
+  final latitude = find.latitude;
+  final longitude = find.longitude;
+  final place = latitude == null || longitude == null
+      ? null
+      : photoPlace(latitude, longitude);
+  if ((country == null && place == null) || find.id.isEmpty) return false;
+  try {
+    final user = _account();
+    if (user == null) return false;
+    final ref = FirebaseFirestore.instance.collection('sightings').doc(find.id);
+    final snap = await ref.get();
+    if (!snap.exists) return false;
+    final data = snap.data();
+    if (data == null) return false;
+    if (data['uid'] != user.uid) return true;
+    final patch = sightingPlacePatch(
+      country: country,
+      latitude: latitude,
+      longitude: longitude,
+      remote: data,
+    );
+    if (patch.isEmpty) return true;
+    await ref.update(patch);
+    return true;
+  } catch (error) {
+    debugPrint('sighting place ${find.id}: $error');
+    return false;
+  }
 }
 
 String _objectPath(String uid, String id) => 'sightings/$uid/$id.jpg';

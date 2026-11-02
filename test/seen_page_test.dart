@@ -94,6 +94,22 @@ void main() {
     expect(find.text('2 finds · on this phone'), findsOneWidget);
   });
 
+  testWidgets('a find shows its country after the date', (tester) async {
+    final notebook = Notebook()
+      ..finds = [
+        FindRecord(
+          id: 'placed',
+          millis: DateTime(2026, 5, 2).millisecondsSinceEpoch,
+          latin: 'Boletus edulis',
+          confirmed: true,
+          country: 'sk',
+        ),
+      ];
+    await _pump(tester, notebook);
+
+    expect(find.text('May 2 · Slovakia'), findsOneWidget);
+  });
+
   testWidgets('Field Guide hides the card at the bottom', (tester) async {
     Purchases.replaceAccountProducts({fieldGuideMonthlyPlay});
     await _pump(tester, Notebook());

@@ -129,8 +129,31 @@ service cloud.firestore {
       }
     }
 
+    // A lowercase ISO country. Absent is allowed.
+    function sightingCountryOk(data) {
+      return !data.keys().hasAny(['country'])
+        || (data.country is string && data.country.matches('^[a-z]{2}$'));
+    }
+
+    // Coordinates of the find, both or neither. 0, 0 is not a place.
+    function sightingPlaceOk(data) {
+      let hasLat = data.keys().hasAny(['latitude']);
+      let hasLng = data.keys().hasAny(['longitude']);
+      return hasLat == hasLng
+        && (!hasLat || (
+          data.latitude is number
+          && data.longitude is number
+          && data.latitude >= -90
+          && data.latitude <= 90
+          && data.longitude >= -180
+          && data.longitude <= 180
+          && !(data.latitude == 0 && data.longitude == 0)
+        ));
+    }
+
     // A Sighting sent from Seen. The owner creates it as review and may
-    // delete it. Publishing or rejecting is an admin write.
+    // delete it. Publishing or rejecting is an admin write. The document
+    // may store a country and the coordinates. The photo does not.
     match /sightings/{id} {
       allow read: if resource.data.status == 'public' ||
         (request.auth != null && resource.data.uid == request.auth.uid);
@@ -142,8 +165,18 @@ service cloud.firestore {
         && request.resource.data.latin.size() < 200
         && request.resource.data.millis is int
         && request.resource.data.photo == 'sightings/' + request.auth.uid + '/' + id + '.jpg'
-        && request.resource.data.keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo']);
-      allow update: if false;
+        && request.resource.data.keys().hasAll(['uid', 'latin', 'millis', 'status', 'photo'])
+        && request.resource.data.keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo', 'country', 'latitude', 'longitude'])
+        && sightingCountryOk(request.resource.data)
+        && sightingPlaceOk(request.resource.data);
+      // The owner may add the country and the coordinates after the share.
+      // Status stays an admin write.
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['country', 'latitude', 'longitude'])
+        && request.resource.data.diff(resource.data).affectedKeys().size() > 0
+        && sightingCountryOk(request.resource.data)
+        && sightingPlaceOk(request.resource.data);
       allow delete: if request.auth != null
         && resource.data.uid == request.auth.uid;
     }

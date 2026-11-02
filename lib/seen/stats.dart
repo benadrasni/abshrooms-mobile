@@ -111,8 +111,9 @@ String statGrouped(int value, {required String locale}) {
   return NumberFormat.decimalPattern(locale).format(value);
 }
 
-/// [countryOf] reads a stored code. The notebook keeps coordinates, not a
-/// country, so the page leaves this empty until a lookup writes one.
+/// [countryOf] reads a stored code. When it is omitted, the code on the
+/// find is used. A find with coordinates and no country stays unplaced
+/// until a lookup writes one.
 NotebookStats notebookStats(
   Iterable<FindRecord> finds, {
   String? Function(FindRecord find)? countryOf,
@@ -131,7 +132,9 @@ NotebookStats notebookStats(
     byName.putIfAbsent(_name(find)!, () => []).add(find);
     final when = _when(find);
     years[when.year] = (years[when.year] ?? 0) + 1;
-    final country = countryOf == null ? null : statCountry(countryOf(find));
+    final country = statCountry(
+      countryOf == null ? find.country : countryOf(find),
+    );
     if (country == null) {
       unplaced++;
     } else {

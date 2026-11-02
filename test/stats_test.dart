@@ -95,6 +95,27 @@ void main() {
     expect(stats.unplaced, 2);
   });
 
+  test('a stored country counts without a separate lookup', () {
+    final stats = notebookStats([
+      FindRecord(
+        id: 'a',
+        millis: DateTime(2026, 5, 1).millisecondsSinceEpoch,
+        latin: 'Boletus edulis',
+        confirmed: true,
+        country: 'FI',
+      ),
+      FindRecord(
+        id: 'b',
+        millis: DateTime(2026, 6, 1).millisecondsSinceEpoch,
+        latin: 'Amanita muscaria',
+        confirmed: true,
+      ),
+    ]);
+    expect(stats.countries.single.code, 'fi');
+    expect(stats.countries.single.count, 1);
+    expect(stats.unplaced, 1);
+  });
+
   test('a tie above one lists every most-seen mushroom', () {
     final stats = notebookStats([
       FindRecord(

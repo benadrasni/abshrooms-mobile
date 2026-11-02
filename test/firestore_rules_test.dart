@@ -11,9 +11,21 @@ void main() {
     expect(block.contains('photoToken'), isFalse);
     expect(
       block,
-      contains("keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo'])"),
+      contains(
+        "keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo', 'country', 'latitude', 'longitude'])",
+      ),
     );
-    expect(block.contains('allow update: if false'), isTrue);
+    expect(block.contains('allow update: if false'), isFalse);
+    expect(
+      block,
+      contains(
+        "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['country', 'latitude', 'longitude'])",
+      ),
+    );
+    expect(rules, contains('function sightingCountryOk(data)'));
+    expect(rules, contains("data.country.matches('^[a-z]{2}\$')"));
+    expect(rules, contains('function sightingPlaceOk(data)'));
+    expect(rules, contains('!(data.latitude == 0 && data.longitude == 0)'));
     expect(
       rules,
       contains(

@@ -76,6 +76,9 @@ class FindRecord {
   final double? latitude;
   final double? longitude;
 
+  /// Lowercase ISO country of the coordinates. Empty until a lookup fills it.
+  final String? country;
+
   /// Other names from the same photo that are already in the book.
   final List<FindName> others;
 
@@ -93,6 +96,7 @@ class FindRecord {
     this.confirmed = false,
     this.latitude,
     this.longitude,
+    this.country,
     this.others = const [],
     this.share = FindShare.none,
   });
@@ -109,6 +113,10 @@ class FindRecord {
     String? photoPath,
     List<FindName>? others,
     FindShare? share,
+    String? country,
+    double? latitude,
+    double? longitude,
+    bool setPlace = false,
   }) {
     return FindRecord(
       id: id,
@@ -119,8 +127,9 @@ class FindRecord {
       probability: probability ?? this.probability,
       photoPath: photoPath ?? this.photoPath,
       confirmed: confirmed ?? this.confirmed,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: setPlace ? latitude : this.latitude,
+      longitude: setPlace ? longitude : this.longitude,
+      country: country ?? this.country,
       others: others ?? this.others,
       share: share ?? this.share,
     );
@@ -137,6 +146,7 @@ class FindRecord {
     'confirmed': confirmed,
     if (latitude != null) 'latitude': latitude,
     if (longitude != null) 'longitude': longitude,
+    if (country != null) 'country': country,
     if (others.isNotEmpty) 'others': [for (final name in others) name.toJson()],
     if (share != FindShare.none) 'share': share.name,
   };
@@ -155,10 +165,22 @@ class FindRecord {
       confirmed: json['confirmed'] == true,
       latitude: _coord(json['latitude']),
       longitude: _coord(json['longitude']),
+      country: _isoCountry(json['country']),
       others: _findNames(json['others']),
       share: findShareFrom(json['share']),
     );
   }
+}
+
+/// A two-letter ISO code, lowercased. Anything else is no country.
+String? _isoCountry(Object? value) {
+  if (value is! String) return null;
+  final code = value.trim().toLowerCase();
+  if (code.length != 2) return null;
+  for (final unit in code.codeUnits) {
+    if (unit < 0x61 || unit > 0x7a) return null;
+  }
+  return code;
 }
 
 double? _coord(Object? value) {

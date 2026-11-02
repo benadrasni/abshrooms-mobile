@@ -12,6 +12,7 @@ import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/sign_in_page.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
+import 'package:whats_that_mushroom/seen/country.dart';
 import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
 import 'package:whats_that_mushroom/seen/sighting_storage.dart';
@@ -108,7 +109,11 @@ class _SeenPageState extends State<SeenPage> {
   }
 
   void _onChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    final notebook = _notebook;
+    if (notebook == null) return;
+    unawaited(fillSightingCountries(notebook));
   }
 
   bool get _hidingShared {
@@ -147,10 +152,13 @@ class _SeenPageState extends State<SeenPage> {
   }
 
   Future<void> _syncShares() async {
-    if (widget.onShare != null || widget.signedIn == false) return;
     final notebook = _notebook;
     if (notebook == null) return;
-    await syncSightings(notebook);
+    if (widget.onShare == null && widget.signedIn != false) {
+      await syncSightings(notebook);
+    }
+    if (!mounted) return;
+    await fillSightingCountries(notebook);
   }
 
   @override
@@ -246,7 +254,7 @@ class _SeenPageState extends State<SeenPage> {
         return _ConfirmCard(
           find: find,
           face: _face(find),
-          detail: _detail(copy, find),
+          detail: _detail(context, copy, find),
           busy: _busy.contains(find.id),
           onOpen: () => unawaited(_open(find)),
           onConfirm: () => unawaited(_confirm(find)),
@@ -295,7 +303,7 @@ class _SeenPageState extends State<SeenPage> {
         return _FindRow(
           find: find,
           face: _face(find),
-          detail: _detail(copy, find),
+          detail: _detail(context, copy, find),
           busy: _busy.contains(find.id),
           chip: chip,
           onOpen: opens ? () => unawaited(_open(find)) : null,
@@ -575,7 +583,7 @@ class _SeenPageState extends State<SeenPage> {
             find: find,
             title: copy.seenShareTitle(face.title),
             latin: face.spoken ? find.latin?.trim() : null,
-            detail: _detail(copy, find),
+            detail: _detail(context, copy, find),
             onSend: () => unawaited(_sendShare(sheetContext, find)),
           ),
         );
@@ -591,7 +599,9 @@ class _SeenPageState extends State<SeenPage> {
         : await publishSighting(find);
     if (!mounted) return;
     if (ok) {
-      await GuideScope.of(context).notebook.setShare(find.id, FindShare.review);
+      final notebook = GuideScope.of(context).notebook;
+      await notebook.setShare(find.id, FindShare.review);
+      unawaited(fillSightingCountries(notebook));
       unawaited(GuideAnalytics.seenSave(source: 'photo', shared: true));
     }
     if (!mounted) return;
@@ -765,7 +775,14 @@ int _newest(FindRecord a, FindRecord b) {
   return a.id.compareTo(b.id);
 }
 
-String _detail(Copy copy, FindRecord find) {
+String _detail(BuildContext context, Copy copy, FindRecord find) {
+  final when = _whenLabel(copy, find);
+  final country = sightingCountryName(context, find.country);
+  if (country == null) return when;
+  return '$when · $country';
+}
+
+String _whenLabel(Copy copy, FindRecord find) {
   final date = DateTime.fromMillisecondsSinceEpoch(find.millis);
   final month = copy.shortMonth(date.month);
   if (copy.hu) return '$month ${date.day}.';
