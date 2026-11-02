@@ -153,10 +153,10 @@ service cloud.firestore {
 
     // A Sighting sent from Seen. The owner creates it as review and may
     // delete it. Publishing or rejecting is an admin write. The document
-    // may store a country and the coordinates. The photo does not.
+    // keeps the account, the country, and the coordinates. Guests cannot
+    // read it. The public card is sightings_public.
     match /sightings/{id} {
-      allow read: if resource.data.status == 'public' ||
-        (request.auth != null && resource.data.uid == request.auth.uid);
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'review'
@@ -179,6 +179,32 @@ service cloud.firestore {
         && sightingPlaceOk(request.resource.data);
       allow delete: if request.auth != null
         && resource.data.uid == request.auth.uid;
+    }
+
+    // The species page and the website read this card. It has the Latin
+    // name, the time, the country, and a photo path with no account in it.
+    // The owner may set the country. Nothing else is a client write.
+    match /sightings_public/{id} {
+      allow read: if true;
+      allow create: if false;
+      allow update: if request.auth != null
+        && exists(/databases/$(database)/documents/sightings/$(id))
+        && get(/databases/$(database)/documents/sightings/$(id)).data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['country'])
+        && sightingCountryOk(request.resource.data)
+        && request.resource.data.keys().hasOnly(['latin', 'millis', 'photo', 'country'])
+        && !request.resource.data.keys().hasAny(['uid', 'latitude', 'longitude', 'status'])
+        && request.resource.data.photo == 'sightings/public/' + id + '.jpg';
+      allow delete: if request.auth != null
+        && exists(/databases/$(database)/documents/sightings/$(id))
+        && get(/databases/$(database)/documents/sightings/$(id)).data.uid == request.auth.uid;
+    }
+
+    // Distinct accounts with a public Sighting. Admin writes the number.
+    // The stats page reads it. The public cards do not carry an account.
+    match /sightings_stats/{id} {
+      allow read: if true;
+      allow write: if false;
     }
   }
 }

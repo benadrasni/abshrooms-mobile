@@ -300,10 +300,22 @@ Future<SightingsLoad> loadPublicSightings() async {
     return const SightingsLoad(headline: null, years: []);
   }
   final snap = await FirebaseFirestore.instance
-      .collection('sightings')
-      .where('status', isEqualTo: 'public')
+      .collection('sightings_public')
       .get(sightingGetOptions);
-  return sightingsFromDocs([for (final doc in snap.docs) doc.data()]);
+  final stats = await FirebaseFirestore.instance
+      .collection('sightings_stats')
+      .doc('public')
+      .get(sightingGetOptions);
+  final stored = stats.data()?['people'];
+  final people = stored is int
+      ? stored
+      : stored is num
+          ? stored.round()
+          : 0;
+  return sightingsFromDocs(
+    [for (final doc in snap.docs) doc.data()],
+    people: people,
+  );
 }
 
 class _Intro extends StatelessWidget {

@@ -22,8 +22,8 @@ class SpeciesSighting {
   });
 }
 
-/// Public rows, newest first. A review or rejected row is left out.
-/// A missing status is kept: the query already asked for public rows.
+/// Public cards, newest first. A review or rejected row is left out.
+/// A missing status is kept: the query already reads the public collection.
 List<SpeciesSighting> speciesSightingsFromDocs(
   Iterable<({String id, Map<String, dynamic> data})> docs,
 ) {
@@ -44,7 +44,7 @@ SpeciesSighting? _row(String id, Map<String, dynamic> data) {
   final status = data['status'];
   if (status != null && status != 'public') return null;
   final photo = data['photo']?.toString().trim() ?? '';
-  final url = sightingPhotoUrl(photo);
+  final url = publicSightingPhotoUrl(photo);
   if (url.isEmpty) return null;
   final millis = data['millis'];
   final when = millis is num
@@ -69,9 +69,8 @@ Future<List<SpeciesSighting>> loadSpeciesSightings(String latin) async {
   }
   try {
     final snap = await FirebaseFirestore.instance
-        .collection('sightings')
+        .collection('sightings_public')
         .where('latin', isEqualTo: latin)
-        .where('status', isEqualTo: 'public')
         .get(sightingGetOptions);
     return speciesSightingsFromDocs([
       for (final doc in snap.docs) (id: doc.id, data: doc.data()),

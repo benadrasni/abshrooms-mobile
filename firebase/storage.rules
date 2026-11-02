@@ -10,18 +10,31 @@ service firebase.storage {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // `{id}.jpg` is the Firestore document `sightings/{id}`.
-    function sightingPublic(file) {
+    // `{file}` is `{id}.jpg` for the public card `sightings_public/{id}`.
+    function publicSightingFile(file) {
+      return file.matches('^.+\\.jpg$')
+        && firestore.exists(/databases/(default)/documents/sightings_public/$(file.split('\\.jpg')[0]));
+    }
+
+    // The owner document `sightings/{id}` names this account.
+    function ownsSightingFile(file) {
       return file.matches('^.+\\.jpg$')
         && firestore.exists(/databases/(default)/documents/sightings/$(file.split('\\.jpg')[0]))
-        && firestore.get(/databases/(default)/documents/sightings/$(file.split('\\.jpg')[0])).data.status == 'public';
+        && firestore.get(/databases/(default)/documents/sightings/$(file.split('\\.jpg')[0])).data.uid == request.auth.uid;
+    }
+
+    // Guest-readable copy. The object name is the sighting id, not an account.
+    match /sightings/public/{file} {
+      allow read: if publicSightingFile(file);
+      allow delete: if signedIn() && ownsSightingFile(file);
+      allow create, update: if false;
     }
 
     match /sightings/{uid}/{file} {
-      // Public Sightings are world-readable. Every other object is the
-      // owner's. Another device calls getDownloadURL while signed in and
-      // keeps that URL on the phone. It is not stored on the document.
-      allow read: if owns(uid) || sightingPublic(file);
+      // The owner's JPEG. A guest reads sightings/public/{id}.jpg instead.
+      // Another device calls getDownloadURL while signed in and keeps that
+      // URL on the phone. It is not stored on the document.
+      allow read: if owns(uid);
       allow create, update: if owns(uid)
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg';

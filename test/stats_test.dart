@@ -208,7 +208,7 @@ void main() {
     );
     expect(statGrouped(1778, locale: 'de').contains(','), isFalse);
 
-    final load = sightingsFromDocs([
+    final rows = [
       {
         'status': 'review',
         'latin': 'Fomes fomentarius',
@@ -241,11 +241,13 @@ void main() {
         'millis': DateTime(2018, 1, 1).millisecondsSinceEpoch,
         'uid': 'cy',
       },
-    ]);
+    ];
+    final load = sightingsFromDocs(rows, people: 2);
     final headline = load.headline!;
     expect(headline.count, 3);
     expect(headline.mushrooms, 2);
     expect(headline.people, 2);
+    expect(sightingsFromDocs(rows).headline!.people, 0);
     expect(headline.firstName, 'Amanita muscaria');
     expect(headline.lastName, 'Boletus edulis');
     expect(headline.mostName, 'Boletus edulis');

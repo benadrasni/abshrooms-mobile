@@ -29,8 +29,23 @@ void main() {
     expect(
       rules,
       contains(
-        "allow read: if resource.data.status == 'public' ||\n"
-        '        (request.auth != null && resource.data.uid == request.auth.uid)',
+        "allow read: if request.auth != null && resource.data.uid == request.auth.uid;",
+      ),
+    );
+    expect(rules, contains('match /sightings_public/{id}'));
+    expect(rules, contains("request.resource.data.photo == 'sightings/public/' + id + '.jpg'"));
+    expect(
+      rules,
+      contains("!request.resource.data.keys().hasAny(['uid', 'latitude', 'longitude', 'status'])"),
+    );
+    expect(rules, contains('match /sightings_stats/{id}'));
+    expect(
+      rules,
+      contains(
+        'match /sightings_stats/{id} {\n'
+        '      allow read: if true;\n'
+        '      allow write: if false;\n'
+        '    }',
       ),
     );
   });

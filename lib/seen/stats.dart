@@ -171,9 +171,13 @@ NotebookStats notebookStats(
   );
 }
 
-/// Public `sightings` documents. A status other than `public` is left out.
-/// A missing status is kept: the query already asked for public rows.
-SightingsLoad sightingsFromDocs(Iterable<Map<String, dynamic>> rows) {
+/// Public cards. A status other than `public` is left out. A missing
+/// status is kept. [people] is the stored count of accounts. A uid on a
+/// row is not an account count.
+SightingsLoad sightingsFromDocs(
+  Iterable<Map<String, dynamic>> rows, {
+  int people = 0,
+}) {
   final kept = <_Public>[];
   for (final row in rows) {
     final parsed = _public(row);
@@ -190,14 +194,11 @@ SightingsLoad sightingsFromDocs(Iterable<Map<String, dynamic>> rows) {
   final mushrooms = <String, int>{};
   final countries = <String, int>{};
   final years = <int, int>{};
-  final people = <String>{};
   for (final row in kept) {
     mushrooms[row.name] = (mushrooms[row.name] ?? 0) + 1;
     years[row.when.year] = (years[row.when.year] ?? 0) + 1;
     final country = row.country;
     if (country != null) countries[country] = (countries[country] ?? 0) + 1;
-    final uid = row.uid;
-    if (uid != null) people.add(uid);
   }
   var top = 0;
   var mostName = '';
@@ -215,7 +216,7 @@ SightingsLoad sightingsFromDocs(Iterable<Map<String, dynamic>> rows) {
     headline: SightingHeadline(
       count: kept.length,
       mushrooms: mushrooms.length,
-      people: people.length,
+      people: people < 0 ? 0 : people,
       firstName: first.name,
       firstWhen: first.when,
       lastName: last.name,
@@ -260,10 +261,9 @@ StatMushroom _mushroom(FindRecord find, {int count = 1}) {
 class _Public {
   final String name;
   final DateTime when;
-  final String? uid;
   final String? country;
 
-  const _Public(this.name, this.when, this.uid, this.country);
+  const _Public(this.name, this.when, this.country);
 }
 
 _Public? _public(Map<String, dynamic> row) {
@@ -273,13 +273,7 @@ _Public? _public(Map<String, dynamic> row) {
   if (name.isEmpty) return null;
   final when = _millis(row['millis']);
   if (when == null) return null;
-  final uid = row['uid']?.toString().trim();
-  return _Public(
-    name,
-    when,
-    uid == null || uid.isEmpty ? null : uid,
-    statCountry(row['country']),
-  );
+  return _Public(name, when, statCountry(row['country']));
 }
 
 DateTime? _millis(Object? value) {

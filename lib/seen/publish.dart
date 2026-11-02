@@ -255,9 +255,8 @@ String? _sightingLatin(FindRecord find, Map<String, dynamic> data) {
 /// An in-review photo uses the download URL cached on this device.
 String? _sightingPhoto(FindRecord find, Map<String, dynamic> data) {
   if (seenPhotoOnPhone(find.photoPath)) return find.photoPath;
-  final photo = data['photo']?.toString().trim() ?? '';
   if (data['status'] == 'public') {
-    final url = sightingPhotoUrl(photo);
+    final url = publicSightingPhotoUrl(publicSightingObject(find.id));
     return url.isEmpty ? find.photoPath : url;
   }
   final cached = _ownerDownloadUrl(data);
@@ -294,9 +293,8 @@ FindRecord? _importedSighting(String id, Map<String, dynamic> data) {
   final latin = data['latin']?.toString().trim() ?? '';
   final millis = data['millis'];
   if (latin.isEmpty || millis is! num || millis <= 0) return null;
-  final photo = data['photo']?.toString().trim() ?? '';
   final url = data['status'] == 'public'
-      ? sightingPhotoUrl(photo)
+      ? publicSightingPhotoUrl(publicSightingObject(id))
       : (_ownerDownloadUrl(data) ?? '');
   final place = sightingStoredPlace(data['latitude'], data['longitude']);
   return FindRecord(
@@ -346,8 +344,18 @@ Future<bool> writeSightingPlace(FindRecord find) async {
       longitude: longitude,
       remote: data,
     );
-    if (patch.isEmpty) return true;
+    if (patch.isEmpty) {
+      final code = statCountry(data['country']);
+      if (data['status'] == 'public' && code != null) {
+        await _copyPublicCountry(find.id, code);
+      }
+      return true;
+    }
     await ref.update(patch);
+    final code = statCountry(patch['country']) ?? statCountry(data['country']);
+    if (data['status'] == 'public' && code != null) {
+      await _copyPublicCountry(find.id, code);
+    }
     return true;
   } catch (error) {
     debugPrint('sighting place ${find.id}: $error');
@@ -356,6 +364,17 @@ Future<bool> writeSightingPlace(FindRecord find) async {
 }
 
 String _objectPath(String uid, String id) => 'sightings/$uid/$id.jpg';
+
+/// Puts [code] on the public card when that card exists and differs.
+/// A card that is not published yet is left alone.
+Future<void> _copyPublicCountry(String id, String code) async {
+  final card =
+      FirebaseFirestore.instance.collection('sightings_public').doc(id);
+  final snap = await card.get(sightingGetOptions);
+  if (!snap.exists) return;
+  if (statCountry(snap.data()?['country']) == code) return;
+  await card.update({'country': code});
+}
 
 /// Deletes this account's Sighting documents and their JPEGs.
 /// A missing file is already gone. Any other failure stops account deletion.
@@ -369,6 +388,14 @@ Future<void> deleteOwnedSightings(String uid) async {
     for (final doc in snap.docs)
       (id: doc.id, photo: doc.data()['photo']?.toString()),
   ]);
+  // The public card and its JPEG name the owner document, so both go
+  // before that document.
+  for (final doc in snap.docs) {
+    await FirebaseFirestore.instance
+        .collection('sightings_public')
+        .doc(doc.id)
+        .delete();
+  }
   final storage = sightingStorage();
   for (final path in paths) {
     try {
@@ -429,11 +456,22 @@ Future<bool> _removeSighting(String id) async {
     final ref = FirebaseFirestore.instance.collection('sightings').doc(id);
     final snap = await ref.get();
     if (snap.exists && snap.data()?['uid'] != user.uid) return false;
-    try {
-      await sightingStorage().ref(_objectPath(user.uid, id)).delete();
-    } on FirebaseException catch (error) {
-      if (error.code != 'object-not-found') {
-        debugPrint('seen share photo: $error');
+    await FirebaseFirestore.instance
+        .collection('sightings_public')
+        .doc(id)
+        .delete();
+    final storage = sightingStorage();
+    for (final path in [
+      publicSightingObject(id),
+      _objectPath(user.uid, id),
+    ]) {
+      if (path.isEmpty) continue;
+      try {
+        await storage.ref(path).delete();
+      } on FirebaseException catch (error) {
+        if (error.code != 'object-not-found') {
+          debugPrint('seen share photo: $error');
+        }
       }
     }
     if (snap.exists) await ref.delete();

@@ -296,6 +296,9 @@ void main() {
         'sightings/ada/one.jpg',
         'sightings/ada/three.jpg',
         'sightings/ada/two.jpg',
+        'sightings/public/one.jpg',
+        'sightings/public/three.jpg',
+        'sightings/public/two.jpg',
       ],
     );
   });

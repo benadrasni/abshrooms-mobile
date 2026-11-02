@@ -24,7 +24,8 @@ void main() {
     expect(next.single.millis, 1687699986000);
     expect(next.single.confirmed, isTrue);
     expect(next.single.share, FindShare.shared);
-    expect(next.single.photoPath, contains('1792940884503884.jpg'));
+    expect(next.single.photoPath, contains('sightings%2Fpublic%2F1792940884503884.jpg'));
+    expect(next.single.photoPath, isNot(contains('uid')));
     expect(seenPhotoOnPhone(next.single.photoPath), isFalse);
   });
 
@@ -64,7 +65,7 @@ void main() {
       latin: 'Boletus edulis',
       confirmed: true,
       share: FindShare.shared,
-      photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media',
+      photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fpublic%2F1.jpg?alt=media',
     );
     final finds = [local];
     final next = mergeAccountSightings(finds, [
@@ -185,7 +186,7 @@ void main() {
       latin: 'Boletus edulis',
       confirmed: true,
       share: FindShare.shared,
-      photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media',
+      photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fpublic%2F1.jpg?alt=media',
     );
     final finds = [local];
     final next = mergeAccountSightings(finds, [
@@ -241,7 +242,7 @@ void main() {
       confirmed: true,
       share: FindShare.shared,
       country: 'sk',
-      photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media',
+      photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fpublic%2F1.jpg?alt=media',
     );
     final finds = [local];
     final same = mergeAccountSightings(finds, [
@@ -338,7 +339,7 @@ void main() {
         country: 'sk',
         latitude: 48.1,
         longitude: 17.1,
-        photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media',
+        photoPath: 'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fpublic%2F1.jpg?alt=media',
       ),
     ];
     final same = mergeAccountSightings(finds, [
@@ -425,7 +426,7 @@ void main() {
 
   test('a deleted sighting leaves when its photo was only the cloud copy', () {
     const photo =
-        'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fuid%2F1.jpg?alt=media';
+        'https://firebasestorage.googleapis.com/v0/b/abshrooms-a9d4c.firebasestorage.app/o/sightings%2Fpublic%2F1.jpg?alt=media';
     final kept = FindRecord(
       id: 'local',
       millis: 4,

@@ -541,7 +541,7 @@ void main() {
         id: 'old',
         data: {
           'status': 'public',
-          'photo': 'sightings/u/old.jpg',
+          'photo': 'sightings/public/old.jpg',
           'millis': 1000,
           'country': 'SK',
         },
@@ -550,7 +550,7 @@ void main() {
         id: 'new',
         data: {
           'status': 'public',
-          'photo': 'sightings/u/new.jpg',
+          'photo': 'sightings/public/new.jpg',
           'millis': 2000,
         },
       ),
@@ -569,7 +569,8 @@ void main() {
     final url = Uri.parse(rows.first.url);
     expect(url.host, 'firebasestorage.googleapis.com');
     expect(url.path, contains('abshrooms-a9d4c.firebasestorage.app'));
-    expect(rows.first.url, contains('sightings%2Fu%2Fnew.jpg'));
+    expect(rows.first.url, contains('sightings%2Fpublic%2Fnew.jpg'));
+    expect(rows.first.url, isNot(contains('sightings%2Fu%2F')));
     expect(url.queryParameters.containsKey('token'), isFalse);
   });
 
