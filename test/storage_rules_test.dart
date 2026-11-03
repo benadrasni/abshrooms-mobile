@@ -28,6 +28,19 @@ void main() {
     expect(rules, contains('allow create, update: if owns(uid)'));
     expect(rules.contains('allow read: if true'), isFalse);
     expect(rules.contains("status == 'review'"), isFalse);
+    expect(
+      rules,
+      contains(
+        'match /private/{uid}/{file} {\n'
+        '      allow read: if owns(uid);\n'
+        '      allow create, update: if owns(uid)\n'
+        "        && file.matches('^[A-Za-z0-9_-]{1,80}\\\\.jpg\$')\n"
+        '        && request.resource.size < 8 * 1024 * 1024\n'
+        "        && request.resource.contentType == 'image/jpeg';\n"
+        '      allow delete: if owns(uid);\n'
+        '    }',
+      ),
+    );
   });
 
   test('sighting upload metadata is content type only', () {

@@ -61,6 +61,52 @@ void main() {
     expect(photoPositionFromBytes(bytes), isNull);
   });
 
+  test('a camera filename supplies the date when the file has none', () async {
+    expect(
+      photoDateFromName('IMG_20110806_081932.jpg'),
+      DateTime(2011, 8, 6, 8, 19, 32),
+    );
+    expect(
+      photoDateFromName(
+        '/cache/guide-pick/6f0e_IMG_20110806_081932.jpg',
+      ),
+      DateTime(2011, 8, 6, 8, 19, 32),
+    );
+    expect(
+      photoDateFromName('PXL_20261028_233536965.jpg'),
+      DateTime(2026, 10, 28, 23, 35, 36),
+    );
+    expect(
+      photoDateFromName('Screenshot_20110806-081932.png'),
+      DateTime(2011, 8, 6, 8, 19, 32),
+    );
+    expect(photoDateFromName('1000000198.jpg'), isNull);
+    expect(photoDateFromName('IMG_20110231_081932.jpg'), isNull);
+
+    final shot = img.Image(width: 2, height: 2);
+    final bytes = Uint8List.fromList(img.encodeJpg(shot));
+    final root = await Directory.systemTemp.createTemp('photo-name');
+    addTearDown(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+    final file = File('${root.path}/IMG_20110806_081932.jpg');
+    await file.writeAsBytes(bytes);
+    final now = DateTime(2026, 11, 3, 9, 0);
+    final photo = seenPhotoFromBytes(bytes, name: file.path, now: now);
+    expect(photo!.fromPhoto, isTrue);
+    expect(photo.when, DateTime(2011, 8, 6, 8, 19, 32));
+    expect(await photoTakenAt(file.path), DateTime(2011, 8, 6, 8, 19, 32));
+    final fromPath = await seenPhotoFromPath(file.path);
+    expect(fromPath!.when, DateTime(2011, 8, 6, 8, 19, 32));
+
+    shot.exif.exifIfd['DateTimeOriginal'] = '2024:01:02 03:04:05';
+    final dated = Uint8List.fromList(img.encodeJpg(shot));
+    expect(
+      seenPhotoFromBytes(dated, name: file.path, now: now)!.when,
+      DateTime(2024, 1, 2, 3, 4, 5),
+    );
+  });
+
   test('a photo without a date uses now', () {
     final shot = img.Image(width: 2, height: 2);
     final bytes = Uint8List.fromList(img.encodeJpg(shot));

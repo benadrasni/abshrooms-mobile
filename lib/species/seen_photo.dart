@@ -65,10 +65,11 @@ Future<String?> _imagePickerPath(double maxWidth) async {
 
 /// Reads [path], keeps the date and place, and returns a JPEG without them.
 /// A file that cannot be read returns null. The caller must not keep the
-/// original bytes.
+/// original bytes. The filename supplies the date when the file has no
+/// EXIF date.
 Future<SeenPhoto?> seenPhotoFromPath(String path) async {
   final bytes = await File(path).readAsBytes();
-  return seenPhotoFromBytes(bytes);
+  return seenPhotoFromBytes(bytes, name: path);
 }
 
 /// Picks a gallery photo and returns the notebook JPEG. Cancel returns null.
@@ -95,16 +96,18 @@ Future<void> deleteSeenPickCache(String path) async {
 }
 
 /// Date and place from [bytes], plus a JPEG that no longer carries them.
-/// Returns null when the file is not a picture.
+/// [name] is a camera filename. It supplies the date when the file has
+/// no EXIF date. Returns null when the file is not a picture.
 SeenPhoto? seenPhotoFromBytes(
   Uint8List bytes, {
+  String? name,
   DateTime? now,
   int edge = seenPhotoEdge,
 }) {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
   final exif = decoded.exif;
-  final when = _dateFromExif(exif);
+  final when = _dateFromExif(exif) ?? photoDateFromName(name);
   final place = _placeFromExif(exif);
   final latitude = place?.latitude ?? 0;
   final longitude = place?.longitude ?? 0;
@@ -119,13 +122,14 @@ SeenPhoto? seenPhotoFromBytes(
   );
 }
 
-/// When [path] was taken, from its EXIF date. Null when the file has no
-/// date, or the date cannot be read. A shutter photo does not use this.
+/// When [path] was taken. The EXIF date wins. A camera filename such as
+/// IMG_20110806_081932 is the clock when the file has no EXIF date. Null
+/// when neither can be read. A shutter photo does not use this.
 Future<DateTime?> photoTakenAt(String path) async {
   try {
     final file = File(path);
     if (!await file.exists()) return null;
-    return photoDateFromBytes(await file.readAsBytes());
+    return photoDateFromBytes(await file.readAsBytes()) ?? photoDateFromName(path);
   } catch (error) {
     debugPrint('photo date: $error');
     return null;
@@ -175,6 +179,51 @@ PhotoPlace? _placeFromExif(img.ExifData exif) {
     _gps(latitude, _text(exif.gpsIfd['GPSLatitudeRef']), positive: 'N'),
     _gps(longitude, _text(exif.gpsIfd['GPSLongitudeRef']), positive: 'E'),
   );
+}
+
+/// Camera clock in [name]. `IMG_20110806_081932` is 6 August 2011 at
+/// 08:19:32. A Pixel name may carry extra digits after the seconds.
+/// The EXIF date wins over this. Anything else is no date.
+@visibleForTesting
+DateTime? photoDateFromName(String? name) {
+  if (name == null || name.isEmpty) return null;
+  final base = name.replaceAll('\\', '/').split('/').last;
+  final match = RegExp(
+    r'(?:^|[^0-9])(\d{4})(\d{2})(\d{2})[_-](\d{2})(\d{2})(\d{2})',
+  ).firstMatch(base);
+  if (match == null) return null;
+  return _cameraClock(
+    int.parse(match.group(1)!),
+    int.parse(match.group(2)!),
+    int.parse(match.group(3)!),
+    int.parse(match.group(4)!),
+    int.parse(match.group(5)!),
+    int.parse(match.group(6)!),
+  );
+}
+
+DateTime? _cameraClock(
+  int year,
+  int month,
+  int day,
+  int hour,
+  int minute,
+  int second,
+) {
+  final latest = DateTime.now().year + 1;
+  if (year < 1980 || year > latest) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  final when = DateTime(year, month, day, hour, minute, second);
+  if (when.year != year ||
+      when.month != month ||
+      when.day != day ||
+      when.hour != hour ||
+      when.minute != minute ||
+      when.second != second) {
+    return null;
+  }
+  return when;
 }
 
 /// EXIF date in [bytes]. Null when the picture has no date.

@@ -294,6 +294,142 @@ void main() {
     expect(tester.getTopLeft(body).dy, lessThan(800));
   });
 
+  testWidgets('notes and uses follow the plants asides', (tester) async {
+    await _pump(
+      tester,
+      _notebook(),
+      extra: const {'edibility': 'choice'},
+      text: const {
+        'description': 'A stout bolete.',
+        'notes': 'Named for its edible flesh.',
+        'cap': 'A bun-shaped cap.',
+        'confusion': 'Bitter bolete tastes bitter.',
+        'uses': 'Dried in soups.',
+      },
+      sightings: (_) async => const [],
+      size: const Size(800, 5000),
+    );
+
+    expect(find.text('NOTES'), findsOneWidget);
+    expect(find.text('USES'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.text('Uses'), findsOneWidget);
+    expect(
+      find.text(
+        'A culinary note, not a guide to picking or eating a mushroom.',
+      ),
+      findsOneWidget,
+    );
+    final note = tester.widget<Text>(
+      find.text(
+        'A culinary note, not a guide to picking or eating a mushroom.',
+      ),
+    );
+    expect(note.style?.fontStyle, FontStyle.italic);
+    expect(note.style?.color, GuideColors.light.ink3);
+
+    final notesBorder = _asideBorder(tester, const Key('guide-aside-notes'));
+    expect(notesBorder.color, GuideColors.light.gold);
+    expect(notesBorder.width, 3);
+    final usesBorder = _asideBorder(tester, const Key('guide-aside-uses'));
+    expect(usesBorder.color, GuideColors.light.moss);
+    expect(usesBorder.width, 3);
+
+    double y(String text) => tester.getTopLeft(find.text(text)).dy;
+    expect(y('A stout bolete.'), lessThan(y('NOTES')));
+    expect(y('NOTES'), lessThan(y('Named for its edible flesh.')));
+    expect(y('Named for its edible flesh.'), lessThan(y('A bun-shaped cap.')));
+    expect(y('A bun-shaped cap.'), lessThan(y('Bitter bolete tastes bitter.')));
+    expect(y('Bitter bolete tastes bitter.'), lessThan(y('USES')));
+    expect(y('USES'), lessThan(y('Dried in soups.')));
+
+    double x(Key key) => tester.getTopLeft(find.byKey(key)).dx;
+    expect(
+      x(const Key('guide-jump-notes')),
+      lessThan(x(const Key('guide-jump-cap'))),
+    );
+    expect(
+      x(const Key('guide-jump-cap')),
+      lessThan(x(const Key('guide-jump-lookalikes'))),
+    );
+    expect(
+      x(const Key('guide-jump-lookalikes')),
+      lessThan(x(const Key('guide-jump-uses'))),
+    );
+  });
+
+  testWidgets('a lookalike in the book opens that species', (tester) async {
+    await _pump(
+      tester,
+      _notebook(),
+      text: const {
+        'confusion':
+            'Tylopilus felleus is bitter. Kept separate from Boletus edulis. '
+            'Amanita citrina var. alba keeps a bulb. Agaricus species have no volva.',
+      },
+      moreDocs: const [
+        Doc('Tylopilus felleus', {
+          'name': 'Tylopilus felleus',
+          'taxonomy': {'family': 'Boletaceae', 'genus': 'Tylopilus'},
+        }),
+        Doc('Amanita citrina', {
+          'name': 'Amanita citrina',
+          'taxonomy': {'family': 'Amanitaceae', 'genus': 'Amanita'},
+        }),
+      ],
+      moreLocal: const {
+        'Tylopilus felleus': {'label': 'bitter bolete'},
+        'Amanita citrina': {'label': 'false deathcap'},
+      },
+      sightings: (_) async => const [],
+      size: const Size(800, 4000),
+    );
+
+    final copy = find.byKey(const Key('guide-lookalikes-copy'));
+    expect(copy, findsOneWidget);
+    expect(
+      find.descendant(of: copy, matching: find.byType(GestureDetector)),
+      findsNWidgets(2),
+    );
+    expect(find.text('Amanita citrina'), findsOneWidget);
+    expect(find.text('Amanita citrina var. alba'), findsNothing);
+    expect(
+      find.textContaining('var. alba', findRichText: true),
+      findsOneWidget,
+    );
+
+    final link = find.text('Tylopilus felleus');
+    await tester.ensureVisible(link);
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+
+    expect(find.text('bitter bolete'), findsOneWidget);
+  });
+
+  testWidgets('a poisonous mushroom cautions, and missing notes stay out', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _notebook(),
+      extra: const {'edibility': 'poisonous'},
+      text: const {'uses': 'None recorded in the kitchen.'},
+      sightings: (_) async => const [],
+      size: const Size(800, 5000),
+    );
+
+    expect(find.text('NOTES'), findsNothing);
+    expect(find.text('Notes'), findsNothing);
+    expect(find.text('USES'), findsOneWidget);
+    expect(
+      find.text('Not a guide to picking or eating a mushroom.'),
+      findsOneWidget,
+    );
+    final usesBorder = _asideBorder(tester, const Key('guide-aside-uses'));
+    expect(usesBorder.color, GuideColors.light.moss);
+    expect(usesBorder.width, 3);
+  });
+
   testWidgets('the author sits beside the Latin title', (tester) async {
     await _pump(tester, _notebook(), extra: const {'author': 'Bull.'});
 
@@ -739,6 +875,8 @@ Future<void> _pump(
   Map<String, dynamic>? text,
   Map<String, String> taxa = const {},
   Map<String, Map<String, dynamic>> synonyms = const {},
+  List<Doc> moreDocs = const [],
+  Map<String, Map<String, dynamic>> moreLocal = const {},
   Future<List<SpeciesSighting>> Function(String latin)? sightings,
   Size size = const Size(800, 1600),
   bool Function()? isSignedIn,
@@ -749,6 +887,8 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  final local = {...moreLocal};
+  if (text != null) local['Boletus edulis'] = text;
   final repository = CatalogRepository()
     ..data = buildCatalog(
       language: language,
@@ -760,8 +900,9 @@ Future<void> _pump(
           'photoUrls': photos,
           ...extra,
         }),
+        ...moreDocs,
       ],
-      local: text == null ? const {} : {'Boletus edulis': text},
+      local: local,
       english: const {},
       synonyms: synonyms,
       taxa: taxa,
@@ -809,6 +950,12 @@ Future<void> _pump(
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
   }
+}
+
+BorderSide _asideBorder(WidgetTester tester, Key key) {
+  final decoration =
+      tester.widget<DecoratedBox>(find.byKey(key)).decoration as BoxDecoration;
+  return (decoration.border! as BorderDirectional).start;
 }
 
 Future<void> _save(WidgetTester tester) async {

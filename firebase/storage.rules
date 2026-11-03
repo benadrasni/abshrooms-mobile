@@ -40,5 +40,16 @@ service firebase.storage {
         && request.resource.contentType == 'image/jpeg';
       allow delete: if owns(uid);
     }
+
+    // A Field Guide notebook photo. Another signed-in phone of this
+    // account reads it. The file name is the find id.
+    match /private/{uid}/{file} {
+      allow read: if owns(uid);
+      allow create, update: if owns(uid)
+        && file.matches('^[A-Za-z0-9_-]{1,80}\\.jpg$')
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if owns(uid);
+    }
   }
 }

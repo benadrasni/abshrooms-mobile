@@ -22,6 +22,7 @@ import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/seen/species_sightings.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';
+import 'package:whats_that_mushroom/species/lookalikes.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
 
 void openSpecies(
@@ -176,6 +177,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
         ? copy.usesNote
         : copy.usesCaution;
     final chips = <({String id, String label})>[
+      if ((text.notes ?? '').isNotEmpty) (id: 'notes', label: copy.notes),
       if ((text.cap ?? '').isNotEmpty) (id: 'cap', label: copy.cap),
       if ((text.hymenium ?? '').isNotEmpty)
         (id: 'hymenium', label: copy.hymeniumHeading(species.hymenium)),
@@ -183,10 +185,9 @@ class _SpeciesPageState extends State<SpeciesPage> {
       if ((text.flesh ?? '').isNotEmpty) (id: 'flesh', label: copy.flesh),
       if ((text.sporePrint ?? '').isNotEmpty) (id: 'spore', label: copy.spore),
       if ((text.habitat ?? '').isNotEmpty) (id: 'habitat', label: copy.habitat),
-      if ((text.uses ?? '').isNotEmpty) (id: 'uses', label: copy.uses),
       if ((text.confusion ?? '').isNotEmpty)
         (id: 'lookalikes', label: copy.lookalikes),
-      if ((text.notes ?? '').isNotEmpty) (id: 'notes', label: copy.notes),
+      if ((text.uses ?? '').isNotEmpty) (id: 'uses', label: copy.uses),
       if (ranks.isNotEmpty) (id: 'taxonomy', label: copy.classification),
       (id: 'sightings', label: copy.statsSightings),
       if (text.sourceUrls.isNotEmpty) (id: 'sources', label: copy.sources),
@@ -248,21 +249,25 @@ class _SpeciesPageState extends State<SpeciesPage> {
             child: Text(text.description!, style: GuideType.body(colors)),
           ),
         ),
+      if ((text.notes ?? '').isNotEmpty)
+        SliverToBoxAdapter(
+          child: _Aside(
+            key: _sectionKey('notes'),
+            boxKey: const Key('guide-aside-notes'),
+            title: copy.notes,
+            text: text.notes!,
+            accent: colors.gold,
+            top: 14,
+          ),
+        ),
       if ((text.cap ?? '').isNotEmpty)
         SliverToBoxAdapter(
-          child: _section(
-            copy.cap,
-            null,
-            text.cap!,
-            colors,
-            key: _sectionKey('cap'),
-          ),
+          child: _section(copy.cap, text.cap!, colors, key: _sectionKey('cap')),
         ),
       if ((text.hymenium ?? '').isNotEmpty)
         SliverToBoxAdapter(
           child: _section(
             copy.hymeniumHeading(species.hymenium),
-            null,
             text.hymenium!,
             colors,
             key: _sectionKey('hymenium'),
@@ -272,7 +277,6 @@ class _SpeciesPageState extends State<SpeciesPage> {
         SliverToBoxAdapter(
           child: _section(
             copy.stipe,
-            null,
             text.stipe!,
             colors,
             key: _sectionKey('stipe'),
@@ -282,7 +286,6 @@ class _SpeciesPageState extends State<SpeciesPage> {
         SliverToBoxAdapter(
           child: _section(
             copy.flesh,
-            null,
             text.flesh!,
             colors,
             key: _sectionKey('flesh'),
@@ -292,7 +295,6 @@ class _SpeciesPageState extends State<SpeciesPage> {
         SliverToBoxAdapter(
           child: _section(
             copy.spore,
-            null,
             text.sporePrint!,
             colors,
             key: _sectionKey('spore'),
@@ -302,40 +304,35 @@ class _SpeciesPageState extends State<SpeciesPage> {
         SliverToBoxAdapter(
           child: _section(
             copy.habitat,
-            null,
             text.habitat!,
             colors,
             key: _sectionKey('habitat'),
-          ),
-        ),
-      if ((text.uses ?? '').isNotEmpty)
-        SliverToBoxAdapter(
-          child: _section(
-            copy.uses,
-            usesNote,
-            text.uses!,
-            colors,
-            key: _sectionKey('uses'),
           ),
         ),
       if ((text.confusion ?? '').isNotEmpty)
         SliverToBoxAdapter(
           child: _section(
             copy.lookalikes,
-            null,
-            text.confusion!,
+            '',
             colors,
             key: _sectionKey('lookalikes'),
+            child: _LookalikeBody(
+              text: text.confusion!,
+              catalog: catalog,
+              current: species.name,
+            ),
           ),
         ),
-      if ((text.notes ?? '').isNotEmpty)
+      if ((text.uses ?? '').isNotEmpty)
         SliverToBoxAdapter(
-          child: _section(
-            copy.notes,
-            null,
-            text.notes!,
-            colors,
-            key: _sectionKey('notes'),
+          child: _Aside(
+            key: _sectionKey('uses'),
+            boxKey: const Key('guide-aside-uses'),
+            title: copy.uses,
+            text: text.uses!,
+            disclaimer: usesNote,
+            accent: colors.moss,
+            top: 16,
           ),
         ),
       if (ranks.isNotEmpty)
@@ -1685,30 +1682,168 @@ Color _edibleColor(String id, GuideColors colors) {
   return colors.ink;
 }
 
+class _Aside extends StatelessWidget {
+  final String title;
+  final String text;
+  final String? disclaimer;
+  final Color accent;
+  final double top;
+  final Key? boxKey;
+
+  const _Aside({
+    super.key,
+    required this.title,
+    required this.text,
+    required this.accent,
+    required this.top,
+    this.disclaimer,
+    this.boxKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final rule = BorderSide(color: colors.rule);
+    return Padding(
+      padding: EdgeInsetsDirectional.fromSTEB(20, top, 20, 2),
+      child: DecoratedBox(
+        key: boxKey,
+        decoration: BoxDecoration(
+          color: colors.cream,
+          border: BorderDirectional(
+            top: rule,
+            end: rule,
+            bottom: rule,
+            start: BorderSide(color: accent, width: 3),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(14, 12, 14, 13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  fontFamily: GuideType.sans,
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
+                ),
+              ),
+              if (disclaimer != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  disclaimer!,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 12,
+                    height: 1.4,
+                    fontStyle: FontStyle.italic,
+                    color: colors.ink3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ] else
+                const SizedBox(height: 6),
+              Text(
+                text,
+                style: TextStyle(
+                  fontFamily: GuideType.sans,
+                  fontSize: 15,
+                  height: 1.5,
+                  color: colors.body,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 Widget _section(
   String title,
-  String? note,
   String body,
   GuideColors colors, {
   Key? key,
+  Widget? child,
 }) {
+  final shown =
+      child ??
+      (body.isNotEmpty ? Text(body, style: GuideType.body(colors)) : null);
   return Column(
     key: key,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _sectionTitle(title, colors),
-      if (note != null && note.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-          child: Text(note, style: GuideType.muted(colors)),
-        ),
-      if (body.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-          child: Text(body, style: GuideType.body(colors)),
-        ),
+      if (shown != null)
+        Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 4), child: shown),
     ],
   );
+}
+
+class _LookalikeBody extends StatelessWidget {
+  final String text;
+  final Catalog catalog;
+  final String current;
+
+  const _LookalikeBody({
+    required this.text,
+    required this.catalog,
+    required this.current,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final pieces = lookalikePieces(text, catalog, current);
+    final linked = pieces.any((piece) => piece.latin != null);
+    if (!linked) {
+      return Text(
+        text,
+        key: const Key('guide-lookalikes-copy'),
+        style: GuideType.body(colors),
+      );
+    }
+    return Text.rich(
+      key: const Key('guide-lookalikes-copy'),
+      TextSpan(
+        style: GuideType.body(colors),
+        children: [
+          for (final piece in pieces)
+            if (piece.latin == null)
+              TextSpan(text: piece.text)
+            else
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: Semantics(
+                  button: true,
+                  child: GestureDetector(
+                    onTap: () => openSpecies(
+                      context,
+                      piece.latin!,
+                      source: GuideMushroomSource.lookalike,
+                    ),
+                    child: Text(
+                      piece.text,
+                      style: GuideType.latin(colors, size: 16.5).copyWith(
+                        color: colors.body,
+                        height: 1.4,
+                        decoration: TextDecoration.underline,
+                        decorationColor: colors.moss,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
 }
 
 Widget _sectionTitle(String title, GuideColors colors) {

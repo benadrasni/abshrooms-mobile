@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:whats_that_mushroom/data/favorites.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/purchase/purchases.dart';
+import 'package:whats_that_mushroom/seen/private_sync.dart';
 
 /// Where a confirmed find sits with Sightings.
 enum FindShare { none, review, shared, rejected }
@@ -85,6 +87,12 @@ class FindRecord {
   /// Sightings status. [FindShare.none] has not been sent.
   final FindShare share;
 
+  /// Last edit written for a Field Guide sync. Zero has never been pushed.
+  final int updated;
+
+  /// Account that already has this row. Null has not been synced.
+  final String? syncedUid;
+
   const FindRecord({
     required this.id,
     required this.millis,
@@ -99,6 +107,8 @@ class FindRecord {
     this.country,
     this.others = const [],
     this.share = FindShare.none,
+    this.updated = 0,
+    this.syncedUid,
   });
 
   FindRecord copyWith({
@@ -117,6 +127,9 @@ class FindRecord {
     double? latitude,
     double? longitude,
     bool setPlace = false,
+    int? updated,
+    String? syncedUid,
+    bool setSyncedUid = false,
   }) {
     return FindRecord(
       id: id,
@@ -132,6 +145,8 @@ class FindRecord {
       country: country ?? this.country,
       others: others ?? this.others,
       share: share ?? this.share,
+      updated: updated ?? this.updated,
+      syncedUid: setSyncedUid ? syncedUid : this.syncedUid,
     );
   }
 
@@ -149,6 +164,8 @@ class FindRecord {
     if (country != null) 'country': country,
     if (others.isNotEmpty) 'others': [for (final name in others) name.toJson()],
     if (share != FindShare.none) 'share': share.name,
+    if (updated > 0) 'updated': updated,
+    if (syncedUid != null) 'syncedUid': syncedUid,
   };
 
   factory FindRecord.fromJson(Map<String, dynamic> json) {
@@ -168,11 +185,20 @@ class FindRecord {
       country: _isoCountry(json['country']),
       others: _findNames(json['others']),
       share: findShareFrom(json['share']),
+      updated: json['updated'] is num ? (json['updated'] as num).toInt() : 0,
+      syncedUid: _syncedUid(json['syncedUid']),
     );
   }
 }
 
 /// A two-letter ISO code, lowercased. Anything else is no country.
+String? _syncedUid(Object? value) {
+  if (value is! String) return null;
+  final uid = value.trim();
+  if (uid.isEmpty || uid.contains('/')) return null;
+  return uid;
+}
+
 String? _isoCountry(Object? value) {
   if (value is! String) return null;
   final code = value.trim().toLowerCase();
@@ -218,6 +244,7 @@ class Notebook extends ChangeNotifier {
   String? _favoriteUid;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _favoriteSub;
   var _followingFavorites = false;
+  PrivateNotebookSync? _private;
 
   /// Replaces the signed-in uid in tests.
   @visibleForTesting
@@ -256,14 +283,24 @@ class Notebook extends ChangeNotifier {
   /// Follows `users/{uid}/favorites` for the signed-in account. A guest, or
   /// signing out, clears the names here. The rows stay on the account.
   void followAccount() {
+    _private ??= PrivateNotebookSync(this);
     if (_followingFavorites) return;
     _followingFavorites = true;
     Auth.revision.addListener(_onFavoriteAccount);
+    Auth.revision.addListener(_private!.retarget);
+    Purchases.revision.addListener(_private!.retarget);
     _onFavoriteAccount();
+    _private!.retarget();
   }
 
   void stopFavorites() {
     Auth.revision.removeListener(_onFavoriteAccount);
+    final private = _private;
+    if (private != null) {
+      Auth.revision.removeListener(private.retarget);
+      Purchases.revision.removeListener(private.retarget);
+      private.stop();
+    }
     _favoriteSub?.cancel();
     _favoriteSub = null;
     _followingFavorites = false;
@@ -353,6 +390,16 @@ class Notebook extends ChangeNotifier {
     _dir = dir;
   }
 
+  /// JPEG path for [id] once the documents directory is known.
+  String? photoFile(String id) {
+    final dir = _dir;
+    final clean = id.trim();
+    if (dir == null || clean.isEmpty || clean.contains('/')) return null;
+    return '${dir.path}/finds/$clean.jpg';
+  }
+
+  int _stamp() => DateTime.now().millisecondsSinceEpoch;
+
   Future<String?> savePhoto(Uint8List bytes, String id) async {
     final dir = _dir;
     if (dir == null) return null;
@@ -366,14 +413,18 @@ class Notebook extends ChangeNotifier {
   }
 
   Future<void> addFind(FindRecord record) async {
-    finds = [record, ...finds.where((item) => item.id != record.id)];
+    final stamped = record.updated > 0
+        ? record
+        : record.copyWith(updated: _stamp());
+    finds = [stamped, ...finds.where((item) => item.id != stamped.id)];
     await _write();
   }
 
   Future<void> setShare(String id, FindShare share) async {
+    final stamp = _stamp();
     finds = [
       for (final item in finds)
-        if (item.id == id) item.copyWith(share: share) else item,
+        if (item.id == id) item.copyWith(share: share, updated: stamp) else item,
     ];
     await _write();
   }
@@ -385,17 +436,22 @@ class Notebook extends ChangeNotifier {
   }
 
   Future<void> confirm(String id) async {
+    final stamp = _stamp();
     finds = [
       for (final item in finds)
-        if (item.id == id) item.copyWith(confirmed: true) else item,
+        if (item.id == id)
+          item.copyWith(confirmed: true, updated: stamp)
+        else
+          item,
     ];
     await _write();
   }
 
   Future<void> replace(FindRecord record) async {
+    final stamped = record.copyWith(updated: _stamp());
     finds = [
       for (final item in finds)
-        if (item.id == record.id) record else item,
+        if (item.id == stamped.id) stamped else item,
     ];
     await _write();
   }

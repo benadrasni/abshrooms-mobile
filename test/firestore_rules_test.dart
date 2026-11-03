@@ -33,10 +33,17 @@ void main() {
       ),
     );
     expect(rules, contains('match /sightings_public/{id}'));
-    expect(rules, contains("request.resource.data.photo == 'sightings/public/' + id + '.jpg'"));
     expect(
       rules,
-      contains("!request.resource.data.keys().hasAny(['uid', 'latitude', 'longitude', 'status'])"),
+      contains(
+        "request.resource.data.photo == 'sightings/public/' + id + '.jpg'",
+      ),
+    );
+    expect(
+      rules,
+      contains(
+        "!request.resource.data.keys().hasAny(['uid', 'latitude', 'longitude', 'status'])",
+      ),
     );
     expect(rules, contains('match /sightings_stats/{id}'));
     expect(
@@ -127,6 +134,45 @@ void main() {
         '        && latin.size() < 200\n'
         "        && request.resource.data.keys().hasOnly(['v'])\n"
         '        && request.resource.data.v == 1;\n'
+        '      allow delete: if request.auth != null\n'
+        '        && request.auth.uid == uid\n'
+        "        && request.auth.token.firebase.sign_in_provider != 'anonymous';\n"
+        '    }',
+      ),
+    );
+  });
+
+  test('the owner can store a private find and a guest cannot', () {
+    final rules = File('firebase/firestore.rules').readAsStringSync();
+    expect(rules, contains('function privateFindOk(id)'));
+    expect(rules, contains("id.matches('^[A-Za-z0-9_-]{1,80}\$')"));
+    expect(
+      rules,
+      contains(
+        "data.keys().hasOnly(['millis', 'updated', 'confirmed', 'latin', 'outsideName', 'spoken', 'probability', 'latitude', 'longitude', 'country', 'share', 'photo', 'others'])",
+      ),
+    );
+    expect(
+      rules,
+      contains(
+        "data.photo == 'private/' + request.auth.uid + '/' + id + '.jpg'",
+      ),
+    );
+    expect(rules, contains("data.share == 'review'"));
+    expect(rules, contains("data.share == 'shared'"));
+    expect(rules, contains("data.share == 'rejected'"));
+    expect(rules.contains("data.share == 'none'"), isFalse);
+    expect(
+      rules,
+      contains(
+        'match /users/{uid}/finds/{id} {\n'
+        '      allow read: if request.auth != null\n'
+        '        && request.auth.uid == uid\n'
+        "        && request.auth.token.firebase.sign_in_provider != 'anonymous';\n"
+        '      allow create, update: if request.auth != null\n'
+        '        && request.auth.uid == uid\n'
+        "        && request.auth.token.firebase.sign_in_provider != 'anonymous'\n"
+        '        && privateFindOk(id);\n'
         '      allow delete: if request.auth != null\n'
         '        && request.auth.uid == uid\n'
         "        && request.auth.token.firebase.sign_in_provider != 'anonymous';\n"

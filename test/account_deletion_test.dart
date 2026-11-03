@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -282,6 +284,14 @@ void main() {
     expect(signedInAnalyticsId('guest-1', anonymous: true), isNull);
     expect(signedInAnalyticsId('user-1', anonymous: false), 'user-1');
     expect(signedInAnalyticsId('  ', anonymous: false), isNull);
+  });
+
+  test('account deletion removes the private notebook before the user', () {
+    final source = File('lib/person/account_deletion.dart').readAsStringSync();
+    final finds = source.indexOf('await deletePrivateFinds(user.uid);');
+    final user = source.indexOf('await user.delete();');
+    expect(finds, greaterThan(0));
+    expect(user, greaterThan(finds));
   });
 
   test('account deletion removes that uid’s sighting objects', () {

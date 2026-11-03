@@ -151,6 +151,83 @@ service cloud.firestore {
         ));
     }
 
+    // Optional short text. Absent is allowed. Latin may be absent: a find
+    // outside the book stores outsideName instead.
+    function privateNameOk(data, key) {
+      return !data.keys().hasAny([key])
+        || (
+          data[key] is string
+          && data[key].size() > 0
+          && data[key].size() < 200
+        );
+    }
+
+    function privateProbabilityOk(data) {
+      return !data.keys().hasAny(['probability'])
+        || (
+          data.probability is number
+          && data.probability >= 0
+          && data.probability <= 1
+        );
+    }
+
+    function privateShareOk(data) {
+      return !data.keys().hasAny(['share'])
+        || data.share == 'review'
+        || data.share == 'shared'
+        || data.share == 'rejected';
+    }
+
+    function privatePhotoOk(data, id) {
+      return !data.keys().hasAny(['photo'])
+        || data.photo == 'private/' + request.auth.uid + '/' + id + '.jpg';
+    }
+
+    function privateOthersOk(data) {
+      return !data.keys().hasAny(['others'])
+        || (data.others is list && data.others.size() < 12);
+    }
+
+    // A private find. The client writes one only while Field Guide is
+    // active. The plan sits in a nested entitlements map, so the rule
+    // checks the owner, not the plan.
+    function privateFindOk(id) {
+      let data = request.resource.data;
+      return id.matches('^[A-Za-z0-9_-]{1,80}$')
+        && data.keys().hasAll(['millis', 'updated', 'confirmed'])
+        && data.keys().hasOnly(['millis', 'updated', 'confirmed', 'latin', 'outsideName', 'spoken', 'probability', 'latitude', 'longitude', 'country', 'share', 'photo', 'others'])
+        && data.millis is int
+        && data.millis > 0
+        && data.updated is int
+        && data.updated > 0
+        && data.confirmed is bool
+        && privateNameOk(data, 'latin')
+        && privateNameOk(data, 'outsideName')
+        && privateNameOk(data, 'spoken')
+        && privateProbabilityOk(data)
+        && sightingCountryOk(data)
+        && sightingPlaceOk(data)
+        && privateShareOk(data)
+        && privatePhotoOk(data, id)
+        && privateOthersOk(data);
+    }
+
+    // Private notebook for the signed-in account. A guest cannot read it.
+    // Deleting the account removes the documents. This is not a Sighting:
+    // nothing here is public, and status review is not used.
+    match /users/{uid}/finds/{id} {
+      allow read: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && privateFindOk(id);
+      allow delete: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     // A Sighting sent from Seen. The owner creates it as review and may
     // delete it. Publishing or rejecting is an admin write. The document
     // keeps the account, the country, and the coordinates. Guests cannot

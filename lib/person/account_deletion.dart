@@ -7,6 +7,7 @@ import 'package:whats_that_mushroom/data/favorites.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/phone_verify.dart';
 import 'package:whats_that_mushroom/purchase/store_proof.dart';
+import 'package:whats_that_mushroom/seen/private_sync.dart';
 import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/shell/push.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -110,6 +111,7 @@ Future<void> _deleteUser() async {
   }
   await deleteOwnedSightings(user.uid);
   await deleteAccountFavorites(user.uid);
+  await deletePrivateFinds(user.uid);
   await releaseStorePurchases();
   await clearPushToken(user.uid);
   await user.delete();

@@ -46,8 +46,8 @@ class CameraPage extends StatefulWidget {
   final Future<String?> Function(ImageSource source)? pickPhoto;
   final Future<Uint8List> Function(String path)? readPhoto;
 
-  /// Gallery photo date. Production reads the EXIF date. A shutter photo
-  /// does not use this.
+  /// Gallery photo date. Production reads the EXIF date, then a camera
+  /// filename when the file has none. A shutter photo does not use this.
   final Future<DateTime?> Function(String path)? photoTakenAt;
 
   /// Place written on the photo. Production reads the EXIF GPS.
@@ -438,8 +438,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
     if (!mounted) return null;
     if (source == ImageSource.gallery) {
-      // This picker keeps the picture's date and place. The image picker
-      // resizes first and can drop both.
+      // This picker keeps the picture's date and place, and fills a missing
+      // date from the gallery. The image picker resizes first and can drop both.
       return pickDevicePhoto();
     }
     final image = await ImagePicker().pickImage(
