@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">פטרייה?</string>
+    <!-- U+200E keeps this the Latin question mark. Hebrew does not use ؟. -->
+    <string name="app_name">פטרייה&#x200E;?</string>
 </resources>
