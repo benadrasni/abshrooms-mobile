@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:image/image.dart' as img;
@@ -50,6 +51,134 @@ Uint8List? jpegMaxEdge(Uint8List bytes, {int edge = 1280}) {
     );
   }
   return Uint8List.fromList(img.encodeJpg(sized, quality: 85));
+}
+
+/// `identifyMushroom` rejects a base64 image longer than this and never
+/// calls Plant.id.
+const identifyMaxImageChars = 8 * 1024 * 1024;
+
+/// A JPEG Plant.id can accept. The long edge is at most [edge], and the
+/// date and the place are not in the file.
+///
+/// A gallery photo is already scaled by the picker. An iPhone shutter photo
+/// is the sensor's full still. Decoding that still in Dart builds the whole
+/// picture in memory and can be killed before the upload, and a still the
+/// Dart decoder cannot read is sent unchanged and then refused. The platform
+/// codec scales while it decodes. [maxChars] is the base64 ceiling.
+Future<Uint8List?> jpegForIdentify(
+  Uint8List bytes, {
+  int edge = 1280,
+  int maxChars = identifyMaxImageChars,
+}) async {
+  if (edge < 1 || maxChars < 1) return null;
+  try {
+    if (_isJpeg(bytes) && _jpegFitsIdentify(bytes, edge, maxChars)) {
+      final fitted = jpegMaxEdge(bytes, edge: edge);
+      if (fitted != null && _base64Chars(fitted) <= maxChars) return fitted;
+    }
+    final coded = await _jpegFromCodec(bytes, edge: edge);
+    if (coded == null || _base64Chars(coded) > maxChars) return null;
+    return coded;
+  } catch (_) {
+    return null;
+  }
+}
+
+bool _isJpeg(Uint8List bytes) {
+  return bytes.length >= 4 && bytes[0] == 0xFF && bytes[1] == 0xD8;
+}
+
+int _base64Chars(Uint8List bytes) => ((bytes.length + 2) ~/ 3) * 4;
+
+/// True when the main frame is already within [edge] and the file's base64
+/// is within [maxChars]. A missing frame is not small: the codec has to
+/// scale it, or the photo is not sent.
+bool _jpegFitsIdentify(Uint8List bytes, int edge, int maxChars) {
+  final size = _jpegSize(bytes);
+  if (size == null) return false;
+  final longest = size.$1 > size.$2 ? size.$1 : size.$2;
+  if (longest > edge) return false;
+  return _base64Chars(bytes) <= maxChars;
+}
+
+/// SOF size of the main frame, or null when this JPEG has no readable frame.
+(int, int)? _jpegSize(Uint8List bytes) {
+  if (!_isJpeg(bytes)) return null;
+  var i = 2;
+  while (i + 8 < bytes.length) {
+    if (bytes[i] != 0xFF) return null;
+    while (i < bytes.length && bytes[i] == 0xFF) {
+      i++;
+    }
+    if (i >= bytes.length) return null;
+    final marker = bytes[i];
+    i++;
+    if (marker == 0xD9 || marker == 0xDA) return null;
+    if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) continue;
+    if (i + 2 > bytes.length) return null;
+    final length = (bytes[i] << 8) | bytes[i + 1];
+    if (length < 2 || i + length > bytes.length) return null;
+    final sof =
+        marker != 0xC4 &&
+        marker != 0xC8 &&
+        marker != 0xCC &&
+        marker >= 0xC0 &&
+        marker <= 0xCF;
+    if (sof) {
+      if (length < 7) return null;
+      final height = (bytes[i + 3] << 8) | bytes[i + 4];
+      final width = (bytes[i + 5] << 8) | bytes[i + 6];
+      if (width == 0 || height == 0) return null;
+      return (width, height);
+    }
+    i += length;
+  }
+  return null;
+}
+
+/// Pixels only, long edge at most [edge]. A picture the codec cannot read
+/// is refused. Smaller pictures stay as they are.
+Future<Uint8List?> _jpegFromCodec(Uint8List bytes, {required int edge}) async {
+  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+  final codec = await ui.instantiateImageCodecWithSize(
+    buffer,
+    getTargetSize: (int width, int height) {
+      if (width <= edge && height <= edge) return const ui.TargetImageSize();
+      if (width >= height) return ui.TargetImageSize(width: edge);
+      return ui.TargetImageSize(height: edge);
+    },
+  );
+  try {
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    try {
+      if (image.width <= 0 || image.height <= 0) return null;
+      final raw = await image.toByteData(
+        format: ui.ImageByteFormat.rawStraightRgba,
+      );
+      if (raw == null) return null;
+      final pixels = raw.buffer.asUint8List(
+        raw.offsetInBytes,
+        raw.lengthInBytes,
+      );
+      final picture = img.Image.fromBytes(
+        width: image.width,
+        height: image.height,
+        bytes: pixels.buffer,
+        bytesOffset: pixels.offsetInBytes,
+        numChannels: 4,
+      );
+      final encoded = img.encodeJpg(picture, quality: 85);
+      if (encoded.length < 4 || encoded[0] != 0xFF || encoded[1] != 0xD8) {
+        return null;
+      }
+      return encoded;
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    codec.dispose();
+  }
 }
 
 /// Drops APPn (0xE1-0xEF) and COM segments up to the first end of image.

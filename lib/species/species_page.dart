@@ -170,8 +170,13 @@ class _SpeciesPageState extends State<SpeciesPage> {
     ];
     final plateUrl = mediaUrl(species.illustrationUrl);
     final seen = _seenSummary(scope.notebook, species.name);
-    final width = MediaQuery.sizeOf(context).width;
-    final galleryHeight = width >= 600 ? 460.0 : 420.0;
+    final window = GuideWindow.of(context);
+    final size = MediaQuery.sizeOf(context);
+    // A landscape tablet, including one short of the wide bar, puts the
+    // photo and the article side by side. Portrait keeps one column.
+    final sideBySide =
+        window.wide || (window.tablet && size.width > size.height);
+    final galleryHeight = sideBySide ? 440.0 : (window.tablet ? 460.0 : 420.0);
     final ranks = _taxonLines(catalog, species, copy);
     final usesNote = _edible(species.edibility)
         ? copy.usesNote
@@ -374,15 +379,60 @@ class _SpeciesPageState extends State<SpeciesPage> {
       ),
       if (Purchases.showsAds()) const SliverToBoxAdapter(child: AppBannerAd()),
     ];
-    return Scaffold(
-      backgroundColor: colors.paper,
-      body: _StatusBarJumpScroll(
+    final jumps = SliverToBoxAdapter(
+      child: _JumpBar(chips: chips, onJump: _jump),
+    );
+    final Widget body;
+    if (sideBySide) {
+      // The photo column still runs under the status bar. The article opens
+      // with the jump pills, so they take the same top inset the phone cover uses.
+      body = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 42,
+            child: ListView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
+              children: head,
+            ),
+          ),
+          Expanded(
+            flex: 58,
+            child: CustomScrollView(
+              key: const Key('guide-species-scroll'),
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.paddingOf(context).top,
+                  ),
+                  sliver: jumps,
+                ),
+                ...tail,
+              ],
+            ),
+          ),
+        ],
+      );
+    } else if (window.tablet) {
+      body = CustomScrollView(
+        key: const Key('guide-species-scroll'),
+        slivers: [
+          for (final child in head) SliverToBoxAdapter(child: child),
+          jumps,
+          ...tail,
+        ],
+      );
+    } else {
+      body = _StatusBarJumpScroll(
         chips: chips,
         onJump: _jump,
         leading: head,
         trailing: tail,
-      ),
-    );
+      );
+    }
+    return Scaffold(backgroundColor: colors.paper, body: body);
   }
 
   GlobalKey _sectionKey(String id) {
@@ -393,11 +443,14 @@ class _SpeciesPageState extends State<SpeciesPage> {
     final target = _sectionKeys[id]?.currentContext;
     if (target == null) return;
     final position = Scrollable.of(target).position;
-    final cover = MediaQuery.paddingOf(context).top + _galleryPillHeight + 24;
-    final alignment = ((cover + 16) / position.viewportDimension).clamp(
-      0.0,
-      0.5,
-    );
+    // Phone pills pin below the status bar. Land the section under that cover.
+    // Tablet pills scroll away, so keep a little air at the top.
+    final cover = GuideWindow.of(context).tablet
+        ? 0.0
+        : MediaQuery.paddingOf(context).top + _galleryPillHeight + 24;
+    final alignment = cover == 0
+        ? 0.16
+        : ((cover + 16) / position.viewportDimension).clamp(0.0, 0.5);
     Scrollable.ensureVisible(
       target,
       duration: const Duration(milliseconds: 280),
@@ -1193,13 +1246,13 @@ class _MonthCell extends StatelessWidget {
 class _JumpBar extends StatelessWidget {
   final List<({String id, String label})> chips;
   final ValueChanged<String> onJump;
-  final ScrollController controller;
+  final ScrollController? controller;
 
   const _JumpBar({
     super.key,
     required this.chips,
     required this.onJump,
-    required this.controller,
+    this.controller,
   });
 
   @override

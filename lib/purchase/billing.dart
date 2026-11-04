@@ -17,6 +17,9 @@ const appleListing = 'https://apps.apple.com/app/id6826707489';
 const playListing =
     'https://play.google.com/store/apps/details?id=sk.ab.shrooms';
 const playMarket = 'market://details?id=sk.ab.shrooms';
+const playSubscriptions =
+    'https://play.google.com/store/account/subscriptions?package=sk.ab.shrooms';
+const appleSubscriptions = 'https://apps.apple.com/account/subscriptions';
 
 /// Store listing used by Rate this app.
 String writeReviewUrl(TargetPlatform platform) {
@@ -41,6 +44,18 @@ Future<bool> openWriteReview() async {
 
 Future<bool> _launch(String path) {
   return launchUrl(Uri.parse(path), mode: LaunchMode.externalApplication);
+}
+
+/// Opens the store page where a trial or subscription is canceled.
+Future<void> openSubscriptionManage() async {
+  final ios =
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+  try {
+    await _launch(ios ? appleSubscriptions : playSubscriptions);
+  } catch (error) {
+    debugPrint('subscriptions: $error');
+  }
 }
 
 /// Listens for Play and App Store receipts and finishes them.

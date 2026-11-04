@@ -5,6 +5,7 @@ import 'package:whats_that_mushroom/book/list_chrome.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/text.dart';
+import 'package:whats_that_mushroom/shell/guide_window.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -78,12 +79,19 @@ class _NewPageState extends State<NewPage> {
 
   List<Widget> _body(Catalog? catalog, List<NewDay> days, Set<String> seen) {
     if (catalog == null || days.isEmpty) return const [];
+    final columns = GuideWindow.of(context)
+        .columns(phone: 2, tablet: 3, wide: 4);
     final rows = <Widget>[];
     final pending = <Species>[];
     void flush() {
       if (pending.isEmpty) return;
       rows.add(
-        _gridRow([for (final species in pending) species], seen, catalog),
+        _gridRow(
+          [for (final species in pending) species],
+          seen,
+          catalog,
+          columns,
+        ),
       );
       pending.clear();
     }
@@ -94,17 +102,22 @@ class _NewPageState extends State<NewPage> {
       rows.add(_DateHeader(day: day, first: rows.isEmpty));
       for (final species in day.species) {
         pending.add(species);
-        if (pending.length == 2) flush();
+        if (pending.length == columns) flush();
       }
     }
     flush();
     return rows;
   }
 
-  Widget _gridRow(List<Species> species, Set<String> seen, Catalog catalog) {
+  Widget _gridRow(
+    List<Species> species,
+    Set<String> seen,
+    Catalog catalog,
+    int columns,
+  ) {
     final copy = GuideScope.of(context).copy;
     return speciesGridRow(
-      columns: 2,
+      columns: columns,
       cells: [
         for (final item in species)
           SpeciesCell(

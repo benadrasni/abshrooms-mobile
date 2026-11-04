@@ -9,6 +9,7 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
+import 'package:whats_that_mushroom/shell/widgets.dart';
 
 const offlineEverythingKey = Key('guide-offline-all');
 const offlineDownloadKey = Key('guide-offline-get');
@@ -329,7 +330,11 @@ class _OfflinePageState extends State<OfflinePage> {
     final colors = GuideColors.of(context);
     return Scaffold(
       backgroundColor: colors.paper,
-      body: SafeArea(child: _body(context)),
+      body: guideWithRail(
+        context,
+        personOn: true,
+        child: SafeArea(child: GuideReadable(child: _body(context))),
+      ),
     );
   }
 

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:whats_that_mushroom/book/book_page.dart';
 import 'package:whats_that_mushroom/find/find_page.dart';
+import 'package:whats_that_mushroom/person/person_page.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/seen/seen_page.dart';
 import 'package:whats_that_mushroom/shell/app_version.dart';
+import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/version_gate.dart';
@@ -28,10 +30,16 @@ class GuideShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    GuideTabs.index = index;
+    GuideTabs.openPerson = (navContext) {
+      Navigator.of(navContext)
+          .push(guideRoute(guideScreenPerson, (_) => const PersonPage()));
+    };
     final colors = GuideColors.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final update = onVersionUpdate;
     final dismiss = onVersionDismiss;
+    final showAd = (index == 0 || index == 1) && Purchases.showsAds();
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         systemNavigationBarColor: colors.cream,
@@ -39,37 +47,33 @@ class GuideShell extends StatelessWidget {
             ? Brightness.light
             : Brightness.dark,
       ),
-      child: Scaffold(
-        backgroundColor: colors.paper,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (versionPrompt == VersionPrompt.banner &&
-                  update != null &&
-                  dismiss != null)
-                VersionBanner(
-                  copy: GuideScope.of(context).copy,
-                  onUpdate: update,
-                  onDismiss: dismiss,
-                ),
-              Expanded(
-                child: IndexedStack(
-                  index: index,
-                  children: [
-                    const FindPage(),
-                    const BookPage(),
-                    SeenPage(active: index == 2),
-                  ],
-                ),
+      child: guideChromeFrame(
+        context,
+        index: index,
+        showAd: showAd,
+        onSelect: onSelect,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (versionPrompt == VersionPrompt.banner &&
+                update != null &&
+                dismiss != null)
+              VersionBanner(
+                copy: GuideScope.of(context).copy,
+                onUpdate: update,
+                onDismiss: dismiss,
               ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: GuideBottomBar(
-          index: index,
-          onSelect: onSelect,
-          showAd: (index == 0 || index == 1) && Purchases.showsAds(),
+            Expanded(
+              child: IndexedStack(
+                index: index,
+                children: [
+                  const FindPage(),
+                  const BookPage(),
+                  SeenPage(active: index == 2),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

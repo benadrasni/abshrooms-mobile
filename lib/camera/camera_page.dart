@@ -21,6 +21,7 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/search/search_page.dart';
 import 'package:whats_that_mushroom/shell/app_check.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
+import 'package:whats_that_mushroom/shell/guide_window.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/seen_photo.dart';
@@ -468,8 +469,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Future<Uint8List> _readPhoto(String path) async {
-    final jpeg = jpegMaxEdge(await File(path).readAsBytes());
-    // Not a JPEG. The original bytes are not sent.
+    final jpeg = await jpegForIdentify(await File(path).readAsBytes());
+    // Not a picture identifyMushroom can accept. The original bytes are not sent.
     if (jpeg == null) throw const FormatException('not a jpeg');
     return jpeg;
   }
@@ -658,23 +659,25 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       );
       if (!mounted) return;
       final limit = error.reason == 'sign-in' || error.reason == 'no-names';
-      setState(() {
-        _naming = false;
-        _notMushroom = false;
-        _limit = limit;
-      });
-      if (!limit) _snack(refusalCopy(error.reason, copy, signedIn: _signedIn));
-      _releaseShot();
+      if (limit) {
+        setState(() {
+          _naming = false;
+          _notMushroom = false;
+          _limit = true;
+        });
+        _releaseShot();
+      } else {
+        // The still stays in front of the preview unless it is dropped here.
+        _clearSheet();
+        _snack(refusalCopy(error.reason, copy, signedIn: _signedIn));
+      }
     } catch (error) {
       debugPrint('camera: $error');
       _logPhoto(source, 'error');
       if (!mounted) return;
-      setState(() {
-        _naming = false;
-        _notMushroom = false;
-      });
+      // The still stays in front of the preview unless it is dropped here.
+      _clearSheet();
       _snack(cameraFailure(error, copy, signedIn: _signedIn));
-      _releaseShot();
     } finally {
       if (!mounted && path != null && _ownsShot && !keepFile) {
         unawaited(_deleteFile(path));
@@ -902,13 +905,9 @@ _CameraOutcome _outcome(List<NameGuess> guesses, Catalog catalog) {
   return _CameraOutcome.outside(leading, others);
 }
 
-bool _wide(Size size) {
-  return size.shortestSide >= 650 &&
-      size.width > size.height &&
-      size.width >= 1000;
-}
+bool _wide(Size size) => GuideWindow.fromSize(size).wide;
 
-bool _tablet(Size size) => size.shortestSide >= 650;
+bool _tablet(Size size) => GuideWindow.fromSize(size).tablet;
 
 class _View extends StatelessWidget {
   final String? path;
@@ -1448,7 +1447,7 @@ class _LimitSheet extends StatelessWidget {
             onPressed: onWatchAd,
           ),
         _Choice(
-          title: copy.cameraFieldGuideRow,
+          title: copy.fieldGuide,
           note: copy.cameraFieldGuideNote,
           icon: Icons.eco_outlined,
           iconColor: Colors.white,

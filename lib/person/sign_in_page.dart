@@ -15,6 +15,7 @@ import 'package:whats_that_mushroom/legal.dart';
 import 'package:whats_that_mushroom/person/account.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/phone_verify.dart';
+import 'package:whats_that_mushroom/shell/guide_window.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
@@ -403,9 +404,12 @@ class _SignInPageState extends State<SignInPage> {
         backgroundColor: colors.paper,
         body: SafeArea(
           bottom: false,
-          child: _step == _Step.providers
-              ? _providers(context)
-              : _form(context),
+          child: GuideReadable(
+            maxWidth: 880,
+            child: _step == _Step.providers
+                ? _providers(context)
+                : _form(context),
+          ),
         ),
       ),
     );

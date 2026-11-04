@@ -35,6 +35,38 @@ class TaxonPage extends StatelessWidget {
       'genus' => copy.genusLede,
       _ => '',
     };
+    final columns = GuideWindow.of(context)
+        .columns(phone: 1, tablet: 2, wide: 3);
+    final tiles = [
+      for (final species in rows)
+        SpeciesRow(
+          catalog: catalog,
+          species: species,
+          onTap: () => openSpecies(
+            context,
+            species.name,
+            source: GuideMushroomSource.list,
+          ),
+        ),
+    ];
+    final grid = <Widget>[];
+    if (columns == 1) {
+      grid.addAll(tiles);
+    } else {
+      for (var start = 0; start < tiles.length; start += columns) {
+        final slice = tiles.skip(start).take(columns).toList();
+        grid.add(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final tile in slice) Expanded(child: tile),
+              for (var pad = slice.length; pad < columns; pad++)
+                const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        );
+      }
+    }
     return Scaffold(
       backgroundColor: colors.paper,
       appBar: AppBar(
@@ -62,16 +94,7 @@ class TaxonPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(name, style: GuideType.latin(colors, size: 16)),
             ),
-          for (final species in rows)
-            SpeciesRow(
-              catalog: catalog,
-              species: species,
-              onTap: () => openSpecies(
-                context,
-                species.name,
-                source: GuideMushroomSource.list,
-              ),
-            ),
+          ...grid,
         ],
       ),
     );

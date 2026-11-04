@@ -275,10 +275,25 @@ void main() {
   });
 
   testWidgets('a failed name stays on the camera', (tester) async {
-    await _open(tester, identify: (_, _) async => throw Exception('no'));
+    final root = Directory.systemTemp.createTempSync('camera-fail-shot');
+    addTearDown(() {
+      if (root.existsSync()) root.deleteSync(recursive: true);
+    });
+    final shot = File('${root.path}/shot.jpg')
+      ..writeAsBytesSync(img.encodeJpg(img.Image(width: 8, height: 8)));
+
+    await _open(
+      tester,
+      pickPhoto: (_) async => shot.path,
+      identify: (_, _) async => throw Exception('no'),
+    );
     await tester.tap(find.byKey(const Key('guide-camera-shutter')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('The photo could not be named.'), findsOneWidget);
+    expect(find.text('Naming…'), findsNothing);
+    expect(find.text('Fruit body, in focus'), findsOneWidget);
+    expect(find.byKey(const Key('guide-camera-preview')), findsOneWidget);
     expect(find.byKey(const Key('guide-camera-shutter')), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
@@ -309,7 +324,7 @@ void main() {
     expect(find.text('No names left'), findsOneWidget);
     expect(find.text('You can still get a name today.'), findsOneWidget);
     expect(find.text('Watch a short ad'), findsOneWidget);
-    expect(find.text('Field Guide · 7 days free'), findsOneWidget);
+    expect(find.text('Field Guide'), findsOneWidget);
     expect(find.text('Key it out'), findsOneWidget);
     await tester.tap(find.text('Watch a short ad'));
     await tester.pumpAndSettle();
@@ -394,7 +409,7 @@ void main() {
     );
     expect(find.text('Sign in'), findsOneWidget);
     expect(find.text('Watch a short ad'), findsNothing);
-    expect(find.text('Field Guide · 7 days free'), findsOneWidget);
+    expect(find.text('Field Guide'), findsOneWidget);
     expect(find.text('Key it out'), findsOneWidget);
   });
 
@@ -736,8 +751,10 @@ Future<void> _open(
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => CameraPage(
-                      livePreview: (_) =>
-                          const ColoredBox(color: Color(0xFF224422)),
+                      livePreview: (_) => const ColoredBox(
+                        key: Key('guide-camera-preview'),
+                        color: Color(0xFF224422),
+                      ),
                       pickPhoto:
                           pickPhoto ?? (_) async => '/tmp/mushroom-shot.jpg',
                       readPhoto:

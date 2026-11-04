@@ -17,8 +17,7 @@ import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
 
 void _leaveForTab(BuildContext context, int index) {
-  GuideScope.of(context).selectTab(index);
-  Navigator.of(context).popUntil((route) => route.isFirst);
+  guideRailSelect(context, index);
 }
 
 /// Pop [steps] routes, and stop at the shell if the stack is shorter.
@@ -66,76 +65,71 @@ class WherePage extends StatelessWidget {
     final anywhereCount = catalog.species
         .where((item) => matchesSelection(item, open))
         .length;
-    return Scaffold(
-      backgroundColor: colors.paper,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 20),
-          children: [
-            _KeyBack(label: copy.underBack),
-            if (selection.under.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: _FilterPill(
-                    label: copy.underLabel(selection.under),
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 14),
+    return guideChromeFrame(
+      context,
+      index: null,
+      showAd: Purchases.showsAds(),
+      onSelect: (index) => _leaveForTab(context, index),
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 20),
+        children: [
+          _KeyBack(label: copy.underBack),
+          if (selection.under.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  KeyStepLine(step: copy.keyStepWhere, free: copy.keyFree),
-                  const SizedBox(height: 8),
-                  const KeyStepper(filled: 2, steps: 3),
-                  const SizedBox(height: 12),
-                  Text(copy.whereQuestion, style: GuideType.question(colors)),
-                  const SizedBox(height: 14),
-                  _WideOption(
-                    label: copy.anyWhere,
-                    count: anywhereCount,
-                    enabled: anywhereCount > 0,
-                    onTap: () => _open(context, ''),
-                  ),
-                  const SizedBox(height: 8),
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < whereChoices.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 8),
-                          Expanded(
-                            child: _WherePill(
-                              id: whereChoices[i],
-                              label: copy.whereLabel(whereChoices[i]),
-                              example: copy.whereExample(whereChoices[i]),
-                              count: counts[whereChoices[i]] ?? 0,
-                              colors: colors,
-                              onTap: (counts[whereChoices[i]] ?? 0) > 0
-                                  ? () => _open(context, whereChoices[i])
-                                  : null,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: _FilterPill(
+                  label: copy.underLabel(selection.under),
+                  onPressed: () => Navigator.maybePop(context),
+                ),
               ),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: GuideBottomBar(
-        index: null,
-        showAd: Purchases.showsAds(),
-        onSelect: (index) => _leaveForTab(context, index),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                KeyStepLine(step: copy.keyStepWhere, free: copy.keyFree),
+                const SizedBox(height: 8),
+                const KeyStepper(filled: 2, steps: 3),
+                const SizedBox(height: 12),
+                Text(copy.whereQuestion, style: GuideType.question(colors)),
+                const SizedBox(height: 14),
+                _WideOption(
+                  label: copy.anyWhere,
+                  count: anywhereCount,
+                  enabled: anywhereCount > 0,
+                  onTap: () => _open(context, ''),
+                ),
+                const SizedBox(height: 8),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < whereChoices.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        Expanded(
+                          child: _WherePill(
+                            id: whereChoices[i],
+                            label: copy.whereLabel(whereChoices[i]),
+                            example: copy.whereExample(whereChoices[i]),
+                            count: counts[whereChoices[i]] ?? 0,
+                            colors: colors,
+                            onTap: (counts[whereChoices[i]] ?? 0) > 0
+                                ? () => _open(context, whereChoices[i])
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -426,72 +420,67 @@ class ColorPage extends StatelessWidget {
     final anyCount = catalog.species
         .where((item) => matchesSelection(item, anyColor))
         .length;
-    return Scaffold(
-      backgroundColor: colors.paper,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 20),
-          children: [
-            _KeyBack(label: copy.whereBack),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  if (selection.under.isNotEmpty)
-                    _FilterPill(
-                      label: copy.underLabel(selection.under),
-                      onPressed: () =>
-                          Navigator.of(context)
-                              .popUntil((route) => route.isFirst),
-                    ),
-                  if (selection.where.isNotEmpty)
-                    _FilterPill(
-                      label: copy.whereLabel(selection.where),
-                      onPressed: () => Navigator.maybePop(context),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  KeyStepLine(step: copy.keyStepColor, free: copy.keyFree),
-                  const SizedBox(height: 8),
-                  const KeyStepper(filled: 3, steps: 3),
-                  const SizedBox(height: 12),
-                  Text(copy.colorQuestion, style: GuideType.question(colors)),
-                  const SizedBox(height: 6),
-                  Text(copy.colorNote, style: GuideType.muted(colors)),
-                  const SizedBox(height: 14),
-                  _WideOption(
-                    label: copy.anyColor,
-                    count: anyCount,
-                    enabled: anyCount > 0,
-                    onTap: () => _open(context, ''),
+    return guideChromeFrame(
+      context,
+      index: null,
+      showAd: Purchases.showsAds(),
+      onSelect: (index) => _leaveForTab(context, index),
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 20),
+        children: [
+          _KeyBack(label: copy.whereBack),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (selection.under.isNotEmpty)
+                  _FilterPill(
+                    label: copy.underLabel(selection.under),
+                    onPressed: () =>
+                        Navigator.of(context)
+                            .popUntil((route) => route.isFirst),
                   ),
-                  const SizedBox(height: 8),
-                  _ColorGrid(
-                    copy: copy,
-                    colors: colors,
-                    counts: counts,
-                    onOpen: (id) => _open(context, id),
+                if (selection.where.isNotEmpty)
+                  _FilterPill(
+                    label: copy.whereLabel(selection.where),
+                    onPressed: () => Navigator.maybePop(context),
                   ),
-                ],
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: GuideBottomBar(
-        index: null,
-        showAd: Purchases.showsAds(),
-        onSelect: (index) => _leaveForTab(context, index),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                KeyStepLine(step: copy.keyStepColor, free: copy.keyFree),
+                const SizedBox(height: 8),
+                const KeyStepper(filled: 3, steps: 3),
+                const SizedBox(height: 12),
+                Text(copy.colorQuestion, style: GuideType.question(colors)),
+                const SizedBox(height: 6),
+                Text(copy.colorNote, style: GuideType.muted(colors)),
+                const SizedBox(height: 14),
+                _WideOption(
+                  label: copy.anyColor,
+                  count: anyCount,
+                  enabled: anyCount > 0,
+                  onTap: () => _open(context, ''),
+                ),
+                const SizedBox(height: 8),
+                _ColorGrid(
+                  copy: copy,
+                  colors: colors,
+                  counts: counts,
+                  onOpen: (id) => _open(context, id),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -904,12 +893,13 @@ class _ResultsPageState extends State<ResultsPage> {
 
   List<Widget> _grid(Catalog catalog, List<Species> species, Set<String> seen) {
     final copy = GuideScope.of(context).copy;
+    final columns = GuideWindow.photoColumns(MediaQuery.sizeOf(context));
     final rows = <Widget>[];
-    for (var i = 0; i < species.length; i += 2) {
-      final end = i + 2 > species.length ? species.length : i + 2;
+    for (var i = 0; i < species.length; i += columns) {
+      final end = i + columns > species.length ? species.length : i + columns;
       rows.add(
         speciesGridRow(
-          columns: 2,
+          columns: columns,
           cells: [
             for (final item in species.sublist(i, end))
               SpeciesCell(

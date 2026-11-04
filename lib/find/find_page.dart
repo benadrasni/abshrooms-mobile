@@ -57,95 +57,125 @@ class FindPage extends StatelessWidget {
       catalog,
       scope.language,
     );
+    final window = GuideWindow.of(context);
+    final search = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Material(
+        color: colors.cream,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+          side: BorderSide(color: colors.rule),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: () => Navigator.of(context)
+              .push(guideRoute(guideScreenSearch, (_) => const SearchPage())),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Icon(Icons.search, color: colors.ink2, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(copy.searchHint, style: GuideType.muted(colors)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final camera = _CameraCard(
+      copy: copy,
+      colors: colors,
+      onTap: () => openGuideCamera(context),
+    );
+    final key = _KeyCard(
+      copy: copy,
+      colors: colors,
+      counts: counts,
+      openCount: openCount,
+      onUnder: (id) => Navigator.of(context).push(
+        guideRoute(
+          guideScreenWhere,
+          (_) => WherePage(selection: KeySelection(under: id)),
+        ),
+      ),
+    );
+    final seen = recent.isEmpty
+        ? null
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionHeader(
+                title: copy.seenLately,
+                action: copy.allFinds,
+                onAction: () => scope.selectTab(2),
+              ),
+              SeenStrip(
+                copy: copy,
+                catalog: catalog,
+                finds: recent,
+                onOpenSeen: () => scope.selectTab(2),
+              ),
+            ],
+          );
+    final lists = favorites.isEmpty && fresh.isEmpty && curated.isEmpty
+        ? null
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionHeader(
+                title: copy.listsTitle,
+                action: copy.allLists,
+                onAction: () {
+                  BookLists.open();
+                  scope.selectTab(1);
+                },
+              ),
+              ListStrip(
+                copy: copy,
+                catalog: catalog,
+                favorites: favorites,
+                fresh: fresh,
+                curated: curated,
+              ),
+            ],
+          );
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         _TitleBar(
           copy: copy,
           colors: colors,
+          showPerson: !window.wide,
           onPerson: () => Navigator.of(context)
               .push(guideRoute(guideScreenPerson, (_) => const PersonPage())),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Material(
-            color: colors.cream,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-              side: BorderSide(color: colors.rule),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(28),
-              onTap: () => Navigator.of(
-                context,
-              ).push(guideRoute(guideScreenSearch, (_) => const SearchPage())),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, color: colors.ink2, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        copy.searchHint,
-                        style: GuideType.muted(colors),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        _CameraCard(
-          copy: copy,
-          colors: colors,
-          onTap: () => openGuideCamera(context),
-        ),
-        _KeyCard(
-          copy: copy,
-          colors: colors,
-          counts: counts,
-          openCount: openCount,
-          onUnder: (id) => Navigator.of(context).push(
-            guideRoute(
-              guideScreenWhere,
-              (_) => WherePage(selection: KeySelection(under: id)),
-            ),
-          ),
-        ),
-        if (recent.isNotEmpty) ...[
-          SectionHeader(
-            title: copy.seenLately,
-            action: copy.allFinds,
-            onAction: () => scope.selectTab(2),
-          ),
-          SeenStrip(
-            copy: copy,
-            catalog: catalog,
-            finds: recent,
-            onOpenSeen: () => scope.selectTab(2),
-          ),
+        if (window.tablet)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: Column(children: [search, camera])),
+              Expanded(child: key),
+            ],
+          )
+        else ...[
+          search,
+          camera,
+          key,
         ],
-        if (favorites.isNotEmpty || fresh.isNotEmpty || curated.isNotEmpty) ...[
-          SectionHeader(
-            title: copy.listsTitle,
-            action: copy.allLists,
-            onAction: () {
-              BookLists.open();
-              scope.selectTab(1);
-            },
-          ),
-          ListStrip(
-            copy: copy,
-            catalog: catalog,
-            favorites: favorites,
-            fresh: fresh,
-            curated: curated,
-          ),
+        if (window.wide && seen != null && lists != null)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 85, child: seen),
+              Expanded(flex: 115, child: lists),
+            ],
+          )
+        else ...[
+          ?seen,
+          ?lists,
         ],
         const CuratedListsNotice(),
       ],
@@ -157,11 +187,13 @@ class _TitleBar extends StatelessWidget {
   final Copy copy;
   final GuideColors colors;
   final VoidCallback onPerson;
+  final bool showPerson;
 
   const _TitleBar({
     required this.copy,
     required this.colors,
     required this.onPerson,
+    this.showPerson = true,
   });
 
   @override
@@ -194,34 +226,36 @@ class _TitleBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          Semantics(
-            button: true,
-            label: copy.person,
-            excludeSemantics: true,
-            onTap: onPerson,
-            child: Tooltip(
-              message: copy.person,
-              child: Material(
-                color: colors.cream,
-                shape: CircleBorder(side: BorderSide(color: colors.rule)),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: onPerson,
-                  customBorder: const CircleBorder(),
-                  child: SizedBox(
-                    width: 38,
-                    height: 38,
-                    child: Icon(
-                      Icons.person_outline,
-                      size: 20,
-                      color: colors.ink,
+          if (showPerson) ...[
+            const SizedBox(width: 12),
+            Semantics(
+              button: true,
+              label: copy.person,
+              excludeSemantics: true,
+              onTap: onPerson,
+              child: Tooltip(
+                message: copy.person,
+                child: Material(
+                  color: colors.cream,
+                  shape: CircleBorder(side: BorderSide(color: colors.rule)),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onPerson,
+                    customBorder: const CircleBorder(),
+                    child: SizedBox(
+                      width: 38,
+                      height: 38,
+                      child: Icon(
+                        Icons.person_outline,
+                        size: 20,
+                        color: colors.ink,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

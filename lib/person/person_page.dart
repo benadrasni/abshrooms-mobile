@@ -25,6 +25,7 @@ import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/settings.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
+import 'package:whats_that_mushroom/shell/widgets.dart';
 
 class PersonPage extends StatefulWidget {
   final String? versionName;
@@ -157,227 +158,241 @@ class _PersonPageState extends State<PersonPage> {
           );
     return Scaffold(
       backgroundColor: colors.paper,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 16),
-          children: [
-            const _BackButton(),
-            if (lines != null) _AccountHeader(lines: lines),
-            if (lines != null && !guide)
-              _NamesMonthCard(
-                month: MonthNames.of(Names.count, DateTime.now()),
-              ),
-            if (lines == null || guide) ...[
-              _PersonCard(
-                title: guide ? copy.fieldGuide : copy.signInCardTitle,
-                note: guide ? copy.fieldGuidePerks : copy.signInFree,
-                onOpen: guide
-                    ? () => Navigator.of(context).push(
-                        guideRoute<void>(
-                          guideScreenFieldGuide,
-                          (_) => const FieldGuidePage(),
-                        ),
-                      )
-                    : null,
-                onSignIn: lines == null
-                    ? () => Navigator.of(context).push(
-                        guideRoute<void>(
-                          guideScreenSignIn,
-                          (_) => const SignInPage(),
-                        ),
-                      )
-                    : null,
-              ),
-              const SizedBox(height: 4),
-            ],
-            if (!guide)
-              _MenuRow(
-                icon: Icons.eco_outlined,
-                title: copy.fieldGuide,
-                subtitle: copy.fieldGuideOffer,
-                onTap: () => Navigator.of(context).push(
-                  guideRoute<void>(
-                    guideScreenFieldGuide,
-                    (_) => const FieldGuidePage(),
+      body: guideWithRail(
+        context,
+        personOn: true,
+        child: SafeArea(
+          child: GuideReadable(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 16),
+              children: [
+                const _BackButton(),
+                if (lines != null) _AccountHeader(lines: lines),
+                if (lines != null && !guide)
+                  _NamesMonthCard(
+                    month: MonthNames.of(Names.count, DateTime.now()),
                   ),
-                ),
-              ),
-            _MenuRow(
-              icon: Icons.restore,
-              title: copy.restore,
-              subtitle: _restoring ? copy.restoring : copy.restoreNote,
-              onTap: _restore,
-            ),
-            _LanguageRow(
-              name: switch (settings.language) {
-                'ar' => copy.arabic,
-                'bg' => copy.bulgarian,
-                'zh' => copy.chinese,
-                'hr' => copy.croatian,
-                'cs' => copy.czech,
-                'da' => copy.danish,
-                'nl' => copy.dutch,
-                'en' || 'en_US' || 'en_GB' => copy.english,
-                'et' => copy.estonian,
-                'fi' => copy.finnish,
-                'fr' => copy.french,
-                'de' => copy.german,
-                'he' => copy.hebrew,
-                'hi' => copy.hindi,
-                'hu' => copy.hungarian,
-                'id' => copy.indonesian,
-                'it' => copy.italian,
-                'ja' => copy.japanese,
-                'ko' => copy.korean,
-                'lv' => copy.latvian,
-                'lt' => copy.lithuanian,
-                'no' => copy.norwegian,
-                'fa' => copy.persian,
-                'pl' => copy.polish,
-                'pt' => copy.portuguese,
-                'ro' => copy.romanian,
-                'ru' => copy.russian,
-                'sr' => copy.serbian,
-                'sk' => copy.slovak,
-                'sl' => copy.slovenian,
-                'es' => copy.spanish,
-                'sv' => copy.swedish,
-                'tr' => copy.turkish,
-                'uk' => copy.ukrainian,
-                _ => copy.english,
-              },
-              onTap: () => Navigator.of(context).push(
-                guideRoute(guideScreenLanguage, (_) => const LanguagePage()),
-              ),
-            ),
-            _ThemeRow(
-              mode: settings.themeMode,
-              detail: _themeDetail(copy, settings.themeMode, platform),
-              onChoose: settings.setTheme,
-            ),
-            if (_adPrivacy)
-              _MenuRow(
-                icon: Icons.privacy_tip_outlined,
-                title: copy.adPrivacy,
-                subtitle: copy.adPrivacyNote,
-                onTap: () {
-                  unawaited(showAdPrivacyOptions());
-                },
-              ),
-            _MenuRow(
-              icon: Icons.cloud_outlined,
-              title: copy.offlineTitle,
-              subtitle: offlineMenuLine(
-                copy,
-                canDownload: guide,
-                stored: OfflineBook.stored,
-                species: offlineMenuSpecies(
-                  species: scope.catalogData?.species.length,
-                  stored: OfflineBook.stored,
-                  missingSpecies: offlineMissing,
-                ),
-                updateSpecies: offlineMissing,
-                updateBytes: OfflineBook.catalogStale
-                    ? (OfflineBook.remoteBytes > 0
-                          ? OfflineBook.remoteBytes
-                          : 1)
-                    : 0,
-              ),
-              onTap: () => Navigator.of(context).push(
-                guideRoute<void>(
-                  guideScreenOffline,
-                  (_) => const OfflinePage(),
-                ),
-              ),
-            ),
-            _MenuRow(
-              icon: Icons.bar_chart_outlined,
-              title: copy.statistics,
-              subtitle: copy.statsMenu,
-              onTap: () => Navigator.of(context).push(
-                guideRoute<void>(
-                  guideScreenStatistics,
-                  (_) => const StatsPage(),
-                ),
-              ),
-            ),
-            _MenuRow(
-              icon: Icons.star_outline,
-              title: copy.rate,
-              subtitle: copy.rateNote,
-              onTap: () {
-                unawaited(openWriteReview());
-              },
-            ),
-            if (lines != null) ...[
-              _MenuRow(
-                icon: Icons.person_outline,
-                title: copy.signOut,
-                subtitle: copy.signOutNote,
-                onTap: () {
-                  unawaited(
-                    widget.onSignOut == null
-                        ? Auth.signOut()
-                        : widget.onSignOut!(),
-                  );
-                },
-              ),
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 6),
-                child: Text(
-                  copy.dangerZone,
-                  style: TextStyle(
-                    fontFamily: GuideType.sans,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colors.ink3,
-                    height: 1.2,
+                if (lines == null || guide) ...[
+                  _PersonCard(
+                    title: guide ? copy.fieldGuide : copy.signInCardTitle,
+                    note: guide ? copy.fieldGuidePerks : copy.signInFree,
+                    onOpen: guide
+                        ? () => Navigator.of(context).push(
+                            guideRoute<void>(
+                              guideScreenFieldGuide,
+                              (_) => const FieldGuidePage(),
+                            ),
+                          )
+                        : null,
+                    onSignIn: lines == null
+                        ? () => Navigator.of(context).push(
+                            guideRoute<void>(
+                              guideScreenSignIn,
+                              (_) => const SignInPage(),
+                            ),
+                          )
+                        : null,
                   ),
-                ),
-              ),
-              _MenuRow(
-                icon: Icons.delete_outline,
-                title: copy.deleteAccount,
-                subtitle: copy.deleteAccountNote,
-                danger: true,
-                onTap: () async {
-                  final result = await confirmAndDeleteAccount(context);
-                  if (!context.mounted) return;
-                  showDeleteAccountResult(context, result);
-                },
-              ),
-            ],
-            if (version.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-                child: Center(
-                  child: TextButton(
-                    key: const Key('guide-version'),
-                    onPressed: () async {
-                      await Clipboard.setData(ClipboardData(text: version));
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(SnackBar(content: Text(version)));
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.ink3,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: const TextStyle(
-                        fontFamily: GuideType.sans,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                  const SizedBox(height: 4),
+                ],
+                if (!guide)
+                  _MenuRow(
+                    icon: Icons.eco_outlined,
+                    title: copy.fieldGuide,
+                    subtitle: copy.fieldGuidePerks,
+                    onTap: () => Navigator.of(context).push(
+                      guideRoute<void>(
+                        guideScreenFieldGuide,
+                        (_) => const FieldGuidePage(),
                       ),
                     ),
-                    child: Text(version),
+                  ),
+                _MenuRow(
+                  icon: Icons.restore,
+                  title: copy.restore,
+                  subtitle: _restoring ? copy.restoring : copy.restoreNote,
+                  onTap: _restore,
+                ),
+                _LanguageRow(
+                  name: switch (settings.language) {
+                    'ar' => copy.arabic,
+                    'bg' => copy.bulgarian,
+                    'zh' => copy.chinese,
+                    'hr' => copy.croatian,
+                    'cs' => copy.czech,
+                    'da' => copy.danish,
+                    'nl' => copy.dutch,
+                    'en' || 'en_US' || 'en_GB' => copy.english,
+                    'et' => copy.estonian,
+                    'fi' => copy.finnish,
+                    'fr' => copy.french,
+                    'de' => copy.german,
+                    'he' => copy.hebrew,
+                    'hi' => copy.hindi,
+                    'hu' => copy.hungarian,
+                    'id' => copy.indonesian,
+                    'it' => copy.italian,
+                    'ja' => copy.japanese,
+                    'ko' => copy.korean,
+                    'lv' => copy.latvian,
+                    'lt' => copy.lithuanian,
+                    'no' => copy.norwegian,
+                    'fa' => copy.persian,
+                    'pl' => copy.polish,
+                    'pt' => copy.portuguese,
+                    'ro' => copy.romanian,
+                    'ru' => copy.russian,
+                    'sr' => copy.serbian,
+                    'sk' => copy.slovak,
+                    'sl' => copy.slovenian,
+                    'es' => copy.spanish,
+                    'sv' => copy.swedish,
+                    'tr' => copy.turkish,
+                    'uk' => copy.ukrainian,
+                    _ => copy.english,
+                  },
+                  onTap: () => Navigator.of(context).push(
+                    guideRoute(
+                      guideScreenLanguage,
+                      (_) => const LanguagePage(),
+                    ),
                   ),
                 ),
-              ),
-          ],
+                _ThemeRow(
+                  mode: settings.themeMode,
+                  detail: _themeDetail(copy, settings.themeMode, platform),
+                  onChoose: settings.setTheme,
+                ),
+                if (_adPrivacy)
+                  _MenuRow(
+                    icon: Icons.privacy_tip_outlined,
+                    title: copy.adPrivacy,
+                    subtitle: copy.adPrivacyNote,
+                    onTap: () {
+                      unawaited(showAdPrivacyOptions());
+                    },
+                  ),
+                _MenuRow(
+                  icon: Icons.cloud_outlined,
+                  title: copy.offlineTitle,
+                  subtitle: offlineMenuLine(
+                    copy,
+                    canDownload: guide,
+                    stored: OfflineBook.stored,
+                    species: offlineMenuSpecies(
+                      species: scope.catalogData?.species.length,
+                      stored: OfflineBook.stored,
+                      missingSpecies: offlineMissing,
+                    ),
+                    updateSpecies: offlineMissing,
+                    updateBytes: OfflineBook.catalogStale
+                        ? (OfflineBook.remoteBytes > 0
+                              ? OfflineBook.remoteBytes
+                              : 1)
+                        : 0,
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    guideRoute<void>(
+                      guideScreenOffline,
+                      (_) => const OfflinePage(),
+                    ),
+                  ),
+                ),
+                _MenuRow(
+                  icon: Icons.bar_chart_outlined,
+                  title: copy.statistics,
+                  subtitle: copy.statsMenu,
+                  onTap: () => Navigator.of(context).push(
+                    guideRoute<void>(
+                      guideScreenStatistics,
+                      (_) => const StatsPage(),
+                    ),
+                  ),
+                ),
+                _MenuRow(
+                  icon: Icons.star_outline,
+                  title: copy.rate,
+                  subtitle: copy.rateNote,
+                  onTap: () {
+                    unawaited(openWriteReview());
+                  },
+                ),
+                if (lines != null) ...[
+                  _MenuRow(
+                    icon: Icons.person_outline,
+                    title: copy.signOut,
+                    subtitle: copy.signOutNote,
+                    onTap: () {
+                      unawaited(
+                        widget.onSignOut == null
+                            ? Auth.signOut()
+                            : widget.onSignOut!(),
+                      );
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      20,
+                      22,
+                      20,
+                      6,
+                    ),
+                    child: Text(
+                      copy.dangerZone,
+                      style: TextStyle(
+                        fontFamily: GuideType.sans,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colors.ink3,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  _MenuRow(
+                    icon: Icons.delete_outline,
+                    title: copy.deleteAccount,
+                    subtitle: copy.deleteAccountNote,
+                    danger: true,
+                    onTap: () async {
+                      final result = await confirmAndDeleteAccount(context);
+                      if (!context.mounted) return;
+                      showDeleteAccountResult(context, result);
+                    },
+                  ),
+                ],
+                if (version.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                    child: Center(
+                      child: TextButton(
+                        key: const Key('guide-version'),
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: version));
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(version)));
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.ink3,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(
+                            fontFamily: GuideType.sans,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        child: Text(version),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -755,234 +770,240 @@ class LanguagePage extends StatelessWidget {
     final selected = scope.settings.language;
     return Scaffold(
       backgroundColor: colors.paper,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            const _BackButton(),
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(copy.language, style: GuideType.question(colors)),
-                  const SizedBox(height: 6),
-                  Text(
-                    copy.languageNote,
-                    style: TextStyle(
-                      fontFamily: GuideType.sans,
-                      fontSize: 14,
-                      height: 1.35,
-                      color: colors.ink2,
-                    ),
+      body: guideWithRail(
+        context,
+        personOn: true,
+        child: SafeArea(
+          child: GuideReadable(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                const _BackButton(),
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(copy.language, style: GuideType.question(colors)),
+                      const SizedBox(height: 6),
+                      Text(
+                        copy.languageNote,
+                        style: TextStyle(
+                          fontFamily: GuideType.sans,
+                          fontSize: 14,
+                          height: 1.35,
+                          color: colors.ink2,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                _LanguageChoice(
+                  name: copy.arabic,
+                  english: copy.ar ? null : copy.arabicInEnglish,
+                  selected: selected == 'ar',
+                  onTap: () => _choose(context, 'ar'),
+                ),
+                _LanguageChoice(
+                  name: copy.bulgarian,
+                  english: copy.bg ? null : copy.bulgarianInEnglish,
+                  selected: selected == 'bg',
+                  onTap: () => _choose(context, 'bg'),
+                ),
+                _LanguageChoice(
+                  name: copy.chinese,
+                  english: copy.zh ? null : copy.chineseInEnglish,
+                  selected: selected == 'zh',
+                  onTap: () => _choose(context, 'zh'),
+                ),
+                _LanguageChoice(
+                  name: copy.croatian,
+                  english: copy.hr ? null : copy.croatianInEnglish,
+                  selected: selected == 'hr',
+                  onTap: () => _choose(context, 'hr'),
+                ),
+                _LanguageChoice(
+                  name: copy.czech,
+                  english: copy.cs ? null : copy.czechInEnglish,
+                  selected: selected == 'cs',
+                  onTap: () => _choose(context, 'cs'),
+                ),
+                _LanguageChoice(
+                  name: copy.danish,
+                  english: copy.da ? null : copy.danishInEnglish,
+                  selected: selected == 'da',
+                  onTap: () => _choose(context, 'da'),
+                ),
+                _LanguageChoice(
+                  name: copy.dutch,
+                  english: copy.nl ? null : copy.dutchInEnglish,
+                  selected: selected == 'nl',
+                  onTap: () => _choose(context, 'nl'),
+                ),
+                _LanguageChoice(
+                  name: copy.english,
+                  selected: englishInterface(selected),
+                  onTap: () => _choose(context, deviceEnglishChoice()),
+                ),
+                _LanguageChoice(
+                  name: copy.estonian,
+                  english: copy.et ? null : copy.estonianInEnglish,
+                  selected: selected == 'et',
+                  onTap: () => _choose(context, 'et'),
+                ),
+                _LanguageChoice(
+                  name: copy.finnish,
+                  english: copy.fi ? null : copy.finnishInEnglish,
+                  selected: selected == 'fi',
+                  onTap: () => _choose(context, 'fi'),
+                ),
+                _LanguageChoice(
+                  name: copy.french,
+                  english: copy.fr ? null : copy.frenchInEnglish,
+                  selected: selected == 'fr',
+                  onTap: () => _choose(context, 'fr'),
+                ),
+                _LanguageChoice(
+                  name: copy.german,
+                  english: copy.de ? null : copy.germanInEnglish,
+                  selected: selected == 'de',
+                  onTap: () => _choose(context, 'de'),
+                ),
+                _LanguageChoice(
+                  name: copy.hebrew,
+                  english: copy.he ? null : copy.hebrewInEnglish,
+                  selected: selected == 'he',
+                  onTap: () => _choose(context, 'he'),
+                ),
+                _LanguageChoice(
+                  name: copy.hindi,
+                  english: copy.hi ? null : copy.hindiInEnglish,
+                  selected: selected == 'hi',
+                  onTap: () => _choose(context, 'hi'),
+                ),
+                _LanguageChoice(
+                  name: copy.hungarian,
+                  english: copy.hu ? null : copy.hungarianInEnglish,
+                  selected: selected == 'hu',
+                  onTap: () => _choose(context, 'hu'),
+                ),
+                _LanguageChoice(
+                  name: copy.indonesian,
+                  english: copy.id ? null : copy.indonesianInEnglish,
+                  selected: selected == 'id',
+                  onTap: () => _choose(context, 'id'),
+                ),
+                _LanguageChoice(
+                  name: copy.italian,
+                  english: copy.it ? null : copy.italianInEnglish,
+                  selected: selected == 'it',
+                  onTap: () => _choose(context, 'it'),
+                ),
+                _LanguageChoice(
+                  name: copy.japanese,
+                  english: copy.ja ? null : copy.japaneseInEnglish,
+                  selected: selected == 'ja',
+                  onTap: () => _choose(context, 'ja'),
+                ),
+                _LanguageChoice(
+                  name: copy.korean,
+                  english: copy.ko ? null : copy.koreanInEnglish,
+                  selected: selected == 'ko',
+                  onTap: () => _choose(context, 'ko'),
+                ),
+                _LanguageChoice(
+                  name: copy.latvian,
+                  english: copy.lv ? null : copy.latvianInEnglish,
+                  selected: selected == 'lv',
+                  onTap: () => _choose(context, 'lv'),
+                ),
+                _LanguageChoice(
+                  name: copy.lithuanian,
+                  english: copy.lt ? null : copy.lithuanianInEnglish,
+                  selected: selected == 'lt',
+                  onTap: () => _choose(context, 'lt'),
+                ),
+                _LanguageChoice(
+                  name: copy.norwegian,
+                  english: copy.code == 'no' ? null : copy.norwegianInEnglish,
+                  selected: selected == 'no',
+                  onTap: () => _choose(context, 'no'),
+                ),
+                _LanguageChoice(
+                  name: copy.persian,
+                  english: copy.fa ? null : copy.persianInEnglish,
+                  selected: selected == 'fa',
+                  onTap: () => _choose(context, 'fa'),
+                ),
+                _LanguageChoice(
+                  name: copy.polish,
+                  english: copy.pl ? null : copy.polishInEnglish,
+                  selected: selected == 'pl',
+                  onTap: () => _choose(context, 'pl'),
+                ),
+                _LanguageChoice(
+                  name: copy.portuguese,
+                  english: copy.pt ? null : copy.portugueseInEnglish,
+                  selected: selected == 'pt',
+                  onTap: () => _choose(context, 'pt'),
+                ),
+                _LanguageChoice(
+                  name: copy.romanian,
+                  english: copy.ro ? null : copy.romanianInEnglish,
+                  selected: selected == 'ro',
+                  onTap: () => _choose(context, 'ro'),
+                ),
+                _LanguageChoice(
+                  name: copy.russian,
+                  english: copy.ru ? null : copy.russianInEnglish,
+                  selected: selected == 'ru',
+                  onTap: () => _choose(context, 'ru'),
+                ),
+                _LanguageChoice(
+                  name: copy.serbian,
+                  english: copy.sr ? null : copy.serbianInEnglish,
+                  selected: selected == 'sr',
+                  onTap: () => _choose(context, 'sr'),
+                ),
+                _LanguageChoice(
+                  name: copy.slovak,
+                  english: copy.sk ? null : copy.slovakInEnglish,
+                  selected: selected == 'sk',
+                  onTap: () => _choose(context, 'sk'),
+                ),
+                _LanguageChoice(
+                  name: copy.slovenian,
+                  english: copy.sl ? null : copy.slovenianInEnglish,
+                  selected: selected == 'sl',
+                  onTap: () => _choose(context, 'sl'),
+                ),
+                _LanguageChoice(
+                  name: copy.spanish,
+                  english: copy.es ? null : copy.spanishInEnglish,
+                  selected: selected == 'es',
+                  onTap: () => _choose(context, 'es'),
+                ),
+                _LanguageChoice(
+                  name: copy.swedish,
+                  english: copy.sv ? null : copy.swedishInEnglish,
+                  selected: selected == 'sv',
+                  onTap: () => _choose(context, 'sv'),
+                ),
+                _LanguageChoice(
+                  name: copy.turkish,
+                  english: copy.tr ? null : copy.turkishInEnglish,
+                  selected: selected == 'tr',
+                  onTap: () => _choose(context, 'tr'),
+                ),
+                _LanguageChoice(
+                  name: copy.ukrainian,
+                  english: copy.uk ? null : copy.ukrainianInEnglish,
+                  selected: selected == 'uk',
+                  onTap: () => _choose(context, 'uk'),
+                ),
+              ],
             ),
-            _LanguageChoice(
-              name: copy.arabic,
-              english: copy.ar ? null : copy.arabicInEnglish,
-              selected: selected == 'ar',
-              onTap: () => _choose(context, 'ar'),
-            ),
-            _LanguageChoice(
-              name: copy.bulgarian,
-              english: copy.bg ? null : copy.bulgarianInEnglish,
-              selected: selected == 'bg',
-              onTap: () => _choose(context, 'bg'),
-            ),
-            _LanguageChoice(
-              name: copy.chinese,
-              english: copy.zh ? null : copy.chineseInEnglish,
-              selected: selected == 'zh',
-              onTap: () => _choose(context, 'zh'),
-            ),
-            _LanguageChoice(
-              name: copy.croatian,
-              english: copy.hr ? null : copy.croatianInEnglish,
-              selected: selected == 'hr',
-              onTap: () => _choose(context, 'hr'),
-            ),
-            _LanguageChoice(
-              name: copy.czech,
-              english: copy.cs ? null : copy.czechInEnglish,
-              selected: selected == 'cs',
-              onTap: () => _choose(context, 'cs'),
-            ),
-            _LanguageChoice(
-              name: copy.danish,
-              english: copy.da ? null : copy.danishInEnglish,
-              selected: selected == 'da',
-              onTap: () => _choose(context, 'da'),
-            ),
-            _LanguageChoice(
-              name: copy.dutch,
-              english: copy.nl ? null : copy.dutchInEnglish,
-              selected: selected == 'nl',
-              onTap: () => _choose(context, 'nl'),
-            ),
-            _LanguageChoice(
-              name: copy.english,
-              selected: englishInterface(selected),
-              onTap: () => _choose(context, deviceEnglishChoice()),
-            ),
-            _LanguageChoice(
-              name: copy.estonian,
-              english: copy.et ? null : copy.estonianInEnglish,
-              selected: selected == 'et',
-              onTap: () => _choose(context, 'et'),
-            ),
-            _LanguageChoice(
-              name: copy.finnish,
-              english: copy.fi ? null : copy.finnishInEnglish,
-              selected: selected == 'fi',
-              onTap: () => _choose(context, 'fi'),
-            ),
-            _LanguageChoice(
-              name: copy.french,
-              english: copy.fr ? null : copy.frenchInEnglish,
-              selected: selected == 'fr',
-              onTap: () => _choose(context, 'fr'),
-            ),
-            _LanguageChoice(
-              name: copy.german,
-              english: copy.de ? null : copy.germanInEnglish,
-              selected: selected == 'de',
-              onTap: () => _choose(context, 'de'),
-            ),
-            _LanguageChoice(
-              name: copy.hebrew,
-              english: copy.he ? null : copy.hebrewInEnglish,
-              selected: selected == 'he',
-              onTap: () => _choose(context, 'he'),
-            ),
-            _LanguageChoice(
-              name: copy.hindi,
-              english: copy.hi ? null : copy.hindiInEnglish,
-              selected: selected == 'hi',
-              onTap: () => _choose(context, 'hi'),
-            ),
-            _LanguageChoice(
-              name: copy.hungarian,
-              english: copy.hu ? null : copy.hungarianInEnglish,
-              selected: selected == 'hu',
-              onTap: () => _choose(context, 'hu'),
-            ),
-            _LanguageChoice(
-              name: copy.indonesian,
-              english: copy.id ? null : copy.indonesianInEnglish,
-              selected: selected == 'id',
-              onTap: () => _choose(context, 'id'),
-            ),
-            _LanguageChoice(
-              name: copy.italian,
-              english: copy.it ? null : copy.italianInEnglish,
-              selected: selected == 'it',
-              onTap: () => _choose(context, 'it'),
-            ),
-            _LanguageChoice(
-              name: copy.japanese,
-              english: copy.ja ? null : copy.japaneseInEnglish,
-              selected: selected == 'ja',
-              onTap: () => _choose(context, 'ja'),
-            ),
-            _LanguageChoice(
-              name: copy.korean,
-              english: copy.ko ? null : copy.koreanInEnglish,
-              selected: selected == 'ko',
-              onTap: () => _choose(context, 'ko'),
-            ),
-            _LanguageChoice(
-              name: copy.latvian,
-              english: copy.lv ? null : copy.latvianInEnglish,
-              selected: selected == 'lv',
-              onTap: () => _choose(context, 'lv'),
-            ),
-            _LanguageChoice(
-              name: copy.lithuanian,
-              english: copy.lt ? null : copy.lithuanianInEnglish,
-              selected: selected == 'lt',
-              onTap: () => _choose(context, 'lt'),
-            ),
-            _LanguageChoice(
-              name: copy.norwegian,
-              english: copy.code == 'no' ? null : copy.norwegianInEnglish,
-              selected: selected == 'no',
-              onTap: () => _choose(context, 'no'),
-            ),
-            _LanguageChoice(
-              name: copy.persian,
-              english: copy.fa ? null : copy.persianInEnglish,
-              selected: selected == 'fa',
-              onTap: () => _choose(context, 'fa'),
-            ),
-            _LanguageChoice(
-              name: copy.polish,
-              english: copy.pl ? null : copy.polishInEnglish,
-              selected: selected == 'pl',
-              onTap: () => _choose(context, 'pl'),
-            ),
-            _LanguageChoice(
-              name: copy.portuguese,
-              english: copy.pt ? null : copy.portugueseInEnglish,
-              selected: selected == 'pt',
-              onTap: () => _choose(context, 'pt'),
-            ),
-            _LanguageChoice(
-              name: copy.romanian,
-              english: copy.ro ? null : copy.romanianInEnglish,
-              selected: selected == 'ro',
-              onTap: () => _choose(context, 'ro'),
-            ),
-            _LanguageChoice(
-              name: copy.russian,
-              english: copy.ru ? null : copy.russianInEnglish,
-              selected: selected == 'ru',
-              onTap: () => _choose(context, 'ru'),
-            ),
-            _LanguageChoice(
-              name: copy.serbian,
-              english: copy.sr ? null : copy.serbianInEnglish,
-              selected: selected == 'sr',
-              onTap: () => _choose(context, 'sr'),
-            ),
-            _LanguageChoice(
-              name: copy.slovak,
-              english: copy.sk ? null : copy.slovakInEnglish,
-              selected: selected == 'sk',
-              onTap: () => _choose(context, 'sk'),
-            ),
-            _LanguageChoice(
-              name: copy.slovenian,
-              english: copy.sl ? null : copy.slovenianInEnglish,
-              selected: selected == 'sl',
-              onTap: () => _choose(context, 'sl'),
-            ),
-            _LanguageChoice(
-              name: copy.spanish,
-              english: copy.es ? null : copy.spanishInEnglish,
-              selected: selected == 'es',
-              onTap: () => _choose(context, 'es'),
-            ),
-            _LanguageChoice(
-              name: copy.swedish,
-              english: copy.sv ? null : copy.swedishInEnglish,
-              selected: selected == 'sv',
-              onTap: () => _choose(context, 'sv'),
-            ),
-            _LanguageChoice(
-              name: copy.turkish,
-              english: copy.tr ? null : copy.turkishInEnglish,
-              selected: selected == 'tr',
-              onTap: () => _choose(context, 'tr'),
-            ),
-            _LanguageChoice(
-              name: copy.ukrainian,
-              english: copy.uk ? null : copy.ukrainianInEnglish,
-              selected: selected == 'uk',
-              onTap: () => _choose(context, 'uk'),
-            ),
-          ],
+          ),
         ),
       ),
     );

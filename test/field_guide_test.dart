@@ -17,6 +17,30 @@ void main() {
 
   tearDown(Purchases.resetForTest);
 
+  test('a yearly trial is chosen ahead of a monthly-billed plan', () {
+    final pick = fieldGuidePick(
+      [
+        const FieldGuideCandidate(
+          recurringPrice: r'$24.99',
+          recurringRaw: 24.99,
+          period: 'P1M',
+          trial: false,
+        ),
+        const FieldGuideCandidate(
+          recurringPrice: r'$24.99',
+          recurringRaw: 24.99,
+          period: 'P1Y',
+          trial: true,
+        ),
+      ],
+      yearly: true,
+    );
+    expect(pick?.index, 1);
+    expect(pick?.trial, isTrue);
+    expect(pick?.period, 'P1Y');
+    expect(pick?.price, r'$24.99');
+  });
+
   test('a free trial is bought and the row shows the paid price', () {
     final choice = fieldGuideOfferChoice([
       (price: r'$24.99', rawPrice: 24.99),
@@ -157,16 +181,30 @@ void main() {
     expect(find.text('The book offline'), findsOneWidget);
     expect(find.text(r'$24.99'), findsOneWidget);
     expect(find.text(r'$2.99'), findsOneWidget);
-    expect(find.text('7 days free, then yearly'), findsOneWidget);
-    expect(find.text('Start 7 days free'), findsOneWidget);
+    expect(find.text(r'7 days free, then $24.99 a year'), findsOneWidget);
+    expect(find.text(r'7 days free, then $2.99 a month'), findsOneWidget);
+    expect(
+      find.text(
+        r'Free for 7 days. The trial ends after 7 days, then $24.99 is charged every year. Cancel in Google Play before the trial ends and you will not be charged.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Subscribe'), findsOneWidget);
+    expect(find.text('Manage or cancel in Google Play'), findsOneWidget);
 
-    await tester.tap(find.text('Start 7 days free'));
+    await tester.tap(find.text('Subscribe'));
     await tester.pump();
     expect(bought, FieldGuidePlan.yearly);
 
     await tester.tap(find.byKey(fieldGuideMonthlyKey));
     await tester.pump();
-    await tester.tap(find.text('Start 7 days free'));
+    expect(
+      find.text(
+        r'Free for 7 days. The trial ends after 7 days, then $2.99 is charged every month. Cancel in Google Play before the trial ends and you will not be charged.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Subscribe'));
     await tester.pump();
     expect(bought, FieldGuidePlan.monthly);
   });
@@ -195,7 +233,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('You already have Field Guide.'), findsOneWidget);
     expect(find.text('Subscribed'), findsWidgets);
-    expect(find.text('Start 7 days free'), findsNothing);
+    expect(find.text('Subscribe'), findsNothing);
   });
 
   testWidgets('a purchase shows subscribed before the server answers', (
@@ -224,7 +262,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Start 7 days free'), findsOneWidget);
+      expect(find.text('Subscribe'), findsOneWidget);
 
       Purchases.grantStorePurchase(ids.yearly);
       await tester.pump();
@@ -232,7 +270,7 @@ void main() {
 
       Purchases.revokeStorePurchase(ids.yearly);
       await tester.pump();
-      expect(find.text('Start 7 days free'), findsOneWidget);
+      expect(find.text('Subscribe'), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
@@ -263,8 +301,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('You already have Field Guide.'), findsOneWidget);
     expect(find.text('Subscribed'), findsOneWidget);
-    expect(find.text('Start 7 days free'), findsNothing);
-    expect(find.text('7 days free, then yearly'), findsNothing);
+    expect(find.text('Subscribe'), findsNothing);
+    expect(find.text(r'7 days free, then $24.99 a year'), findsNothing);
   });
 
   testWidgets('a monthly plan opens with yearly selected', (tester) async {

@@ -552,6 +552,48 @@ void main() {
     expect(named[21], 0xdb);
   });
 
+  test('a name photo stays within 1280 and the Plant.id size', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final wide = img.encodeJpg(img.Image(width: 2000, height: 1000));
+    final fitted = (await jpegForIdentify(wide))!;
+    final wideStored = img.decodeJpg(fitted)!;
+    expect(fitted[0], 0xFF);
+    expect(fitted[1], 0xD8);
+    expect(wideStored.width, 1280);
+    expect(wideStored.height, 640);
+    expect(
+      ((fitted.length + 2) ~/ 3) * 4,
+      lessThanOrEqualTo(identifyMaxImageChars),
+    );
+
+    final tall = img.encodeJpg(img.Image(width: 1000, height: 2000));
+    final tallStored = img.decodeJpg((await jpegForIdentify(tall))!)!;
+    expect(tallStored.width, 640);
+    expect(tallStored.height, 1280);
+
+    final shot = img.Image(width: 40, height: 20);
+    shot.exif.gpsIfd['GPSLatitudeRef'] = img.IfdValueAscii('N');
+    shot.exif.gpsIfd['GPSLatitude'] = img.IfdValueRational(481, 10);
+    shot.exif.gpsIfd['GPSLongitudeRef'] = img.IfdValueAscii('W');
+    shot.exif.gpsIfd['GPSLongitude'] = img.IfdValueRational(171, 10);
+    final small = Uint8List.fromList(img.encodeJpg(shot));
+    final named = (await jpegForIdentify(small))!;
+    expect(img.decodeJpg(named)!.width, 40);
+    expect(photoPositionFromBytes(named), isNull);
+    expect(photoDateFromBytes(named), isNull);
+
+    final png = img.encodePng(img.Image(width: 800, height: 400));
+    final fromPng = (await jpegForIdentify(png, edge: 64))!;
+    expect(fromPng[0], 0xFF);
+    expect(fromPng[1], 0xD8);
+    expect(img.decodeJpg(fromPng)!.width, lessThanOrEqualTo(64));
+    expect(img.decodeJpg(fromPng)!.height, lessThanOrEqualTo(64));
+
+    expect(await jpegForIdentify(small, maxChars: 1), isNull);
+    expect(await jpegForIdentify(wide, edge: 0), isNull);
+    expect(await jpegForIdentify(Uint8List.fromList(const [1, 2, 3])), isNull);
+  });
+
   test('Slovak book order keeps č and ch in place', () {
     expect(compareTitle('cibula', 'červená', 'sk'), lessThan(0));
     expect(compareTitle('huba', 'chránená', 'sk'), lessThan(0));

@@ -149,26 +149,49 @@ class _BookPageState extends State<BookPage> {
     required bool family,
     required Set<String> seen,
   }) {
-    return SliverList.builder(
-      itemCount: names.length,
-      itemBuilder: (context, index) {
-        final name = names[index];
-        final title = catalog.taxonTitle(name);
-        final kind = family ? 'family' : 'genus';
-        return _TaxonRow(
-          title: title,
-          latin: name,
-          count: catalog.countOf(kind, name),
-          plate: familyIcon(_plateFamily(catalog, name, family: family)),
-          note: family ? null : _genusNote(catalog, name, seen),
-          onTap: () => Navigator.of(context).push(
-            guideRoute(
-              guideTaxonScreen(kind),
-              (_) => TaxonPage(kind: kind, name: name),
-            ),
+    final columns = GuideWindow.of(context)
+        .columns(phone: 1, tablet: 2, wide: 3);
+    Widget row(BuildContext context, int index, EdgeInsetsGeometry padding) {
+      final name = names[index];
+      final title = catalog.taxonTitle(name);
+      final kind = family ? 'family' : 'genus';
+      return _TaxonRow(
+        title: title,
+        latin: name,
+        count: catalog.countOf(kind, name),
+        plate: familyIcon(_plateFamily(catalog, name, family: family)),
+        note: family ? null : _genusNote(catalog, name, seen),
+        padding: padding,
+        onTap: () => Navigator.of(context).push(
+          guideRoute(
+            guideTaxonScreen(kind),
+            (_) => TaxonPage(kind: kind, name: name),
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    if (columns == 1) {
+      return SliverList.builder(
+        itemCount: names.length,
+        itemBuilder: (context, index) => row(
+          context,
+          index,
+          const EdgeInsetsDirectional.fromSTEB(20, 9, 20, 9),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      sliver: _chunkedSliver(
+        count: names.length,
+        columns: columns,
+        item: (context, index) => row(
+          context,
+          index,
+          const EdgeInsetsDirectional.fromSTEB(10, 9, 10, 9),
+        ),
+      ),
     );
   }
 
@@ -187,6 +210,11 @@ class _BookPageState extends State<BookPage> {
               catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
         );
     final fresh = newInBook(catalog.species);
+    final columns = GuideWindow.of(context)
+        .columns(phone: 1, tablet: 2, wide: 3);
+    final cardPadding = columns == 1
+        ? const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 12)
+        : const EdgeInsetsDirectional.fromSTEB(10, 0, 10, 12);
     final cards = <Widget>[];
     if (favorites.isNotEmpty) {
       cards.add(
@@ -196,6 +224,7 @@ class _BookPageState extends State<BookPage> {
           photos: [for (final item in favorites.take(4)) speciesPhoto(item)],
           favorite: true,
           gold: false,
+          padding: cardPadding,
           onTap: () => Navigator.of(context).push(
             guideRoute(
               guideScreenFavorites,
@@ -218,6 +247,7 @@ class _BookPageState extends State<BookPage> {
           photos: [for (final item in species.take(4)) speciesPhoto(item)],
           favorite: false,
           gold: true,
+          padding: cardPadding,
           onTap: () =>
               Navigator.of(context)
                   .push(guideRoute(guideScreenNew, (_) => const NewPage())),
@@ -245,6 +275,7 @@ class _BookPageState extends State<BookPage> {
           photos: photos,
           favorite: false,
           gold: false,
+          padding: cardPadding,
           onTap: () => Navigator.of(context).push(
             guideRoute(
               guideListScreen(list.id),
@@ -257,12 +288,47 @@ class _BookPageState extends State<BookPage> {
     if (cards.isEmpty) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
+    if (columns == 1) {
+      return SliverPadding(
+        padding: const EdgeInsets.only(top: 6),
+        sliver: SliverList.builder(
+          itemCount: cards.length,
+          itemBuilder: (_, index) => cards[index],
+        ),
+      );
+    }
     return SliverPadding(
-      padding: const EdgeInsets.only(top: 6),
-      sliver: SliverList.builder(
-        itemCount: cards.length,
-        itemBuilder: (_, index) => cards[index],
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+      sliver: _chunkedSliver(
+        count: cards.length,
+        columns: columns,
+        item: (_, index) => cards[index],
       ),
+    );
+  }
+
+  Widget _chunkedSliver({
+    required int count,
+    required int columns,
+    required Widget Function(BuildContext context, int index) item,
+  }) {
+    final rows = (count / columns).ceil();
+    return SliverList.builder(
+      itemCount: rows,
+      itemBuilder: (context, row) {
+        final start = row * columns;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var column = 0; column < columns; column++)
+              Expanded(
+                child: start + column >= count
+                    ? const SizedBox.shrink()
+                    : item(context, start + column),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -456,6 +522,7 @@ class _TaxonRow extends StatelessWidget {
   final int count;
   final String plate;
   final String? note;
+  final EdgeInsetsGeometry padding;
   final VoidCallback onTap;
 
   const _TaxonRow({
@@ -464,6 +531,7 @@ class _TaxonRow extends StatelessWidget {
     required this.count,
     required this.plate,
     required this.note,
+    required this.padding,
     required this.onTap,
   });
 
@@ -474,7 +542,7 @@ class _TaxonRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(20, 9, 20, 9),
+        padding: padding,
         child: Row(
           children: [
             _Plate(url: plate),
@@ -574,6 +642,7 @@ class _ListCard extends StatelessWidget {
   final List<String> photos;
   final bool favorite;
   final bool gold;
+  final EdgeInsetsGeometry padding;
   final VoidCallback onTap;
 
   const _ListCard({
@@ -584,6 +653,7 @@ class _ListCard extends StatelessWidget {
     required this.favorite,
     required this.gold,
     required this.onTap,
+    this.padding = const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 12),
   });
 
   @override
@@ -591,7 +661,7 @@ class _ListCard extends StatelessWidget {
     final colors = GuideColors.of(context);
     final slots = favorite ? photos.length.clamp(1, 4) : 4;
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 12),
+      padding: padding,
       child: Material(
         color: colors.cream,
         clipBehavior: Clip.antiAlias,

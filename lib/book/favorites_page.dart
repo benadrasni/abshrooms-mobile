@@ -11,12 +11,7 @@ import 'package:whats_that_mushroom/species/species_page.dart';
 
 /// Column count for the favorites grid. A phone uses two. A tablet in
 /// portrait uses three, and a landscape tablet uses four.
-int favoritesGridColumns(Size size) {
-  final tablet = size.shortestSide >= 650;
-  if (!tablet) return 2;
-  if (size.width > size.height) return 4;
-  return 3;
-}
+int favoritesGridColumns(Size size) => GuideWindow.photoColumns(size);
 
 /// Favorite mushrooms, laid out like the plants favorites list: a title,
 /// a large count, then a photo grid split by the current month.

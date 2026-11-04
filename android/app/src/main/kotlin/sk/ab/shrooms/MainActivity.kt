@@ -4,9 +4,12 @@ import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
@@ -17,6 +20,31 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private var pickerResult: MethodChannel.Result? = null
     private var pickerMaxWidth = 0
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        applyGuideOrientation()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyGuideOrientation()
+    }
+
+    // Phones stay portrait. Android 16 still honors that below sw600dp.
+    // A large screen (guide_allow_rotation) is left on FULL_USER, which is not
+    // one of the portrait or landscape locks Android 16 ignores, so the window
+    // can rotate, including upside down, and resize with the display.
+    private fun applyGuideOrientation() {
+        val target = if (resources.getBoolean(R.bool.guide_allow_rotation)) {
+            ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        if (requestedOrientation != target) {
+            requestedOrientation = target
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

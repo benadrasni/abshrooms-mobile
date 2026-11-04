@@ -32,7 +32,7 @@ void main() {
     expect(find.text('Names this month'), findsNothing);
     expect(find.text('Field Guide'), findsOneWidget);
     expect(
-      find.text('7 days free • Unlimited • No ads • Seen sync • Offline'),
+      find.text('Unlimited • No ads • Seen sync • Offline'),
       findsOneWidget,
     );
     expect(find.text('Restore purchases'), findsOneWidget);

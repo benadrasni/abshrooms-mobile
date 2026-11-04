@@ -1,4 +1,6 @@
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:whats_that_mushroom/purchase/purchases.dart';
 
 enum FieldGuidePlan { yearly, monthly }
@@ -9,11 +11,19 @@ class FieldGuideOffer {
   final String? price;
   final bool owned;
 
+  /// A free phase followed by a paid phase. The row price is the paid phase.
+  final bool trial;
+
+  /// ISO billing period of the paid phase, such as `P1Y` or `P1M`.
+  final String? period;
+
   const FieldGuideOffer({
     required this.plan,
     required this.productId,
     required this.price,
     required this.owned,
+    this.trial = true,
+    this.period,
   });
 }
 
@@ -46,8 +56,80 @@ class FieldGuideCatalog {
       monthlyPrice: monthly.price,
       owned: owned,
       error: error,
+      yearlyTrial: yearly.trial,
+      monthlyTrial: monthly.trial,
+      yearlyPeriod: yearly.period,
+      monthlyPeriod: monthly.period,
     );
   }
+}
+
+class FieldGuideCandidate {
+  final String recurringPrice;
+  final double recurringRaw;
+  final String? period;
+  final bool trial;
+
+  const FieldGuideCandidate({
+    required this.recurringPrice,
+    required this.recurringRaw,
+    required this.trial,
+    this.period,
+  });
+}
+
+class FieldGuidePick {
+  final int index;
+  final String price;
+  final bool trial;
+  final String? period;
+
+  const FieldGuidePick({
+    required this.index,
+    required this.price,
+    required this.trial,
+    this.period,
+  });
+}
+
+/// Buys a free trial on the yearly or monthly period when the store offers one.
+/// The price is the paid phase. A same-priced plan on the other period is left.
+FieldGuidePick? fieldGuidePick(
+  List<FieldGuideCandidate> items, {
+  required bool yearly,
+}) {
+  if (items.isEmpty) return null;
+  final preferred = yearly ? 'P1Y' : 'P1M';
+  final matched = [
+    for (var i = 0; i < items.length; i++)
+      if (items[i].period == preferred) i,
+  ];
+  final pool = matched.isEmpty
+      ? [for (var i = 0; i < items.length; i++) i]
+      : matched;
+  int? trialIndex;
+  int? paidIndex;
+  var paidRaw = -1.0;
+  for (final i in pool) {
+    final item = items[i];
+    if (item.trial && trialIndex == null) trialIndex = i;
+    if (item.recurringRaw > paidRaw) {
+      paidIndex = i;
+      paidRaw = item.recurringRaw;
+    }
+  }
+  final buy = trialIndex ?? paidIndex;
+  if (buy == null) return null;
+  final chosen = items[buy];
+  final price = chosen.recurringRaw > 0 || paidIndex == null
+      ? chosen.recurringPrice
+      : items[paidIndex].recurringPrice;
+  return FieldGuidePick(
+    index: buy,
+    price: price,
+    trial: chosen.trial,
+    period: chosen.period ?? (paidIndex == null ? null : items[paidIndex].period),
+  );
 }
 
 class FieldGuideLoaded {
@@ -127,6 +209,10 @@ FieldGuideCatalog fieldGuideCatalog({
   required String? monthlyPrice,
   required Set<String> owned,
   String? error,
+  bool yearlyTrial = true,
+  bool monthlyTrial = true,
+  String? yearlyPeriod,
+  String? monthlyPeriod,
 }) {
   return FieldGuideCatalog(
     yearly: FieldGuideOffer(
@@ -134,12 +220,16 @@ FieldGuideCatalog fieldGuideCatalog({
       productId: ids.yearly,
       price: _price(yearlyPrice),
       owned: owned.contains(ids.yearly),
+      trial: yearlyTrial,
+      period: yearlyPeriod,
     ),
     monthly: FieldGuideOffer(
       plan: FieldGuidePlan.monthly,
       productId: ids.monthly,
       price: _price(monthlyPrice),
       owned: owned.contains(ids.monthly),
+      trial: monthlyTrial,
+      period: monthlyPeriod,
     ),
     storeAvailable: storeAvailable,
     error: error,
@@ -158,8 +248,8 @@ FieldGuideLoaded fieldGuideFromStore({
   required Set<String> owned,
   String? error,
 }) {
-  final yearly = _picked(products, ids.yearly);
-  final monthly = _picked(products, ids.monthly);
+  final yearly = _picked(products, ids.yearly, yearly: true);
+  final monthly = _picked(products, ids.monthly, yearly: false);
   return FieldGuideLoaded(
     catalog: fieldGuideCatalog(
       ids: ids,
@@ -168,6 +258,10 @@ FieldGuideLoaded fieldGuideFromStore({
       monthlyPrice: monthly?.displayPrice,
       owned: owned,
       error: error,
+      yearlyTrial: yearly?.trial ?? false,
+      monthlyTrial: monthly?.trial ?? false,
+      yearlyPeriod: yearly?.period,
+      monthlyPeriod: monthly?.period,
     ),
     products: {
       if (yearly != null) ids.yearly: yearly.product,
@@ -176,17 +270,58 @@ FieldGuideLoaded fieldGuideFromStore({
   );
 }
 
-({ProductDetails product, String displayPrice})? _picked(
-  List<ProductDetails> products,
-  String id,
-) {
+({
+  ProductDetails product,
+  String displayPrice,
+  bool trial,
+  String? period,
+})?
+_picked(List<ProductDetails> products, String id, {required bool yearly}) {
   final matches = products.where((product) => product.id == id).toList();
-  final choice = fieldGuideOfferChoice([
-    for (final product in matches)
-      (price: product.price, rawPrice: product.rawPrice),
-  ]);
-  if (choice == null) return null;
-  return (product: matches[choice.buyIndex], displayPrice: choice.displayPrice);
+  final pick = fieldGuidePick(
+    [for (final product in matches) _candidate(product)],
+    yearly: yearly,
+  );
+  if (pick == null) return null;
+  return (
+    product: matches[pick.index],
+    displayPrice: pick.price,
+    trial: pick.trial,
+    period: pick.period,
+  );
+}
+
+FieldGuideCandidate _candidate(ProductDetails product) {
+  if (product is GooglePlayProductDetails) {
+    final index = product.subscriptionIndex;
+    final offers = product.productDetails.subscriptionOfferDetails;
+    if (index != null && offers != null && index < offers.length) {
+      final phases = offers[index].pricingPhases;
+      var trial = false;
+      PricingPhaseWrapper? paid;
+      for (final phase in phases) {
+        if (phase.priceAmountMicros <= 0) {
+          trial = true;
+        } else {
+          paid = phase;
+        }
+      }
+      if (paid != null) {
+        return FieldGuideCandidate(
+          recurringPrice: paid.formattedPrice,
+          recurringRaw: paid.priceAmountMicros / 1000000,
+          period: paid.billingPeriod,
+          trial: trial,
+        );
+      }
+    }
+  }
+  final free = product.rawPrice == 0 && product.price.trim().isNotEmpty;
+  return FieldGuideCandidate(
+    recurringPrice: product.price,
+    recurringRaw: product.rawPrice,
+    trial: free,
+  );
 }
 
 /// `Version 1.0.0 (100)`. An empty name or build is left out.

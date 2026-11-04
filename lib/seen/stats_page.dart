@@ -124,31 +124,37 @@ class _StatsPageState extends State<StatsPage> {
     );
     return Scaffold(
       backgroundColor: colors.paper,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            _Back(label: widget.fromSeen ? copy.seen : copy.back),
-            _Intro(
-              title: _public ? copy.statsSightings : copy.statsYours,
-              note: _note(copy, stats),
+      body: guideWithRail(
+        context,
+        personOn: !widget.fromSeen,
+        child: SafeArea(
+          child: GuideReadable(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                _Back(label: widget.fromSeen ? copy.seen : copy.back),
+                _Intro(
+                  title: _public ? copy.statsSightings : copy.statsYours,
+                  note: _note(copy, stats),
+                ),
+                _Segments(
+                  sightings: _public,
+                  onYours: () {
+                    if (!_public) return;
+                    setState(() => _public = false);
+                  },
+                  onSightings: () {
+                    if (_public) return;
+                    setState(() => _public = true);
+                  },
+                ),
+                if (_public)
+                  _sightingsBody(copy, stats)
+                else
+                  _findsBody(copy, stats),
+              ],
             ),
-            _Segments(
-              sightings: _public,
-              onYours: () {
-                if (!_public) return;
-                setState(() => _public = false);
-              },
-              onSightings: () {
-                if (_public) return;
-                setState(() => _public = true);
-              },
-            ),
-            if (_public)
-              _sightingsBody(copy, stats)
-            else
-              _findsBody(copy, stats),
-          ],
+          ),
         ),
       ),
     );
@@ -310,12 +316,11 @@ Future<SightingsLoad> loadPublicSightings() async {
   final people = stored is int
       ? stored
       : stored is num
-          ? stored.round()
-          : 0;
-  return sightingsFromDocs(
-    [for (final doc in snap.docs) doc.data()],
-    people: people,
-  );
+      ? stored.round()
+      : 0;
+  return sightingsFromDocs([
+    for (final doc in snap.docs) doc.data(),
+  ], people: people);
 }
 
 class _Intro extends StatelessWidget {
@@ -909,10 +914,7 @@ class _Countries extends StatelessWidget {
   }
 }
 
-bool _wide(BuildContext context) {
-  final size = MediaQuery.sizeOf(context);
-  return size.shortestSide >= 650 && size.width > size.height;
-}
+bool _wide(BuildContext context) => GuideWindow.of(context).wide;
 
 class _Bar extends StatelessWidget {
   final double factor;

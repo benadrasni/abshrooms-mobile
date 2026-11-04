@@ -13,11 +13,13 @@ import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
+import 'package:whats_that_mushroom/shell/widgets.dart';
 
 const fieldGuidePlatePath =
     'photos/Agaricales/Amanitaceae/Amanita_muscaria/Amanita_muscaria@1600.webp';
 
 const fieldGuideStartKey = Key('fieldGuideStart');
+const fieldGuideManageKey = Key('fieldGuideManage');
 const fieldGuideRestoreKey = Key('fieldGuideRestore');
 const fieldGuideYearlyKey = Key('fieldGuideYearly');
 const fieldGuideMonthlyKey = Key('fieldGuideMonthly');
@@ -30,7 +32,13 @@ class FieldGuidePage extends StatefulWidget {
   final Future<void> Function()? restore;
   final WidgetBuilder? plate;
 
-  const FieldGuidePage({super.key, this.load, this.buy, this.restore, this.plate});
+  const FieldGuidePage({
+    super.key,
+    this.load,
+    this.buy,
+    this.restore,
+    this.plate,
+  });
 
   @override
   State<FieldGuidePage> createState() => _FieldGuidePageState();
@@ -122,7 +130,9 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
   FieldGuideAccess _access(FieldGuideCatalog catalog) {
     return fieldGuideAccess(
       catalog: catalog,
-      monthlyOnThisStore: Purchases.purchases.containsKey(catalog.monthly.productId),
+      monthlyOnThisStore: Purchases.purchases.containsKey(
+        catalog.monthly.productId,
+      ),
       fromAccountOnly: Purchases.fieldGuideFromAccountOnly,
     );
   }
@@ -159,7 +169,11 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
   Future<bool> _buySelected(FieldGuidePlan plan) {
     final product = _loaded?.products[_ids.forPlan(plan)];
     if (product == null) return Future<bool>.value(false);
-    final replaceId = fieldGuideReplaces(plan, _ids, Purchases.purchases.keys.toSet());
+    final replaceId = fieldGuideReplaces(
+      plan,
+      _ids,
+      Purchases.purchases.keys.toSet(),
+    );
     return buyFieldGuide(
       product: product,
       replaces: replaceId == null ? null : Purchases.purchases[replaceId],
@@ -180,7 +194,8 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
       return;
     }
     setState(() => _error = null);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(copy.restoring)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(copy.restoring)));
   }
 
   void _choose(FieldGuidePlan plan) {
@@ -196,7 +211,14 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
     final colors = GuideColors.of(context);
     return Scaffold(
       backgroundColor: colors.paper,
-      body: SafeArea(bottom: false, child: _body(context)),
+      body: guideWithRail(
+        context,
+        personOn: true,
+        child: SafeArea(
+          bottom: false,
+          child: GuideReadable(maxWidth: 880, child: _body(context)),
+        ),
+      ),
     );
   }
 
@@ -244,7 +266,8 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
     final owned = selected.owned;
     final access = _access(catalog);
     final canBuy = !access.locked && !owned && selected.price != null && !_busy;
-    final ios = defaultTargetPlatform == TargetPlatform.iOS ||
+    final ios =
+        defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
     return ListView(
       padding: EdgeInsets.only(bottom: bottom),
@@ -261,7 +284,11 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
                 height: 250,
                 child: _Hero(plate: widget.plate),
               ),
-              const PositionedDirectional(top: 10, start: 12, child: _BackCircle()),
+              const PositionedDirectional(
+                top: 10,
+                start: 12,
+                child: _BackCircle(),
+              ),
             ],
           ),
         ),
@@ -334,31 +361,25 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
               _Plan(
                 planKey: fieldGuideYearlyKey,
                 title: copy.fieldGuideYearly,
-                note: _planNote(
-                  copy,
-                  locked: access.locked,
-                  owned: catalog.yearly.owned,
-                  trial: copy.fieldGuideThenYearly,
-                ),
+                note: _planNote(copy, catalog.yearly, locked: access.locked),
                 price: catalog.yearly.price ?? copy.fieldGuideStorePrice,
                 pricePending: pricesPending && catalog.yearly.price == null,
                 selected: _plan == FieldGuidePlan.yearly,
-                onPressed: access.locked ? null : () => _choose(FieldGuidePlan.yearly),
+                onPressed: access.locked
+                    ? null
+                    : () => _choose(FieldGuidePlan.yearly),
               ),
               const SizedBox(height: 8),
               _Plan(
                 planKey: fieldGuideMonthlyKey,
                 title: copy.fieldGuideMonthly,
-                note: _planNote(
-                  copy,
-                  locked: access.locked,
-                  owned: catalog.monthly.owned,
-                  trial: copy.fieldGuideThenMonthly,
-                ),
+                note: _planNote(copy, catalog.monthly, locked: access.locked),
                 price: catalog.monthly.price ?? copy.fieldGuideStorePrice,
                 pricePending: pricesPending && catalog.monthly.price == null,
                 selected: _plan == FieldGuidePlan.monthly,
-                onPressed: access.locked ? null : () => _choose(FieldGuidePlan.monthly),
+                onPressed: access.locked
+                    ? null
+                    : () => _choose(FieldGuidePlan.monthly),
               ),
             ],
           ),
@@ -374,6 +395,19 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
                 color: colors.ink2,
                 fontSize: 13,
                 height: 1.4,
+              ),
+            ),
+          ),
+        if (!access.locked && selected.price != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+            child: Text(
+              _terms(copy, selected, ios: ios),
+              style: TextStyle(
+                fontFamily: GuideType.sans,
+                color: colors.ink,
+                fontSize: 15,
+                height: 1.45,
               ),
             ),
           ),
@@ -406,21 +440,17 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
           child: _TextButton(
-            buttonKey: fieldGuideRestoreKey,
-            label: copy.restore,
-            onPressed: access.locked ? null : () => unawaited(_restore()),
+            buttonKey: fieldGuideManageKey,
+            label: copy.fieldGuideManage(copy.fieldGuideCancelWhere(ios: ios)),
+            onPressed: () => unawaited(openSubscriptionManage()),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-          child: Text(
-            ios ? copy.fieldGuideDisclaimerIos : copy.fieldGuideDisclaimerAndroid,
-            style: TextStyle(
-              fontFamily: GuideType.sans,
-              color: colors.ink2,
-              fontSize: 12,
-              height: 1.45,
-            ),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: _TextButton(
+            buttonKey: fieldGuideRestoreKey,
+            label: copy.restore,
+            onPressed: access.locked ? null : () => unawaited(_restore()),
           ),
         ),
         Padding(
@@ -443,14 +473,44 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
     );
   }
 
-  String _planNote(
-    Copy copy, {
-    required bool locked,
-    required bool owned,
-    required String trial,
-  }) {
-    if (!locked) return trial;
-    return owned ? copy.subscribed : '';
+  String _planNote(Copy copy, FieldGuideOffer offer, {required bool locked}) {
+    if (locked) return offer.owned ? copy.subscribed : '';
+    final price = offer.price;
+    if (price == null) return '';
+    final yearly = _billedYearly(offer);
+    if (!offer.trial) {
+      return yearly
+          ? copy.fieldGuideEveryYear(price)
+          : copy.fieldGuideEveryMonth(price);
+    }
+    return yearly
+        ? copy.fieldGuideThenYearly(price)
+        : copy.fieldGuideThenMonthly(price);
+  }
+
+  String _terms(Copy copy, FieldGuideOffer offer, {required bool ios}) {
+    final price = offer.price;
+    if (price == null) return '';
+    final where = copy.fieldGuideCancelWhere(ios: ios);
+    final yearly = _billedYearly(offer);
+    if (!offer.trial) {
+      final period = yearly
+          ? copy.fieldGuideEveryYear(price)
+          : copy.fieldGuideEveryMonth(price);
+      final renewal = ios
+          ? copy.fieldGuideDisclaimerIos
+          : copy.fieldGuideDisclaimerAndroid;
+      return '$period $renewal';
+    }
+    return yearly
+        ? copy.fieldGuideTrialYearly(price, where)
+        : copy.fieldGuideTrialMonthly(price, where);
+  }
+
+  bool _billedYearly(FieldGuideOffer offer) {
+    if (offer.period == 'P1Y') return true;
+    if (offer.period == 'P1M') return false;
+    return offer.plan == FieldGuidePlan.yearly;
   }
 }
 
@@ -609,7 +669,10 @@ class _Column extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border ?? colors.rule, width: border == null ? 1 : 1.5),
+        border: Border.all(
+          color: border ?? colors.rule,
+          width: border == null ? 1 : 1.5,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -718,9 +781,9 @@ class _Plan extends StatelessWidget {
                         note,
                         style: TextStyle(
                           fontFamily: GuideType.sans,
-                          color: colors.ink2,
-                          fontSize: 13,
-                          height: 1.3,
+                          color: colors.ink,
+                          fontSize: 14,
+                          height: 1.35,
                         ),
                       ),
                   ],
@@ -731,15 +794,18 @@ class _Plan extends StatelessWidget {
                   ? SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: colors.moss),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.moss,
+                      ),
                     )
                   : Text(
                       price,
                       style: TextStyle(
                         fontFamily: GuideType.sans,
-                        color: enabled ? colors.ink2 : colors.ink2,
+                        color: enabled ? colors.ink : colors.ink2,
                         fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                        fontSize: 16,
                       ),
                     ),
             ],
@@ -812,7 +878,10 @@ class _StartButton extends StatelessWidget {
                 ? SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: colors.onMoss),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.onMoss,
+                    ),
                   )
                 : Text(
                     label,

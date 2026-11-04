@@ -319,7 +319,7 @@ class _SeenPageState extends State<SeenPage> {
   /// Two finds share a line on a landscape tablet. A phone stays one column.
   bool _pairs(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    return size.shortestSide >= 650 && size.width > size.height;
+    return GuideWindow.of(context).tablet && size.width > size.height;
   }
 
   List<List<_Tile>> _lines(BuildContext context, List<_Tile> tiles) {
@@ -668,7 +668,7 @@ class _SeenPageState extends State<SeenPage> {
       isScrollControlled: true,
       builder: (sheetContext) {
         final size = MediaQuery.sizeOf(sheetContext);
-        final tablet = size.shortestSide >= 650;
+        final tablet = GuideWindow.fromSize(size).tablet;
         final sheet = _DeleteSheet(
           title: copy.deleteAsk,
           body: _deleteBody(copy, find),
@@ -838,7 +838,7 @@ enum _Kind {
 
 Widget _sheetFrame(BuildContext context, Widget sheet) {
   final size = MediaQuery.sizeOf(context);
-  if (size.shortestSide < 650) return sheet;
+  if (!GuideWindow.fromSize(size).tablet) return sheet;
   return Padding(
     padding: const EdgeInsets.all(32),
     child: Align(
@@ -1475,7 +1475,7 @@ class _ShareSheetState extends State<_ShareSheet> {
     final colors = GuideColors.of(context);
     final copy = GuideScope.of(context).copy;
     final bottom = MediaQuery.paddingOf(context).bottom;
-    final tablet = MediaQuery.sizeOf(context).shortestSide >= 650;
+    final tablet = GuideWindow.of(context).tablet;
     final latin = widget.latin;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1657,7 +1657,7 @@ class _WithdrawSheet extends StatelessWidget {
     final colors = GuideColors.of(context);
     final copy = GuideScope.of(context).copy;
     final bottom = MediaQuery.paddingOf(context).bottom;
-    final tablet = MediaQuery.sizeOf(context).shortestSide >= 650;
+    final tablet = GuideWindow.of(context).tablet;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.paper,
@@ -1832,7 +1832,7 @@ class _DeleteSheet extends StatelessWidget {
     final colors = GuideColors.of(context);
     final copy = GuideScope.of(context).copy;
     final bottom = MediaQuery.paddingOf(context).bottom;
-    final tablet = MediaQuery.sizeOf(context).shortestSide >= 650;
+    final tablet = GuideWindow.of(context).tablet;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.paper,

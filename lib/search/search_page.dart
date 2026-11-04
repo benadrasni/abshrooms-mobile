@@ -61,24 +61,29 @@ class _SearchPageState extends State<SearchPage> {
         : searchSections(catalog, _query.text);
     return Scaffold(
       backgroundColor: colors.paper,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _BackButton(label: widget.fromBook ? copy.book : copy.find),
-            _QueryField(
-              controller: _query,
-              hint: copy.searchFieldHint,
-              onChanged: (_) => setState(() {}),
+      body: guideWithRail(
+        context,
+        child: SafeArea(
+          child: GuideReadable(
+            child: Column(
+              children: [
+                _BackButton(label: widget.fromBook ? copy.book : copy.find),
+                _QueryField(
+                  controller: _query,
+                  hint: copy.searchFieldHint,
+                  onChanged: (_) => setState(() {}),
+                ),
+                Expanded(
+                  child: _body(
+                    catalog: catalog,
+                    scope: scope,
+                    copy: copy,
+                    sections: sections,
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: _body(
-                catalog: catalog,
-                scope: scope,
-                copy: copy,
-                sections: sections,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

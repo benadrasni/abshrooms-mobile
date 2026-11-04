@@ -324,11 +324,7 @@ String _dayLabel(BuildContext context, Copy copy, DateTime when) {
   return MaterialLocalizations.of(context).formatShortDate(when);
 }
 
-bool _wide(Size size) {
-  return size.shortestSide >= 650 &&
-      size.width > size.height &&
-      size.width >= 1000;
-}
+bool _wide(Size size) => GuideWindow.fromSize(size).wide;
 
 class _Shot extends StatelessWidget {
   final String? path;
@@ -350,7 +346,7 @@ class _Shot extends StatelessWidget {
     final top = MediaQuery.paddingOf(context).top;
     final height = expand
         ? null
-        : (MediaQuery.sizeOf(context).shortestSide >= 650 ? 420.0 : 300.0);
+        : (GuideWindow.of(context).tablet ? 420.0 : 300.0);
     final stack = Stack(
       fit: StackFit.expand,
       children: [
@@ -594,7 +590,7 @@ Future<FindName?> showOtherNames({
       final colors = GuideColors.of(sheetContext);
       final copy = scope.copy;
       final catalog = scope.catalog.data;
-      final tablet = MediaQuery.sizeOf(sheetContext).shortestSide >= 650;
+      final tablet = GuideWindow.of(sheetContext).tablet;
       return Padding(
         padding: tablet ? const EdgeInsets.all(32) : EdgeInsets.zero,
         child: Align(
