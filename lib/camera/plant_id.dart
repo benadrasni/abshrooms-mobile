@@ -22,11 +22,40 @@ class NameGuess {
   final double probability;
   final List<String> commonNames;
 
+  /// Plant.id taxonomic rank, when the reply includes one.
+  final String? rank;
+
   const NameGuess({
     required this.scientificName,
     required this.probability,
     required this.commonNames,
+    this.rank,
   });
+}
+
+/// Plant.id named a genus, not a species.
+/// `Boletus edulis` is a species. `Boletus` and `Boletus sp.` are a genus.
+bool genusLevelName(String scientificName, {String? rank}) {
+  if (rank?.trim().toLowerCase() == 'genus') return true;
+  final parts = scientificName
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.length == 1) return true;
+  if (parts.length != 2) return false;
+  final bare = parts[1].toLowerCase().replaceAll('.', '');
+  return bare == 'sp' || bare == 'spp' || bare == 'spec' || bare == 'species';
+}
+
+/// The genus word in a Plant.id name. Empty when [scientificName] is blank.
+String genusToken(String scientificName) {
+  final parts = scientificName
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty);
+  if (parts.isEmpty) return '';
+  return parts.first;
 }
 
 /// Longest side becomes [edge] pixels. The bytes stay a JPEG.
@@ -308,6 +337,7 @@ List<NameGuess> guessesFrom(Object? data) {
     if (name.isEmpty) continue;
     final probability = item['probability'];
     final names = item['commonNames'];
+    final rank = item['rank']?.toString().trim() ?? '';
     guesses.add(
       NameGuess(
         scientificName: name,
@@ -316,6 +346,7 @@ List<NameGuess> guessesFrom(Object? data) {
           for (final entry in names is List ? names : const [])
             if (entry.toString().trim().isNotEmpty) entry.toString(),
         ],
+        rank: rank.isEmpty ? null : rank,
       ),
     );
   }

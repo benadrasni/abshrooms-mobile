@@ -43,6 +43,7 @@ import {
 } from './quota';
 import {
   foldedSearchKey,
+  leadingNameIsGenus,
   leadingScientificName,
   nextNameTally,
   photoLookupKey,
@@ -214,11 +215,14 @@ export const identifyMushroom = onCall(
         const details = item.plant_details as {
           scientific_name?: unknown;
           common_names?: unknown;
+          rank?: unknown;
         };
+        const rank = typeof details.rank === 'string' ? details.rank.trim() : '';
         return {
           scientificName: details.scientific_name,
           probability: item.probability,
           commonNames: Array.isArray(details.common_names) ? details.common_names : [],
+          ...(rank ? { rank } : {}),
         };
       }),
     };
@@ -228,7 +232,8 @@ export const identifyMushroom = onCall(
 /**
  * Counts the leading Plant.id name when it is not already in the book.
  * A `species/{name}` document or a `search/la/names` row for that Latin
- * name or synonym means it is in the book. The document is
+ * name or synonym means it is in the book. A genus name is not a species
+ * to add, so it is not written. The document is
  * `photo_name_tally/{yyyy-mm}/names/{key}` with the Latin spelling and
  * the month's count. `{key}` is the name in lower case with dots removed.
  * No photo, place, or account is stored. A missing mushroom is not counted.
@@ -237,6 +242,7 @@ async function tallyOutsideName(
   suggestions: Record<string, unknown>[],
   now: number,
 ): Promise<void> {
+  if (leadingNameIsGenus(suggestions)) return;
   const name = leadingScientificName(suggestions);
   const key = name === null ? null : photoLookupKey(name);
   if (name === null || key === null) return;

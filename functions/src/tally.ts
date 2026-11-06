@@ -19,15 +19,42 @@ export function photoLookupKey(scientificName: string): string | null {
   return key;
 }
 
-export function leadingScientificName(suggestions: readonly unknown[]): string | null {
+function suggestionDetails(suggestions: readonly unknown[]): Record<string, unknown> | null {
   const first = suggestions[0];
   if (!first || typeof first !== 'object') return null;
   const details = (first as { plant_details?: unknown }).plant_details;
-  if (!details || typeof details !== 'object') return null;
-  const name = (details as { scientific_name?: unknown }).scientific_name;
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return null;
+  return details as Record<string, unknown>;
+}
+
+export function leadingScientificName(suggestions: readonly unknown[]): string | null {
+  const name = suggestionDetails(suggestions)?.scientific_name;
   if (typeof name !== 'string') return null;
   const trimmed = name.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+const genusMarker = new Set(['sp', 'spp', 'spec', 'species']);
+
+/**
+ * Plant.id named a genus, not a species. `Boletus edulis` is a species.
+ * `Boletus` and `Boletus sp.` are a genus. A one-word family is the same
+ * shape and is not a species to add either.
+ */
+export function leadingNameIsGenus(suggestions: readonly unknown[]): boolean {
+  const details = suggestionDetails(suggestions);
+  if (!details) return false;
+  const rank = details.rank;
+  if (typeof rank === 'string' && rank.trim().toLowerCase() === 'genus') return true;
+  const name = details.scientific_name;
+  if (typeof name !== 'string') return false;
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter((part) => part.length > 0);
+  if (parts.length === 1) return true;
+  if (parts.length !== 2) return false;
+  return genusMarker.has((parts[1] ?? '').toLowerCase().replaceAll('.', ''));
 }
 
 export interface NameTally {

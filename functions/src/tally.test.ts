@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   foldedSearchKey,
+  leadingNameIsGenus,
   leadingScientificName,
   nextNameTally,
   photoLookupKey,
@@ -81,6 +82,36 @@ test('synonym names are the MycoBank strings', () => {
 test('the Latin search id folds diacritics and keeps dots', () => {
   assert.equal(foldedSearchKey('  Léccinum edule. '), 'leccinum edule.');
   assert.equal(photoLookupKey('  Léccinum edule. '), 'léccinum edule');
+});
+
+test('a genus name is not a species to count', () => {
+  assert.equal(
+    leadingNameIsGenus([{ plant_details: { scientific_name: 'Boletus', rank: 'genus' } }]),
+    true,
+  );
+  assert.equal(leadingNameIsGenus([{ plant_details: { scientific_name: ' Boletus ' } }]), true);
+  assert.equal(
+    leadingNameIsGenus([{ plant_details: { scientific_name: 'Boletus sp.', rank: 'genus' } }]),
+    true,
+  );
+  assert.equal(leadingNameIsGenus([{ plant_details: { scientific_name: 'Boletus sp.' } }]), true);
+  assert.equal(
+    leadingNameIsGenus([
+      {
+        plant_details: {
+          scientific_name: 'Boletus edulis',
+          rank: 'species',
+          taxonomy: { genus: 'Boletus' },
+        },
+      },
+    ]),
+    false,
+  );
+  assert.equal(
+    leadingNameIsGenus([{ plant_details: { scientific_name: 'Boletus edulis var. edulis' } }]),
+    false,
+  );
+  assert.equal(leadingNameIsGenus([]), false);
 });
 
 test('only the leading scientific name is counted', () => {

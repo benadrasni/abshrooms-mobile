@@ -16,11 +16,11 @@ test('the v3 request sends English and omits Slovak', () => {
   assert.equal(plantIdLanguage('sk-SK'), undefined);
   assert.equal(
     plantIdUrl('en'),
-    'https://plant.id/api/v3/identification?details=common_names,url,description,taxonomy&language=en',
+    'https://plant.id/api/v3/identification?details=common_names,url,description,taxonomy,rank&language=en',
   );
   assert.equal(
     plantIdUrl(undefined),
-    'https://plant.id/api/v3/identification?details=common_names,url,description,taxonomy',
+    'https://plant.id/api/v3/identification?details=common_names,url,description,taxonomy,rank',
   );
   assert.deepEqual(plantIdBody('abc'), { images: ['abc'], similar_images: true });
 });
@@ -50,8 +50,33 @@ test('a completed reply keeps the scientific name the app reads', () => {
   assert.equal(plantIdFinished(body), true);
   const suggestions = plantIdSuggestions(body);
   assert.equal(suggestions.length, 1);
-  const details = suggestions[0]?.plant_details as { scientific_name: string };
+  const details = suggestions[0]?.plant_details as { scientific_name: string; rank?: string };
   assert.equal(details.scientific_name, 'Amanita muscaria');
+  assert.equal(details.rank, undefined);
+});
+
+test('a genus suggestion keeps its rank', () => {
+  const suggestions = plantIdSuggestions({
+    status: 'COMPLETED',
+    result: {
+      classification: {
+        suggestions: [
+          {
+            id: 'genus-1',
+            name: 'Boletus',
+            probability: 0.64,
+            details: {
+              rank: 'genus',
+              taxonomy: { kingdom: 'Fungi', genus: 'Boletus' },
+            },
+          },
+        ],
+      },
+    },
+  });
+  const details = suggestions[0]?.plant_details as { scientific_name: string; rank: string };
+  assert.equal(details.scientific_name, 'Boletus');
+  assert.equal(details.rank, 'genus');
 });
 
 test('fungi stay and plants drop, even when is_plant is high', () => {

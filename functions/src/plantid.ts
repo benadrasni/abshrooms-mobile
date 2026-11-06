@@ -1,7 +1,7 @@
 /** Plant.id v3 create-identification. https://plant.id/api/v3/identification */
 export const plantIdEndpoint = 'https://plant.id/api/v3/identification';
 
-const plantIdDetails = 'common_names,url,description,taxonomy';
+const plantIdDetails = 'common_names,url,description,taxonomy,rank';
 
 /** Slovak is not a Plant.id language, so the request omits it. English is sent. */
 const plantIdLanguages = new Set(['en']);
@@ -51,6 +51,7 @@ export function plantIdSuggestions(body: unknown): Record<string, unknown>[] {
     const name = suggestion?.name;
     if (!suggestion || typeof name !== 'string' || name.trim() === '') continue;
     const details = asRecord(suggestion.details) ?? {};
+    const rank = typeof details.rank === 'string' ? details.rank.trim() : '';
     out.push({
       id: suggestion.id,
       probability: suggestion.probability,
@@ -61,6 +62,7 @@ export function plantIdSuggestions(body: unknown): Record<string, unknown>[] {
         url: typeof details.url === 'string' ? details.url : null,
         taxonomy: asRecord(details.taxonomy) ?? null,
         wiki_description: details.description ?? null,
+        ...(rank ? { rank } : {}),
       },
     });
   }

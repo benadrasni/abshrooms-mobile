@@ -101,6 +101,88 @@ void main() {
     expect(Names.count.namesUsed, 1);
   });
 
+  test('a genus name is not a species name', () {
+    expect(genusLevelName('Boletus'), isTrue);
+    expect(genusLevelName(' Boletus sp. '), isTrue);
+    expect(genusLevelName('Boletus edulis', rank: 'genus'), isTrue);
+    expect(genusLevelName('Boletus edulis'), isFalse);
+    expect(genusLevelName('Boletus edulis var. edulis'), isFalse);
+    expect(genusToken('Boletus sp.'), 'Boletus');
+  });
+
+  testWidgets('a genus in the book opens that genus', (tester) async {
+    final notebook = Notebook();
+    await _open(
+      tester,
+      notebook: notebook,
+      signedIn: true,
+      identify: (_, _) async => const [
+        NameGuess(
+          scientificName: 'Boletus',
+          probability: 0.64,
+          commonNames: ['bolete'],
+          rank: 'genus',
+        ),
+        NameGuess(
+          scientificName: 'Boletus edulis',
+          probability: 0.2,
+          commonNames: [],
+        ),
+      ],
+    );
+    await tester.tap(find.byKey(const Key('guide-camera-shutter')));
+    await tester.pumpAndSettle();
+    expect(find.text('Species in this genus.'), findsOneWidget);
+    expect(find.text('Boletus edulis'), findsOneWidget);
+    expect(notebook.finds, isEmpty);
+    expect(Names.count.namesUsed, 1);
+  });
+
+  testWidgets('Boletus sp. opens the genus when the book lists it', (
+    tester,
+  ) async {
+    final notebook = Notebook();
+    await _open(
+      tester,
+      notebook: notebook,
+      signedIn: true,
+      identify: (_, _) async => const [
+        NameGuess(
+          scientificName: 'boletus sp.',
+          probability: 0.5,
+          commonNames: [],
+        ),
+      ],
+    );
+    await tester.tap(find.byKey(const Key('guide-camera-shutter')));
+    await tester.pumpAndSettle();
+    expect(find.text('Species in this genus.'), findsOneWidget);
+    expect(notebook.finds, isEmpty);
+  });
+
+  testWidgets('a genus the book does not list stays outside', (tester) async {
+    final notebook = Notebook();
+    await _open(
+      tester,
+      notebook: notebook,
+      signedIn: true,
+      identify: (_, _) async => const [
+        NameGuess(
+          scientificName: 'Cortinarius',
+          probability: 0.7,
+          commonNames: ['webcap'],
+          rank: 'genus',
+        ),
+      ],
+    );
+    await tester.tap(find.byKey(const Key('guide-camera-shutter')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('guide-outside-page')), findsOneWidget);
+    expect(find.text('Cortinarius'), findsOneWidget);
+    expect(notebook.finds.single.outsideName, 'Cortinarius');
+    expect(notebook.finds.single.latin, isNull);
+  });
+
   testWidgets('a gallery photo keeps the date on the photo', (tester) async {
     final notebook = Notebook();
     final taken = DateTime(2023, 6, 25, 15, 33, 4);

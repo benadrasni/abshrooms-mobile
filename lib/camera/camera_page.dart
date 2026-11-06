@@ -9,6 +9,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:whats_that_mushroom/ads/ad_units.dart';
 import 'package:whats_that_mushroom/ads/rewarded_ad.dart';
+import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/camera/outside_page.dart';
 import 'package:whats_that_mushroom/camera/plant_id.dart';
 import 'package:whats_that_mushroom/data/models.dart';
@@ -32,8 +33,9 @@ const _scrim = Color(0x66000000);
 
 /// Full-screen field-guide camera, laid out like the plants guide.
 ///
-/// A name in the book opens that species. A name outside the book opens
-/// its own page. A guest has one name. A signed-in account has five each
+/// A species in the book opens that species. A genus in the book opens
+/// that genus. A name outside the book opens its own page. A guest has one
+/// name. A signed-in account has five each
 /// UTC month, and a rewarded ad can add five more. Field Guide is unlimited.
 /// `identifyMushroom` counts the name. There is no location question: this
 /// guide has no floristic regions, and the name is not sent with a place.
@@ -490,6 +492,16 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _openGenus(String genus) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      guideRoute(
+        guideScreenGenus,
+        (_) => TaxonPage(kind: 'genus', name: genus),
+      ),
+    );
+  }
+
   Future<void> _openSearch() async {
     if (!mounted) return;
     await Navigator.of(context)
@@ -587,6 +599,21 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           _notMushroom = true;
           _countedEmpty = applied && Names.lastCharged;
         });
+        return;
+      }
+      final genus = outcome.genusName;
+      if (genus != null) {
+        _logPhoto(source, 'genus');
+        if (!applied && !_fieldGuide) {
+          await Names.spend(signedIn: _signedIn);
+        }
+        if (!mounted) return;
+        _releaseShot();
+        setState(() => _naming = false);
+        await _stopPreview();
+        if (!mounted) return;
+        await _openGenus(genus);
+        if (mounted) await _startPreview();
         return;
       }
       _logPhoto(source, outcome.speciesName == null ? 'outside' : 'species');
@@ -873,20 +900,29 @@ class _CameraOutcome {
   final bool notMushroom;
   final NameGuess? leading;
   final String? speciesName;
+  final String? genusName;
   final List<NameGuess> others;
 
   const _CameraOutcome.notMushroom()
     : notMushroom = true,
       leading = null,
       speciesName = null,
+      genusName = null,
       others = const [];
 
   const _CameraOutcome.species(this.leading, this.speciesName, this.others)
-    : notMushroom = false;
+    : notMushroom = false,
+      genusName = null;
+
+  const _CameraOutcome.genus(this.leading, this.genusName)
+    : notMushroom = false,
+      speciesName = null,
+      others = const [];
 
   const _CameraOutcome.outside(this.leading, this.others)
     : notMushroom = false,
-      speciesName = null;
+      speciesName = null,
+      genusName = null;
 }
 
 _CameraOutcome _outcome(List<NameGuess> guesses, Catalog catalog) {
@@ -902,7 +938,23 @@ _CameraOutcome _outcome(List<NameGuess> guesses, Catalog catalog) {
   if (species != null) {
     return _CameraOutcome.species(leading, species.name, others);
   }
+  final genus = _genusInBook(catalog, leading);
+  if (genus != null) {
+    return _CameraOutcome.genus(leading, genus);
+  }
   return _CameraOutcome.outside(leading, others);
+}
+
+/// The catalog genus, when Plant.id stopped at the genus and the book lists it.
+String? _genusInBook(Catalog catalog, NameGuess guess) {
+  if (!genusLevelName(guess.scientificName, rank: guess.rank)) return null;
+  final token = genusToken(guess.scientificName);
+  if (token.isEmpty) return null;
+  final key = token.toLowerCase();
+  for (final item in catalog.species) {
+    if (item.genus.toLowerCase() == key) return item.genus;
+  }
+  return null;
 }
 
 bool _wide(Size size) => GuideWindow.fromSize(size).wide;
