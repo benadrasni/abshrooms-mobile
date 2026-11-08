@@ -284,6 +284,36 @@ void main() {
     expect(view.coverPhotoUrl, mediaUrl('covers/chanterelle.webp'));
   });
 
+  test('a label that repeats the Latin name is not a second line', () {
+    final catalog = buildCatalog(
+      language: 'it',
+      speciesDocs: const [
+        Doc('Galerina marginata', {'name': 'Galerina marginata', 'id': 32}),
+      ],
+      local: const {
+        'Galerina marginata': {'label': 'galerina marginata'},
+      },
+      english: const {},
+      synonyms: const {},
+      taxa: const {},
+    );
+    final view = presentCuratedList(
+      CuratedListDoc.fromJson({
+        'id': 'deadly',
+        'type': 'species',
+        'titles': {'it': 'Mortali'},
+        'entries': [
+          {'name': 'Galerina marginata'},
+        ],
+      }),
+      catalog,
+      'it',
+    );
+    final entry = view.entries.single;
+    expect(entry.titleIsLatin, isTrue);
+    expect(foldName(entry.title), 'galerina marginata');
+  });
+
   test('a Latin name wins, a bare id still resolves, and both years stay', () {
     final catalog = _catalog();
     final doc = CuratedListDoc.fromJson({

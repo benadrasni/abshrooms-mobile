@@ -132,8 +132,10 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('guide-camera-shutter')));
     await tester.pumpAndSettle();
-    expect(find.text('Species in this genus.'), findsOneWidget);
+    expect(find.text('Species in this genus.'), findsNothing);
+    expect(find.text('Boletus'), findsWidgets);
     expect(find.text('Boletus edulis'), findsOneWidget);
+    expect(find.text('Photos'), findsOneWidget);
     expect(notebook.finds, isEmpty);
     expect(Names.count.namesUsed, 1);
   });
@@ -156,7 +158,9 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('guide-camera-shutter')));
     await tester.pumpAndSettle();
-    expect(find.text('Species in this genus.'), findsOneWidget);
+    expect(find.text('Species in this genus.'), findsNothing);
+    expect(find.text('Photos'), findsOneWidget);
+    expect(find.text('Boletus edulis'), findsOneWidget);
     expect(notebook.finds, isEmpty);
   });
 

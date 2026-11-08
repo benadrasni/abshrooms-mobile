@@ -497,7 +497,17 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     await Navigator.of(context).push(
       guideRoute(
         guideScreenGenus,
-        (_) => TaxonPage(kind: 'genus', name: genus),
+        (_) => TaxonPage(
+          kind: 'genus',
+          name: genus,
+          speciesSource: GuideMushroomSource.photo,
+          onTryPhoto: (listContext) async {
+            Navigator.of(listContext).popUntil(
+              (route) =>
+                  route.settings.name == guideScreenCamera || route.isFirst,
+            );
+          },
+        ),
       ),
     );
   }

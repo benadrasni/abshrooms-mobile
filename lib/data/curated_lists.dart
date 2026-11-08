@@ -249,7 +249,7 @@ CuratedListView presentCuratedList(
       view: CuratedEntryView(
         species: species,
         title: title,
-        titleIsLatin: title == species.name,
+        titleIsLatin: foldName(title) == foldName(species.name),
         year: entry.year,
         region: entry.region,
         thisYear: entry.year != null && entry.year == yearNow,
@@ -296,7 +296,7 @@ CuratedEntryView _genusView(
     species: _portrait(catalog, genus),
     genus: genus,
     title: title,
-    titleIsLatin: spoken.isEmpty || title == genus,
+    titleIsLatin: spoken.isEmpty || foldName(title) == foldName(genus),
     year: entry.year,
     region: entry.region,
     thisYear: entry.year != null && entry.year == yearNow,

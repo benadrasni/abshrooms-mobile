@@ -165,7 +165,11 @@ class _BookPageState extends State<BookPage> {
         onTap: () => Navigator.of(context).push(
           guideRoute(
             guideTaxonScreen(kind),
-            (_) => TaxonPage(kind: kind, name: name),
+            (_) => TaxonPage(
+              kind: kind,
+              name: name,
+              backLabel: GuideScope.of(context).copy.book,
+            ),
           ),
         ),
       );

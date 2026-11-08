@@ -168,7 +168,11 @@ class _SearchPageState extends State<SearchPage> {
         Navigator.of(context).push(
           guideRoute(
             guideTaxonScreen(hit.kind),
-            (_) => TaxonPage(kind: hit.kind, name: hit.name),
+            (_) => TaxonPage(
+              kind: hit.kind,
+              name: hit.name,
+              backLabel: GuideScope.of(context).copy.search,
+            ),
           ),
         );
       },

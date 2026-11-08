@@ -644,7 +644,10 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('guide-taxon-family')));
     await tester.pumpAndSettle();
-    expect(find.text('Mushrooms in this family.'), findsOneWidget);
+    expect(find.text('Mushrooms in this family.'), findsNothing);
+    expect(find.text('bolete family'), findsWidgets);
+    expect(find.text('Photos'), findsOneWidget);
+    expect(find.text('Plates'), findsOneWidget);
   });
 
   testWidgets('Slovak taxonomy uses the rank labels', (tester) async {
