@@ -82,9 +82,9 @@ class GuideAnalyticsConsent {
   });
 }
 
-/// A failed consent request denies collection. A required choice that was
-/// refused or not given denies storage. Ad personalization also needs
-/// permission to track.
+/// Analytics stays on unless a required choice is still missing. A failed
+/// request outside that choice does not block it. Ad personalization also
+/// needs permission to track.
 GuideAnalyticsConsent guideAnalyticsConsent({
   required bool umpFailed,
   required bool consentKnown,
@@ -92,12 +92,13 @@ GuideAnalyticsConsent guideAnalyticsConsent({
   required bool canRequestAds,
   required bool trackingAuthorized,
 }) {
-  final storage =
-      !umpFailed && consentKnown && (!consentRequired || canRequestAds);
-  final ads = storage && trackingAuthorized;
+  final adsAllowed = consentKnown && (!consentRequired || canRequestAds);
+  final analyticsStorage = !consentRequired || (consentKnown && canRequestAds);
+  final adStorage = !umpFailed && adsAllowed;
+  final ads = adStorage && trackingAuthorized;
   return GuideAnalyticsConsent(
-    analyticsStorage: storage,
-    adStorage: storage,
+    analyticsStorage: analyticsStorage,
+    adStorage: adStorage,
     adUserData: ads,
     adPersonalization: ads,
   );
@@ -193,8 +194,8 @@ class GuideAnalyticsObserver extends NavigatorObserver {
 ///
 /// Debug builds send nothing. A debug install also turns collection off,
 /// because that switch is stored on the phone and would otherwise keep a
-/// later release build quiet. Release builds keep collection off until
-/// [applyConsent] records a grant. A failed consent request stays off.
+/// later release build quiet. Release builds stay off until [applyConsent].
+/// That turns collection on unless a required consent choice is missing.
 class GuideAnalytics {
   static bool _trackingAuthorized = false;
 

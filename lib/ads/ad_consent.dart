@@ -11,8 +11,9 @@ import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 /// the UK, and Switzerland this completes without a form. A failure still
 /// lets the SDK start.
 ///
-/// Returns true when the request failed. Analytics then stays off. A shown
-/// form returns false and [applyAnalyticsConsent] reads the choice.
+/// Returns true when the request failed. Analytics still runs unless a
+/// required choice is already missing. A shown form returns false and
+/// [applyAnalyticsConsent] reads the choice.
 Future<bool> gatherAdConsent() async {
   final updated = Completer<void>();
   var failed = false;
@@ -47,30 +48,26 @@ Future<void> applyAnalyticsConsent({
   bool umpFailed = false,
   bool? trackingAuthorized,
 }) async {
-  if (umpFailed) {
-    await GuideAnalytics.applyConsent(
-      umpFailed: true,
-      trackingAuthorized: trackingAuthorized,
-    );
-    return;
-  }
+  var consentKnown = false;
+  var consentRequired = false;
+  var canRequestAds = false;
   try {
     final status = await ConsentInformation.instance.getConsentStatus();
-    final canAds = await ConsentInformation.instance.canRequestAds();
-    await GuideAnalytics.applyConsent(
-      trackingAuthorized: trackingAuthorized,
-      consentKnown: status != ConsentStatus.unknown,
-      consentRequired:
-          status == ConsentStatus.required || status == ConsentStatus.obtained,
-      canRequestAds: canAds,
-    );
+    canRequestAds = await ConsentInformation.instance.canRequestAds();
+    consentKnown = status != ConsentStatus.unknown;
+    consentRequired =
+        status == ConsentStatus.required || status == ConsentStatus.obtained;
   } catch (error) {
     debugPrint('analytics consent: $error');
-    await GuideAnalytics.applyConsent(
-      umpFailed: true,
-      trackingAuthorized: trackingAuthorized,
-    );
+    umpFailed = true;
   }
+  await GuideAnalytics.applyConsent(
+    umpFailed: umpFailed,
+    trackingAuthorized: trackingAuthorized,
+    consentKnown: consentKnown,
+    consentRequired: consentRequired,
+    canRequestAds: canRequestAds,
+  );
 }
 
 /// True when the published message requires a way to change the choice.

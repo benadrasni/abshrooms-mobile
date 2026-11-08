@@ -47,7 +47,8 @@ void main() {
         canRequestAds: false,
         trackingAuthorized: true,
       );
-      expect(unknown.analyticsStorage, isFalse);
+      expect(unknown.analyticsStorage, isTrue);
+      expect(unknown.adStorage, isFalse);
 
       final failed = guideAnalyticsConsent(
         umpFailed: true,
@@ -56,10 +57,20 @@ void main() {
         canRequestAds: false,
         trackingAuthorized: false,
       );
-      expect(failed.analyticsStorage, isFalse);
+      expect(failed.analyticsStorage, isTrue);
       expect(failed.adStorage, isFalse);
       expect(failed.adUserData, isFalse);
       expect(failed.adPersonalization, isFalse);
+
+      final failedRequired = guideAnalyticsConsent(
+        umpFailed: true,
+        consentKnown: true,
+        consentRequired: true,
+        canRequestAds: false,
+        trackingAuthorized: true,
+      );
+      expect(failedRequired.analyticsStorage, isFalse);
+      expect(failedRequired.adStorage, isFalse);
     },
   );
 
