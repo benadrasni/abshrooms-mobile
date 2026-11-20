@@ -29,6 +29,12 @@ export type PlayCredentials = { email: string; privateKey: string };
 
 type FetchImpl = typeof fetch;
 
+const storeFetchTimeoutMs = 10_000;
+
+function timed(init: RequestInit = {}): RequestInit {
+  return { ...init, signal: AbortSignal.timeout(storeFetchTimeoutMs) };
+}
+
 export function verifiedApple(
   transaction: AppleTransaction,
   renewal?: { expiresAt: number | null; revoked: boolean; willNotRenew: boolean },
@@ -199,7 +205,7 @@ export async function fetchAppleSubscription(
     try {
       response = await fetchImpl(
         `${host}/inApps/v1/subscriptions/${originalTransactionId}`,
-        { headers: { Authorization: `Bearer ${bearer}` } },
+        timed({ headers: { Authorization: `Bearer ${bearer}` } }),
       );
     } catch {
       throw new StoreUnavailable('app store unreachable');
@@ -226,11 +232,11 @@ async function playAccessToken(credentials: PlayCredentials, fetchImpl: FetchImp
   const assertion = playServiceToken(credentials, now);
   let response: Response;
   try {
-    response = await fetchImpl('https://oauth2.googleapis.com/token', {
+    response = await fetchImpl('https://oauth2.googleapis.com/token', timed({
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${encodeURIComponent(assertion)}`,
-    });
+    }));
   } catch {
     throw new StoreUnavailable('play auth unreachable');
   }
@@ -245,7 +251,7 @@ async function playAccessToken(credentials: PlayCredentials, fetchImpl: FetchImp
 async function playGet(url: string, accessToken: string, fetchImpl: FetchImpl): Promise<{ status: number; body: unknown }> {
   let response: Response;
   try {
-    response = await fetchImpl(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    response = await fetchImpl(url, timed({ headers: { Authorization: `Bearer ${accessToken}` } }));
   } catch {
     throw new StoreUnavailable('play unreachable');
   }

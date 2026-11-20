@@ -93,28 +93,39 @@ function tokenKid(token: string): string | null {
   }
 }
 
+const certsUrl = 'https://www.googleapis.com/oauth2/v3/certs';
+const certsTtlMs = 60 * 60 * 1000;
+
 let cachedKeys: { at: number; keys: Map<string, string> } | null = null;
 
-/** Google's OAuth certs. A failed fetch throws so the push can be retried. */
-export async function googlePubSubKey(kid: string, fetchImpl: typeof fetch = fetch): Promise<string | null> {
-  const now = Date.now();
-  if (!cachedKeys || now - cachedKeys.at > 60 * 60 * 1000) {
-    let response: Response;
-    try {
-      response = await fetchImpl('https://www.googleapis.com/oauth2/v3/certs');
-    } catch {
-      throw new PubSubKeysUnavailable('certs unreachable');
-    }
-    if (!response.ok) throw new PubSubKeysUnavailable(`certs ${response.status}`);
-    const body = (await response.json()) as { keys?: Array<JsonWebKey & { kid?: string }> };
-    const keys = new Map<string, string>();
-    for (const jwk of body.keys ?? []) {
-      if (!jwk.kid || jwk.kty !== 'RSA' || !jwk.n || !jwk.e) continue;
-      keys.set(jwk.kid, publicKeyFromJwk(jwk));
-    }
-    cachedKeys = { at: now, keys };
+async function loadPubSubKeys(fetchImpl: typeof fetch): Promise<Map<string, string>> {
+  let response: Response;
+  try {
+    response = await fetchImpl(certsUrl, { signal: AbortSignal.timeout(10_000) });
+  } catch {
+    throw new PubSubKeysUnavailable('certs unreachable');
   }
-  return cachedKeys.keys.get(kid) ?? null;
+  if (!response.ok) throw new PubSubKeysUnavailable(`certs ${response.status}`);
+  const body = (await response.json()) as { keys?: Array<JsonWebKey & { kid?: string }> };
+  const keys = new Map<string, string>();
+  for (const jwk of body.keys ?? []) {
+    if (!jwk.kid || jwk.kty !== 'RSA' || !jwk.n || !jwk.e) continue;
+    keys.set(jwk.kid, publicKeyFromJwk(jwk));
+  }
+  cachedKeys = { at: Date.now(), keys };
+  return keys;
+}
+
+/**
+ * Google's OAuth certs. A kid that is not in the fresh cache is fetched
+ * again, so a rotated key is not rejected for the rest of the hour. A
+ * failed fetch throws so the push can be retried.
+ */
+export async function googlePubSubKey(kid: string, fetchImpl: typeof fetch = fetch): Promise<string | null> {
+  const fresh = cachedKeys && Date.now() - cachedKeys.at <= certsTtlMs ? cachedKeys.keys : null;
+  if (fresh?.has(kid)) return fresh.get(kid) ?? null;
+  const keys = await loadPubSubKeys(fetchImpl);
+  return keys.get(kid) ?? null;
 }
 
 export function resetPubSubKeyCache(): void {

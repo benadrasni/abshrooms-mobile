@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, type JsonWebKey } from 'node:crypto';
 import { test } from 'node:test';
 import { signedJwt } from './jwt';
-import { authorizePubSub, pubSubPushAllowed, verifyRs256 } from './pubsub_auth';
+import { authorizePubSub, googlePubSubKey, PubSubKeysUnavailable, pubSubPushAllowed, resetPubSubKeyCache, verifyRs256 } from './pubsub_auth';
 import { matchingProofs, subscriptionProofs, type EntitlementDb } from './store_handlers';
 import { purchaseIfVerified, type StoreFetch } from './store_fetch';
 import type { VerifiedPurchase } from './entitlements';
@@ -70,6 +70,32 @@ test('a Play push needs a signed token for the configured service account', asyn
   );
   const tampered = `${token().slice(0, -4)}abcd`;
   assert.equal(verifyRs256(tampered, pem), null);
+});
+
+test('an unknown Play cert kid refreshes the cache once', async () => {
+  resetPubSubKeyCache();
+  const jwk = publicKey.export({ format: 'jwk' }) as JsonWebKey & { kid?: string };
+  let calls = 0;
+  const fetchImpl: typeof fetch = async (_url, init) => {
+    assert.ok(init?.signal);
+    calls += 1;
+    const kid = calls === 1 ? 'old-key' : 'test-key';
+    return new Response(JSON.stringify({ keys: [{ ...jwk, kid }] }), { status: 200 });
+  };
+  assert.equal(await googlePubSubKey('test-key', fetchImpl), null);
+  assert.equal(calls, 1);
+  const pemForNewKey = await googlePubSubKey('test-key', fetchImpl);
+  assert.equal(pemForNewKey?.includes('BEGIN PUBLIC KEY'), true);
+  assert.equal(calls, 2);
+  assert.equal(await googlePubSubKey('test-key', fetchImpl), pemForNewKey);
+  assert.equal(calls, 2);
+  await assert.rejects(
+    () => googlePubSubKey('other', async () => {
+      throw new Error('down');
+    }),
+    (error: unknown) => error instanceof PubSubKeysUnavailable,
+  );
+  resetPubSubKeyCache();
 });
 
 test('an unverified store lookup is not stored as revoked', () => {
