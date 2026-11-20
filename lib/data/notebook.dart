@@ -261,21 +261,8 @@ class Notebook extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    _dir = await getApplicationDocumentsDirectory();
-    final file = File('${_dir!.path}/notebook.json');
-    if (await file.exists()) {
-      final decoded = json.decode(await file.readAsString());
-      if (decoded is List) {
-        finds = [
-          for (final item in decoded)
-            if (item is Map)
-              FindRecord.fromJson(
-                item.map((key, value) => MapEntry('$key', value)),
-              ),
-        ];
-        finds.sort((a, b) => b.millis.compareTo(a.millis));
-      }
-    }
+    _dir ??= await getApplicationDocumentsDirectory();
+    finds = readNotebookFile(_dir!);
     notifyListeners();
     followAccount();
   }
@@ -424,7 +411,10 @@ class Notebook extends ChangeNotifier {
     final stamp = _stamp();
     finds = [
       for (final item in finds)
-        if (item.id == id) item.copyWith(share: share, updated: stamp) else item,
+        if (item.id == id)
+          item.copyWith(share: share, updated: stamp)
+        else
+          item,
     ];
     await _write();
   }
@@ -518,12 +508,57 @@ class Notebook extends ChangeNotifier {
   Future<void> _write() async {
     final dir = _dir;
     if (dir != null) {
-      final file = File('${dir.path}/notebook.json');
-      // Sync for the same reason as savePhoto.
-      file.writeAsStringSync(
+      // Sync for the same reason as savePhoto. The temp file is renamed
+      // over the live file, so a kill during the write leaves the old one.
+      writeNotebookFile(
+        dir,
         json.encode(finds.map((item) => item.toJson()).toList()),
       );
     }
     notifyListeners();
   }
+}
+
+/// Replaces `notebook.json` by writing a temp file and renaming it.
+void writeNotebookFile(Directory dir, String payload) {
+  final file = File('${dir.path}/notebook.json');
+  final temp = File('${dir.path}/notebook.json.tmp');
+  temp.writeAsStringSync(payload, flush: true);
+  temp.renameSync(file.path);
+}
+
+/// The stored finds. A file that is not a JSON list is renamed aside.
+List<FindRecord> readNotebookFile(Directory dir) {
+  final file = File('${dir.path}/notebook.json');
+  if (!file.existsSync()) return [];
+  Object? decoded;
+  try {
+    decoded = json.decode(file.readAsStringSync());
+  } catch (error) {
+    debugPrint('notebook: $error');
+    _retireCorruptNotebook(file);
+    return [];
+  }
+  if (decoded is! List) {
+    _retireCorruptNotebook(file);
+    return [];
+  }
+  return [
+    for (final item in decoded)
+      if (item is Map)
+        FindRecord.fromJson(item.map((key, value) => MapEntry('$key', value))),
+  ]..sort((a, b) => b.millis.compareTo(a.millis));
+}
+
+void _retireCorruptNotebook(File file) {
+  var dest = File(
+    '${file.path}.corrupt.${DateTime.now().microsecondsSinceEpoch}',
+  );
+  var extra = 0;
+  while (dest.existsSync()) {
+    extra += 1;
+    dest = File('${file.path}.corrupt.$extra');
+  }
+  file.renameSync(dest.path);
+  debugPrint('notebook: kept the unreadable file at ${dest.path}');
 }

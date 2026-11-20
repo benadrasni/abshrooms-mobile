@@ -1,7 +1,8 @@
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whats_that_mushroom/main.dart';
 import 'package:whats_that_mushroom/shell/splash_plate.dart';
 
 void main() {
@@ -23,6 +24,33 @@ void main() {
     expect(raw.fit, BoxFit.contain);
     expect(raw.filterQuality, FilterQuality.high);
     expect(raw.image, same(image));
+  });
+
+  testWidgets('a failed startup can be tried again', (tester) async {
+    var tries = 0;
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: StartupRetry(language: 'en', onRetry: null),
+      ),
+    );
+    expect(find.text('The catalog could not be loaded.'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const Key('startup-retry')))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: StartupRetry(language: 'sk', onRetry: () => tries += 1),
+      ),
+    );
+    expect(find.text('Skúsiť znova'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('startup-retry')));
+    expect(tries, 1);
   });
 
   test(

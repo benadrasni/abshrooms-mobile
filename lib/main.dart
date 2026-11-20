@@ -83,7 +83,10 @@ class _StartupState extends State<_Startup>
   GuideSettings? _settings;
   Notebook? _notebook;
   CatalogRepository? _catalog;
+  String? _language;
   var _coverOn = true;
+  var _failed = false;
+  var _opening = false;
 
   @override
   void initState() {
@@ -98,10 +101,22 @@ class _StartupState extends State<_Startup>
   }
 
   Future<void> _open() async {
+    if (_opening) return;
+    _opening = true;
+    if (_failed && mounted) setState(() => _failed = false);
+    Notebook? started;
     try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      var firebaseReady = false;
+      try {
+        firebaseReady = Firebase.apps.isNotEmpty;
+      } catch (_) {
+        firebaseReady = false;
+      }
+      if (!firebaseReady) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
       await startCrashReporting();
       await GuideAnalytics.start();
       FirebaseFirestore.instance.settings = const Settings(
@@ -114,8 +129,10 @@ class _StartupState extends State<_Startup>
       final settings = GuideSettings();
       await settings.restore();
       if (!mounted) return;
+      _language = settings.language;
       unawaited(GuideAnalytics.setLanguage(settings.language));
       final notebook = Notebook();
+      started = notebook;
       await notebook.load();
       if (!mounted) return;
       try {
@@ -138,16 +155,23 @@ class _StartupState extends State<_Startup>
         _settings = settings;
         _notebook = notebook;
         _catalog = catalog;
+        _failed = false;
       });
+      started = null;
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
       await _cover.reverse();
       if (!mounted) return;
       setState(() => _coverOn = false);
     } catch (error, stack) {
+      started?.stopFavorites();
       if (isIgnorableGuideError(error)) return;
       debugPrint('startup: $error');
       recordGuideError(error, stack);
+      if (!mounted) return;
+      setState(() => _failed = true);
+    } finally {
+      _opening = false;
     }
   }
 
@@ -176,7 +200,66 @@ class _StartupState extends State<_Startup>
                 child: SplashPlate(image: widget.plate),
               ),
             ),
+          if (_failed)
+            Positioned.fill(
+              child: StartupRetry(
+                onRetry: _opening ? null : _open,
+                language: _language,
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown on the plate when startup did not finish.
+class StartupRetry extends StatelessWidget {
+  const StartupRetry({super.key, required this.onRetry, this.language});
+
+  final VoidCallback? onRetry;
+  final String? language;
+
+  @override
+  Widget build(BuildContext context) {
+    final code =
+        language ??
+        languageForDevice(
+          WidgetsBinding.instance.platformDispatcher.locales,
+          platformLocaleName: Platform.localeName,
+        );
+    final copy = Copy(code);
+    final ink = GuideColors.light.ink;
+    final moss = GuideColors.light.moss;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+        child: Theme(
+          data: ThemeData(splashFactory: NoSplash.splashFactory),
+          child: Material(
+            color: SplashPlate.paper,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    copy.catalogError,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: ink, fontSize: 16, height: 1.3),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('startup-retry'),
+                    onPressed: onRetry,
+                    child: Text(copy.retry, style: TextStyle(color: moss)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
