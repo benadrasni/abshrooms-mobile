@@ -3,7 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { test } from 'node:test';
 import { signedJwt } from './jwt';
 import { authorizePubSub, pubSubPushAllowed, verifyRs256 } from './pubsub_auth';
-import { subscriptionProofs, type EntitlementDb } from './store_handlers';
+import { matchingProofs, subscriptionProofs, type EntitlementDb } from './store_handlers';
 import { purchaseIfVerified, type StoreFetch } from './store_fetch';
 import type { VerifiedPurchase } from './entitlements';
 
@@ -89,7 +89,7 @@ test('an unverified store lookup is not stored as revoked', () => {
   assert.equal(purchaseIfVerified(missing), null);
 });
 
-test('subscription proofs include every stored subscription', async () => {
+test('subscription proofs include every active subscription', async () => {
   const proofs: Record<string, unknown> = {};
   for (let index = 0; index < 501; index += 1) {
     proofs[`p${index}`] = {
@@ -111,9 +111,24 @@ test('subscription proofs include every stored subscription', async () => {
     active: true,
     updatedAt: 1,
   };
+  proofs.ended = {
+    uid: 'user',
+    store: 'play',
+    productId: 'field_guide_yearly',
+    token: 'ended',
+    subscription: true,
+    active: false,
+    updatedAt: 1,
+  };
   const db = {
-    get: async (path: string) => (path === 'purchase_proofs' ? proofs : null),
+    async forEachProof(query, visit) {
+      for (const row of matchingProofs(proofs, query)) await visit(row);
+    },
   } as EntitlementDb;
   const rows = await subscriptionProofs(db);
   assert.equal(rows.length, 501);
+  assert.equal(
+    rows.some((row) => row.token === 'once' || row.token === 'ended'),
+    false,
+  );
 });

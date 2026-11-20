@@ -13,7 +13,6 @@ import {
   registerStoreAccount as registerAccount,
   runEntitlementRefresh,
   releaseStorePurchases as releaseAccount,
-  subscriptionProofs,
 } from './store_handlers';
 import {
   fetchAppleSubscription,
@@ -312,15 +311,20 @@ export const refreshEntitlements = onCall(
   },
 );
 
+/**
+ * Re-checks each subscription that is still active, one page at a time.
+ * An ended proof stays stored. The account refresh reads it when that
+ * phone asks. The timeout covers a store read for every active proof.
+ */
 export const refreshStoreEntitlements = onSchedule(
   {
     region: 'us-central1',
     schedule: 'every 24 hours',
+    timeoutSeconds: 540,
     secrets: [playPublisherJson, appStoreIssuerId, appStoreKeyId, appStorePrivateKey],
   },
   async () => {
     const db = firestoreEntitlements();
-    const proofs = await subscriptionProofs(db);
     const play = playCredentialsOf(playPublisherJson.value());
     const issuer = appStoreIssuerId.value();
     const keyId = appStoreKeyId.value();
@@ -336,11 +340,12 @@ export const refreshStoreEntitlements = onSchedule(
         logger.error('refreshStoreEntitlements: play auth', { error: String(error) });
       }
     }
-    for (const proof of proofs) {
+    if (!apple && !bearer) return;
+    await db.forEachProof({ kind: 'active-subscription' }, async ({ proof }) => {
       try {
         let purchase: VerifiedPurchase | null = null;
         if (proof.store === 'app_store') {
-          if (!apple) continue;
+          if (!apple) return;
           const fetched = await fetchAppleSubscription(
             proof.token,
             proof.productId,
@@ -358,6 +363,6 @@ export const refreshStoreEntitlements = onSchedule(
       } catch (error) {
         logger.error('refreshStoreEntitlements', { store: proof.store, error: String(error) });
       }
-    }
+    });
   },
 );

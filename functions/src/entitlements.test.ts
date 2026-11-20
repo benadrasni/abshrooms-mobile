@@ -9,7 +9,16 @@ import {
   type EntitlementRow,
   type VerifiedPurchase,
 } from './entitlements';
-import { grantPurchase, refreshAccountProofs, releaseStorePurchases, type EntitlementDb } from './store_handlers';
+import {
+  grantPurchase,
+  matchingProofs,
+  proofPageSize,
+  refreshAccountProofs,
+  releaseStorePurchases,
+  walkProofPages,
+  type EntitlementDb,
+  type StoredProof,
+} from './store_handlers';
 import { storeAccountToken } from './store_account';
 
 const now = Date.parse('2026-10-06T12:00:00Z');
@@ -268,6 +277,9 @@ function memoryDb(live: (id: string) => boolean = (id) => id === uid): Entitleme
     async authExists(id) {
       return live(id);
     },
+    async forEachProof(query, visit) {
+      for (const row of matchingProofs(read('purchase_proofs'), query)) await visit(row);
+    },
   };
 }
 
@@ -277,8 +289,21 @@ test('granting then releasing removes the proof and the account record', async (
   assert.equal('products' in granted && granted.products.field_guide_yearly, true);
   const proofs = db.tree.purchase_proofs as Record<string, unknown>;
   assert.ok(proofs.app_store_1000);
+  proofs.app_store_2000 = {
+    uid: 'user-2',
+    store: 'app_store',
+    productId: 'field_guide_yearly',
+    token: '2000',
+    accountToken: null,
+    expiresAt: null,
+    environment: null,
+    subscription: true,
+    active: true,
+    updatedAt: now,
+  };
   await releaseStorePurchases(db, uid);
   assert.equal(proofs.app_store_1000, undefined);
+  assert.ok(proofs.app_store_2000);
   const account = (db.tree.users as Record<string, Record<string, unknown>> | undefined)?.[uid];
   assert.equal(account?.entitlements, undefined);
   const accounts = db.tree.store_accounts as Record<string, unknown> | undefined;
@@ -398,6 +423,80 @@ test('a stored token is read again and an unverified lookup is not a cancel', as
   assert.equal(ended.products.field_guide_monthly, false);
   assert.equal(storedProduct(db, uid, 'field_guide_monthly').active, false);
   assert.equal(storedProduct(db, uid, 'field_guide_monthly').willNotRenew, false);
+});
+
+test('an account refresh re-reads an ended subscription and skips another account', async () => {
+  const db = memoryDb();
+  const ended = await grantPurchase(
+    db,
+    uid,
+    yearly({
+      store: 'play',
+      token: 'play-token-ended',
+      productId: 'field_guide_monthly',
+      expiresAt: now - 1,
+      revoked: true,
+      accountToken: token,
+    }),
+    now,
+  );
+  assert.equal('products' in ended && ended.products.field_guide_monthly, false);
+  await grantPurchase(
+    db,
+    'user-2',
+    yearly({
+      store: 'play',
+      token: 'play-token-other',
+      productId: 'field_guide_yearly',
+      accountToken: storeAccountToken('user-2'),
+    }),
+    now,
+  );
+  const seen: string[] = [];
+  const result = await refreshAccountProofs(db, uid, now + 1, async (proof) => {
+    seen.push(proof.token);
+    return { status: 'unknown' };
+  });
+  assert.deepEqual(seen, ['play-token-ended']);
+  assert.equal(result.retry, true);
+});
+
+test('a paged proof walk visits every row and stops when a cursor repeats', async () => {
+  const rows: StoredProof[] = Array.from({ length: 501 }, (_, index) => ({
+    key: `p${String(index).padStart(4, '0')}`,
+    proof: {
+      uid: 'user',
+      store: 'play',
+      productId: 'field_guide_yearly',
+      token: `token-${index}`,
+      accountToken: null,
+      expiresAt: null,
+      environment: null,
+      subscription: true,
+      active: true,
+      updatedAt: 1,
+    },
+  }));
+  let loads = 0;
+  const seen: string[] = [];
+  await walkProofPages(async (cursor: string | null) => {
+    loads += 1;
+    const start = cursor ? rows.findIndex((row) => row.key === cursor) + 1 : 0;
+    const slice = rows.slice(start, start + proofPageSize);
+    const last = slice.at(-1);
+    return { rows: slice, next: slice.length === proofPageSize && last ? last.key : null };
+  }, async (row) => {
+    seen.push(row.key);
+  });
+  assert.equal(seen.length, 501);
+  assert.equal(loads > 1, true);
+
+  let repeated = 0;
+  await walkProofPages(async () => {
+    repeated += 1;
+    return { rows: rows.slice(0, 1), next: 'again' };
+  }, async () => undefined);
+  assert.equal(repeated, 2);
 });
 
 test('an unverified re-check leaves a renewing plan, and a verified renewal extends it', async () => {

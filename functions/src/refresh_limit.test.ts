@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { refreshEntitlementsEnforceAppCheck, refreshEntitlementsMinGapMs, stampRefresh } from './refresh_limit';
 import type { VerifiedPurchase } from './entitlements';
-import { runEntitlementRefresh, type EntitlementDb } from './store_handlers';
+import { matchingProofs, runEntitlementRefresh, type EntitlementDb } from './store_handlers';
 
 const now = Date.parse('2026-10-06T12:00:00Z');
 const uid = 'user-1';
@@ -30,6 +30,9 @@ function proofDb(): EntitlementDb {
     },
     async authExists() {
       return true;
+    },
+    async forEachProof(query, visit) {
+      for (const row of matchingProofs(proofs, query)) await visit(row);
     },
   };
 }
@@ -188,11 +191,7 @@ test('overlapping refreshes mint a Play token at most once', async () => {
     },
   };
   const db: EntitlementDb = {
-    async get(path) {
-      if (path === 'purchase_proofs') {
-        scans += 1;
-        return proofs;
-      }
+    async get() {
       return null;
     },
     async set() {},
@@ -202,6 +201,10 @@ test('overlapping refreshes mint a Play token at most once', async () => {
     },
     async authExists() {
       return true;
+    },
+    async forEachProof(query, visit) {
+      scans += 1;
+      for (const row of matchingProofs(proofs, query)) await visit(row);
     },
   };
   let chain = Promise.resolve();

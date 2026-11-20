@@ -7,6 +7,14 @@
         { "fieldPath": "latin", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "purchase_proofs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subscription", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

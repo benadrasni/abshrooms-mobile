@@ -21,6 +21,14 @@ import { playPackageName } from './play_purchase';
 import { nextRefreshReservation } from './refresh_limit';
 import { storeAccountToken } from './store_account';
 
+/// One account's proofs, or the subscriptions the nightly pass still polls.
+export type ProofQuery = { kind: 'account'; uid: string } | { kind: 'active-subscription' };
+
+export type StoredProof = { key: string; proof: ProofRecord };
+
+/// Indexed reads return this many documents per page.
+export const proofPageSize = 100;
+
 export type EntitlementDb = {
   get(path: string): Promise<unknown>;
   set(path: string, value: unknown): Promise<void>;
@@ -28,7 +36,42 @@ export type EntitlementDb = {
   /// Return undefined from update to leave the row unchanged.
   transaction(path: string, update: (current: unknown) => unknown): Promise<boolean>;
   authExists(uid: string): Promise<boolean>;
+  forEachProof(query: ProofQuery, visit: (row: StoredProof) => Promise<void>): Promise<void>;
 };
+
+export function matchingProofs(all: unknown, query: ProofQuery): StoredProof[] {
+  if (!all || typeof all !== 'object') return [];
+  const rows: StoredProof[] = [];
+  for (const [key, value] of Object.entries(all as Record<string, unknown>)) {
+    const proof = proofRecordOf(value);
+    if (!proof || !proofMatches(proof, query)) continue;
+    rows.push({ key, proof });
+  }
+  rows.sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
+  return rows;
+}
+
+function proofMatches(proof: ProofRecord, query: ProofQuery): boolean {
+  if (query.kind === 'account') return proof.uid === query.uid;
+  return proof.subscription && proof.active;
+}
+
+/// Loads every page. A cursor that comes back again stops the walk.
+export async function walkProofPages<Cursor>(
+  load: (cursor: Cursor | null) => Promise<{ rows: StoredProof[]; next: Cursor | null }>,
+  visit: (row: StoredProof) => Promise<void>,
+): Promise<void> {
+  const requested = new Set<Cursor | null>();
+  let cursor: Cursor | null = null;
+  for (;;) {
+    if (requested.has(cursor)) return;
+    requested.add(cursor);
+    const page = await load(cursor);
+    for (const row of page.rows) await visit(row);
+    if (page.next == null || requested.has(page.next)) return;
+    cursor = page.next;
+  }
+}
 
 async function applyWrites(
   db: EntitlementDb,
@@ -115,27 +158,25 @@ export async function registerStoreAccount(db: EntitlementDb, uid: string): Prom
 }
 
 export async function releaseStorePurchases(db: EntitlementDb, uid: string): Promise<void> {
-  const all = await db.get('purchase_proofs');
-  if (all && typeof all === 'object') {
-    for (const [key, value] of Object.entries(all as Record<string, unknown>)) {
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(key)) continue;
-      const proof = proofRecordOf(value);
-      if (!proof || proof.uid !== uid) continue;
-      await db.remove(`purchase_proofs/${key}`);
-    }
+  const owned: StoredProof[] = [];
+  await db.forEachProof({ kind: 'account', uid }, async (row) => {
+    owned.push(row);
+  });
+  for (const { key } of owned) {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(key)) continue;
+    await db.remove(`purchase_proofs/${key}`);
   }
   await db.remove(`users/${uid}/entitlements`);
   await db.remove(`store_accounts/${storeAccountToken(uid)}`);
 }
 
+/// Subscriptions that are still active. An ended or revoked proof stays
+/// stored and is left for an account refresh, which can see a later renewal.
 export async function subscriptionProofs(db: EntitlementDb): Promise<ProofRecord[]> {
-  const all = await db.get('purchase_proofs');
-  if (!all || typeof all !== 'object') return [];
   const proofs: ProofRecord[] = [];
-  for (const value of Object.values(all as Record<string, unknown>)) {
-    const proof = proofRecordOf(value);
-    if (proof?.subscription) proofs.push(proof);
-  }
+  await db.forEachProof({ kind: 'active-subscription' }, async (row) => {
+    proofs.push(row.proof);
+  });
   return proofs;
 }
 
@@ -151,10 +192,11 @@ export type RefreshRun = {
   throttled: boolean;
 };
 
-/// Re-reads this account's stored subscription tokens. A verified result is
-/// written. An unknown or unavailable lookup is left unchanged and reported
-/// as retry, so a failed Play read is not stored as a cancellation.
-/// Throttled stops the pass and is not a retry.
+/// Re-reads this account's stored subscription tokens, including one that
+/// has already ended, so a later renewal of the same token is still seen.
+/// A verified result is written. An unknown or unavailable lookup is left
+/// unchanged and reported as retry, so a failed Play read is not stored as
+/// a cancellation. Throttled stops the pass and is not a retry.
 export async function refreshAccountProofs(
   db: EntitlementDb,
   uid: string,
@@ -163,8 +205,11 @@ export async function refreshAccountProofs(
 ): Promise<RefreshRun> {
   const products: Record<string, boolean> = {};
   let retry = false;
-  for (const proof of await subscriptionProofs(db)) {
-    if (proof.uid !== uid) continue;
+  const owned: ProofRecord[] = [];
+  await db.forEachProof({ kind: 'account', uid }, async (row) => {
+    if (row.proof.subscription) owned.push(row.proof);
+  });
+  for (const proof of owned) {
     try {
       const fetched = await lookup(proof);
       if (fetched.status === 'throttled') {

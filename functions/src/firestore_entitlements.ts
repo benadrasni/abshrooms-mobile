@@ -1,7 +1,20 @@
 import { getAuth } from 'firebase-admin/auth';
-import { FieldValue, getFirestore, type Firestore } from 'firebase-admin/firestore';
+import {
+  FieldPath,
+  FieldValue,
+  getFirestore,
+  type Firestore,
+  type Query,
+  type QueryDocumentSnapshot,
+} from 'firebase-admin/firestore';
+import { proofRecordOf } from './entitlements';
 import { refreshEntitlementsMinGapMs, stampRefresh } from './refresh_limit';
-import type { EntitlementDb } from './store_handlers';
+import {
+  proofPageSize,
+  walkProofPages,
+  type EntitlementDb,
+  type StoredProof,
+} from './store_handlers';
 
 const userEntitlements = /^users\/([^/]+)\/entitlements$/;
 const userProduct = /^users\/([^/]+)\/entitlements\/products\/([^/]+)$/;
@@ -68,14 +81,6 @@ export function firestoreEntitlements(): EntitlementDb {
   const db = getFirestore();
   return {
     async get(path) {
-      if (path === 'purchase_proofs') {
-        const snap = await db.collection('purchase_proofs').get();
-        const all: Record<string, unknown> = {};
-        snap.forEach((doc) => {
-          all[doc.id] = doc.data();
-        });
-        return all;
-      }
       const proof = path.match(proofDoc);
       if (proof) {
         const snap = await db.collection('purchase_proofs').doc(proof[1]).get();
@@ -181,6 +186,39 @@ export function firestoreEntitlements(): EntitlementDb {
         if ((error as { code?: string }).code === 'auth/user-not-found') return false;
         throw error;
       }
+    },
+
+    async forEachProof(query, visit) {
+      if (query.kind === 'account') {
+        const snap = await db.collection('purchase_proofs').where('uid', '==', query.uid).get();
+        for (const doc of snap.docs) {
+          const proof = proofRecordOf(doc.data());
+          if (!proof) continue;
+          await visit({ key: doc.id, proof });
+        }
+        return;
+      }
+      let last: QueryDocumentSnapshot | undefined;
+      await walkProofPages(async (cursor) => {
+        let page: Query = db
+          .collection('purchase_proofs')
+          .where('subscription', '==', true)
+          .where('active', '==', true)
+          .orderBy(FieldPath.documentId())
+          .limit(proofPageSize);
+        if (cursor) {
+          if (!last) return { rows: [], next: null };
+          page = page.startAfter(last);
+        }
+        const snap = await page.get();
+        last = snap.docs.at(-1);
+        const rows: StoredProof[] = [];
+        for (const doc of snap.docs) {
+          const proof = proofRecordOf(doc.data());
+          if (proof) rows.push({ key: doc.id, proof });
+        }
+        return { rows, next: snap.size === proofPageSize && last ? last.id : null };
+      }, visit);
     },
   };
 }
