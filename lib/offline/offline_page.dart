@@ -157,9 +157,8 @@ class _OfflinePageState extends State<OfflinePage> {
       await custom(request);
       return;
     }
-    final copy = GuideScope.of(context).copy;
-    final catalog = GuideScope.of(context).catalog;
-    final language = GuideScope.of(context).settings.language;
+    final guide = GuideScope.of(context);
+    final copy = guide.copy;
     final bar = _barMb(request);
     final scope = request.update ? 'update' : 'everything';
     var finished = false;
@@ -179,8 +178,8 @@ class _OfflinePageState extends State<OfflinePage> {
         },
         onFinished: () {
           finished = true;
-          unawaited(catalog.load(language));
-          unawaited(catalog.loadCuratedLists());
+          unawaited(guide.reload());
+          unawaited(guide.reloadLists());
           unawaited(GuideAnalytics.offlinePack(scope: scope, result: 'ok'));
           if (!mounted) return;
           setState(() {

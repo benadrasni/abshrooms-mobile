@@ -13,11 +13,13 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
+import java.util.concurrent.Executors
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val pickExecutor = Executors.newSingleThreadExecutor()
     private var pickerResult: MethodChannel.Result? = null
     private var pickerMaxWidth = 0
 
@@ -147,7 +149,7 @@ class MainActivity : FlutterActivity() {
         }
         val maxWidth = pickerMaxWidth
         val app = applicationContext
-        Thread {
+        pickExecutor.execute {
             val path = try {
                 GuideGalleryPick.save(app, uri, maxWidth)
             } catch (error: Throwable) {
@@ -167,19 +169,18 @@ class MainActivity : FlutterActivity() {
                     Log.e("GuideGalleryPick", "result failed", error)
                 }
             }
-        }.start()
+        }
     }
 
     override fun onDestroy() {
-        if (isFinishing) {
-            val pending = pickerResult
-            pickerResult = null
-            try {
-                pending?.success(null)
-            } catch (error: Throwable) {
-                Log.e("GuideGalleryPick", "result failed", error)
-            }
+        val pending = pickerResult
+        pickerResult = null
+        try {
+            pending?.success(null)
+        } catch (error: Throwable) {
+            Log.e("GuideGalleryPick", "result failed", error)
         }
+        pickExecutor.shutdown()
         super.onDestroy()
     }
 

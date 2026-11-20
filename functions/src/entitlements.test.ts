@@ -262,16 +262,9 @@ function memoryDb(live: (id: string) => boolean = (id) => id === uid): Entitleme
     },
     async transaction(path, update) {
       const stored = read(path);
-      // Same order as the Realtime Database client: a cache miss, then the stored row.
-      const guessed = update(null);
-      if (guessed === undefined) return false;
-      if (stored == null) {
-        putPath(tree, path, guessed);
-        return true;
-      }
-      const confirmed = update(stored);
-      if (confirmed === undefined) return false;
-      putPath(tree, path, confirmed);
+      const next = update(stored);
+      if (next === undefined) return false;
+      putPath(tree, path, next);
       return true;
     },
     async authExists(id) {

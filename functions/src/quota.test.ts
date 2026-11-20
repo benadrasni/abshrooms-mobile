@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  adGrantGapMs,
   adGrantsPerMonth,
   anonymousLifetimeCalls,
   cooldownMs,
+  dailyCeilingFree,
   includedNamesPerMonth,
   meterCounts,
-  adGrantGapMs,
+  refundFreeNotMushroom,
   releaseAnonymousFree,
   releaseName,
+  repeatWindowMs,
   reserveCall,
   reserveIdentify,
   takeAdGrant,
@@ -122,10 +125,32 @@ test('lastAdGrantAt does not cap the first view of a new month', () => {
 test('a failed call and a free not-a-mushroom answer give the name back', () => {
   const held = takeName(null, march);
   assert.equal(releaseName(held.state).namesUsed, 0);
-  const free = takeFreeNotMushroom(held.state, march, 3);
-  assert.equal(free.free, true);
-  let spent = free.state;
+  const refunded = refundFreeNotMushroom(held.state, march, 3);
+  assert.equal(refunded.refunded, true);
+  assert.equal(refunded.state.namesUsed, 0);
+  assert.equal(refunded.state.notMushroomFree, 1);
+  let spent = refunded.state;
   spent = takeFreeNotMushroom(spent, march, 3).state;
   spent = takeFreeNotMushroom(spent, march, 3).state;
-  assert.equal(takeFreeNotMushroom(spent, march, 3).free, false);
+  const capped = refundFreeNotMushroom({ ...spent, namesUsed: 2 }, march, 3);
+  assert.equal(capped.refunded, false);
+  assert.equal(capped.state.namesUsed, 2);
+});
+
+test('a guest refusal after the free name does not spend a call', () => {
+  const limits = {
+    dailyCeiling: dailyCeilingFree,
+    cooldownMs,
+    repeatWindowMs,
+    lifetimeCeiling: anonymousLifetimeCalls,
+  };
+  const first = reserveIdentify(null, march, 'p1', limits, false, true);
+  if (!('state' in first)) assert.fail('expected first guest call to succeed');
+  assert.equal(first.state.anonymousFreeUsed, true);
+  assert.equal(first.state.totalCalls, 1);
+  assert.equal(first.charged, false);
+  const second = reserveIdentify(first.state, march + cooldownMs, 'p2', limits, false, true);
+  assert.deepEqual(second, { refusal: 'sign-in' });
+  assert.equal(first.state.totalCalls, 1);
+  assert.equal(first.state.dayCalls, 1);
 });

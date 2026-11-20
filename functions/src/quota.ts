@@ -161,9 +161,9 @@ export function reserveCall(
 }
 
 /**
- * Reserves a Plant.id call and, when [chargeName] is set, the monthly name,
- * in one state. No name left returns no-names and does not count the call.
- * A later refusal from [reserveCall] leaves the caller's document unchanged.
+ * Reserves a Plant.id call and, when [chargeName] is set, the monthly name
+ * (or the guest's one free name when [guest] is set), in one state.
+ * A refusal leaves the caller's document unchanged.
  */
 export function reserveIdentify(
   state: QuotaState | null,
@@ -171,12 +171,23 @@ export function reserveIdentify(
   hash: string,
   limits: CallLimits,
   chargeName: boolean,
+  guest = false,
 ): { state: QuotaState; charged: boolean } | { refusal: Refusal } {
-  const named = chargeName ? takeName(state, now) : null;
-  if (named && !named.taken) return { refusal: 'no-names' };
-  const reserved = reserveCall(named ? named.state : state, now, hash, limits);
+  let working = state;
+  let charged = false;
+  if (guest) {
+    const free = takeAnonymousFree(working);
+    if (!free.free) return { refusal: 'sign-in' };
+    working = free.state;
+  } else if (chargeName) {
+    const named = takeName(working, now);
+    if (!named.taken) return { refusal: 'no-names' };
+    working = named.state;
+    charged = true;
+  }
+  const reserved = reserveCall(working, now, hash, limits);
   if ('refusal' in reserved) return reserved;
-  return { state: reserved.state, charged: named != null };
+  return { state: reserved.state, charged };
 }
 
 /**
@@ -209,6 +220,20 @@ export function takeFreeNotMushroom(
   if (used >= perMonth) return { state: next, free: false };
   next.notMushroomFree = used + 1;
   return { state: next, free: true };
+}
+
+/**
+ * Refunds a charged monthly name when the photo is one of this month's free
+ * not-a-mushroom answers, in a single state transition.
+ */
+export function refundFreeNotMushroom(
+  state: QuotaState | null,
+  now: number,
+  perMonth: number,
+): { state: QuotaState; refunded: boolean } {
+  const taken = takeFreeNotMushroom(state, now, perMonth);
+  if (!taken.free) return { state: taken.state, refunded: false };
+  return { state: releaseName(taken.state), refunded: true };
 }
 
 export function takeAdGrant(

@@ -592,23 +592,28 @@ class _SeenPageState extends State<SeenPage> {
   }
 
   Future<void> _sendShare(BuildContext sheetContext, FindRecord find) async {
+    if (!_busy.add(find.id)) return;
     Navigator.pop(sheetContext);
-    final action = widget.onShare;
-    final ok = action != null
-        ? await action(find)
-        : await publishSighting(find);
-    if (!mounted) return;
-    if (ok) {
-      final notebook = GuideScope.of(context).notebook;
-      await notebook.setShare(find.id, FindShare.review);
-      unawaited(fillSightingCountries(notebook));
-      unawaited(GuideAnalytics.seenSave(source: 'photo', shared: true));
+    try {
+      final action = widget.onShare;
+      final ok = action != null
+          ? await action(find)
+          : await publishSighting(find);
+      if (!mounted) return;
+      if (ok) {
+        final notebook = GuideScope.of(context).notebook;
+        await notebook.setShare(find.id, FindShare.review);
+        unawaited(fillSightingCountries(notebook));
+        unawaited(GuideAnalytics.seenSave(source: 'photo', shared: true));
+      }
+      if (!mounted) return;
+      final copy = GuideScope.of(context).copy;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? copy.seenShareSent : copy.seenShareFailed)),
+      );
+    } finally {
+      _busy.remove(find.id);
     }
-    if (!mounted) return;
-    final copy = GuideScope.of(context).copy;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? copy.seenShareSent : copy.seenShareFailed)),
-    );
   }
 
   Future<void> _withdraw(FindRecord find) async {

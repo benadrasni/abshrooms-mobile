@@ -474,6 +474,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
         _showFailure();
         return;
       }
+      final hasPlace = photo.latitude != 0 || photo.longitude != 0;
       await scope.notebook.addFind(
         FindRecord(
           id: id,
@@ -481,8 +482,8 @@ class _SpeciesPageState extends State<SpeciesPage> {
           latin: latin,
           photoPath: saved,
           confirmed: true,
-          latitude: photo.latitude == 0 ? null : photo.latitude,
-          longitude: photo.longitude == 0 ? null : photo.longitude,
+          latitude: hasPlace ? photo.latitude : null,
+          longitude: hasPlace ? photo.longitude : null,
         ),
       );
       unawaited(

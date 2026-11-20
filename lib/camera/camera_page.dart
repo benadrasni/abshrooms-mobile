@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
@@ -103,9 +104,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   var _previewEpoch = 0;
   var _previewStarting = false;
   RewardedAd? _rewarded;
+  Timer? _adRetry;
   var _showingAd = false;
   var _adLoading = false;
   var _adAttempts = 0;
+  var _previewUnavailable = false;
 
   bool get _signedIn => widget.signedIn ?? photoAccountSignedIn();
 
@@ -144,6 +147,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     final camera = _camera;
     _camera = null;
     camera?.dispose();
+    _adRetry?.cancel();
+    _adRetry = null;
     _rewarded?.dispose();
     _rewarded = null;
     if (!_busy) _releaseShot();
@@ -153,6 +158,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   void _onAllowance() {
     if (!mounted) return;
     if (_fieldGuide) {
+      _adRetry?.cancel();
+      _adRetry = null;
       _rewarded?.dispose();
       _rewarded = null;
       _adLoading = false;
@@ -166,9 +173,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (widget.livePreview != null) return;
-    final camera = _camera;
     if (state == AppLifecycleState.inactive) {
-      if (camera == null || !camera.value.isInitialized) return;
       unawaited(_stopPreview());
     } else if (state == AppLifecycleState.resumed &&
         _camera == null &&
@@ -187,7 +192,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       if (previous != null) await previous.dispose();
       if (!mounted || epoch != _previewEpoch) return;
       final cameras = await availableCameras();
-      if (!mounted || epoch != _previewEpoch || cameras.isEmpty) return;
+      if (!mounted || epoch != _previewEpoch) return;
+      if (cameras.isEmpty) {
+        setState(() => _previewUnavailable = true);
+        return;
+      }
       var selected = cameras.first;
       for (final camera in cameras) {
         if (camera.lensDirection == CameraLensDirection.back) {
@@ -205,18 +214,26 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         await controller.dispose();
         return;
       }
-      try {
-        await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
-      } catch (error) {
-        debugPrint('camera orientation: $error');
+      if (!_wide(MediaQuery.sizeOf(context))) {
+        try {
+          await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+        } catch (error) {
+          debugPrint('camera orientation: $error');
+        }
       }
       if (!mounted || epoch != _previewEpoch) {
         await controller.dispose();
         return;
       }
-      setState(() => _camera = controller);
+      setState(() {
+        _camera = controller;
+        _previewUnavailable = false;
+      });
     } catch (error) {
       debugPrint('camera preview: $error');
+      if (mounted && epoch == _previewEpoch) {
+        setState(() => _previewUnavailable = true);
+      }
     } finally {
       _previewStarting = false;
     }
@@ -303,7 +320,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           _rewarded = null;
           _adAttempts += 1;
           if (!mounted || _adAttempts > 3) return;
-          _ensureAd();
+          _adRetry?.cancel();
+          _adRetry = Timer(
+            Duration(seconds: 1 << (_adAttempts - 1)),
+            _ensureAd,
+          );
         },
       ),
     );
@@ -592,25 +613,56 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       });
       // The resized JPEG used for the name drops the file's date and place.
       DateTime? taken;
-      if (source == ImageSource.gallery) {
-        final readWhen = widget.photoTakenAt ?? photoTakenAt;
+      PhotoPlace? place;
+      Uint8List bytes;
+      final useSingleRead =
+          widget.photoTakenAt == null &&
+          widget.photoPosition == null &&
+          widget.readPhoto == null;
+      if (useSingleRead) {
+        final rawBytes = await File(path).readAsBytes();
+        if (!mounted) return;
+        if (source == ImageSource.gallery) {
+          try {
+            final photoPath = path;
+            taken = await Isolate.run(
+              () =>
+                  photoDateFromBytes(rawBytes) ?? photoDateFromName(photoPath),
+            );
+          } catch (error) {
+            debugPrint('camera photo date: $error');
+          }
+          if (!mounted) return;
+        }
         try {
-          taken = await readWhen(path);
+          place = await Isolate.run(() => photoPositionFromBytes(rawBytes));
         } catch (error) {
-          debugPrint('camera photo date: $error');
+          debugPrint('camera photo position: $error');
         }
         if (!mounted) return;
+        final jpeg = await jpegForIdentify(rawBytes);
+        if (jpeg == null) throw const FormatException('not a jpeg');
+        bytes = jpeg;
+      } else {
+        if (source == ImageSource.gallery) {
+          final readWhen = widget.photoTakenAt ?? photoTakenAt;
+          try {
+            taken = await readWhen(path);
+          } catch (error) {
+            debugPrint('camera photo date: $error');
+          }
+          if (!mounted) return;
+        }
+        final locate = widget.photoPosition ?? photoPosition;
+        try {
+          place = await locate(path);
+        } catch (error) {
+          debugPrint('camera photo position: $error');
+        }
+        if (!mounted) return;
+        final read = widget.readPhoto ?? _readPhoto;
+        bytes = await read(path);
       }
-      PhotoPlace? place;
-      final locate = widget.photoPosition ?? photoPosition;
-      try {
-        place = await locate(path);
-      } catch (error) {
-        debugPrint('camera photo position: $error');
-      }
-      if (!mounted) return;
-      final read = widget.readPhoto ?? _readPhoto;
-      final bytes = await read(path);
       if (!mounted) return;
       try {
         await GuideAppCheck.ensure();
@@ -766,6 +818,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               path: _shotPath,
               camera: _camera,
               livePreview: widget.livePreview,
+              unavailable: _previewUnavailable,
+              rollLabel: copy.cameraRoll,
+              onRoll: () => _capture(ImageSource.gallery),
             ),
             const IgnorePointer(
               child: DecoratedBox(
@@ -998,11 +1053,17 @@ class _View extends StatelessWidget {
   final String? path;
   final CameraController? camera;
   final WidgetBuilder? livePreview;
+  final bool unavailable;
+  final String rollLabel;
+  final VoidCallback onRoll;
 
   const _View({
     required this.path,
     required this.camera,
     required this.livePreview,
+    required this.unavailable,
+    required this.rollLabel,
+    required this.onRoll,
   });
 
   @override
@@ -1027,6 +1088,29 @@ class _View extends StatelessWidget {
     }
     final fallback = livePreview;
     if (fallback != null) return fallback(context);
+    if (unavailable) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.no_photography_outlined,
+              size: 40,
+              color: Color(0x99F3EDE1),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton(
+              onPressed: onRoll,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFF3EDE1),
+                side: const BorderSide(color: Color(0x66F3EDE1)),
+              ),
+              child: Text(rollLabel),
+            ),
+          ],
+        ),
+      );
+    }
     return const SizedBox.expand();
   }
 }
@@ -1039,7 +1123,10 @@ class _LivePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    var scale = size.aspectRatio * controller.value.aspectRatio;
+    final previewRatio = size.width > size.height
+        ? controller.value.aspectRatio
+        : 1 / controller.value.aspectRatio;
+    var scale = size.aspectRatio / previewRatio;
     if (scale < 1) scale = 1 / scale;
     return ClipRect(
       child: Transform.scale(

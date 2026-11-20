@@ -225,25 +225,32 @@ Future<Catalog> fetchCatalog(String language, {Source? source}) async {
   final code = contentLanguage(language);
   final db = FirebaseFirestore.instance;
   final options = source == null ? null : GetOptions(source: source);
-  final speciesSnap = await db.collection('species').get(options);
-  final localSnap = await db
+  final speciesFuture = db.collection('species').get(options);
+  final localFuture = db
       .collection('translations')
       .doc(code)
       .collection('species')
       .get(options);
-  final englishSnap = code == 'en'
-      ? localSnap
-      : await db
+  final englishFuture = code == 'en'
+      ? localFuture
+      : db
             .collection('translations')
             .doc('en')
             .collection('species')
             .get(options);
-  final synonymSnap = await db.collection('synonyms').get(options);
-  final taxaSnap = await db
+  final synonymFuture = db.collection('synonyms').get(options);
+  final taxaFuture = db
       .collection('taxonomy')
       .doc(code)
       .collection('taxa')
       .get(options);
+  final (speciesSnap, localSnap, englishSnap, synonymSnap, taxaSnap) = await (
+    speciesFuture,
+    localFuture,
+    englishFuture,
+    synonymFuture,
+    taxaFuture,
+  ).wait;
   return buildCatalog(
     language: code,
     speciesDocs: [for (final doc in speciesSnap.docs) Doc(doc.id, doc.data())],

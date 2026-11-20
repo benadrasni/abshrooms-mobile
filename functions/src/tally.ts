@@ -141,18 +141,26 @@ export async function removePhotoNameTally(
   const keys = tallyKeys(names);
   if (keys.length === 0) return { keys, removed: [] };
   const months = await db.collection(photoNameTallyCollection).listDocuments();
-  const present = new Map<string, string[]>();
-  const refs = new Map<string, DocumentReference>();
+  const candidates: { monthId: string; key: string; ref: DocumentReference }[] = [];
   for (const month of months) {
     if (!tallyMonth.test(month.id)) continue;
-    const found: string[] = [];
     for (const key of keys) {
-      const ref = month.collection('names').doc(key);
-      if (!(await ref.get()).exists) continue;
-      found.push(key);
-      refs.set(`${month.id}/${key}`, ref);
+      candidates.push({ monthId: month.id, key, ref: month.collection('names').doc(key) });
     }
-    if (found.length > 0) present.set(month.id, found);
+  }
+  const present = new Map<string, string[]>();
+  const refs = new Map<string, DocumentReference>();
+  for (let start = 0; start < candidates.length; start += 400) {
+    const slice = candidates.slice(start, start + 400);
+    const snaps = await db.getAll(...slice.map((item) => item.ref));
+    for (let i = 0; i < snaps.length; i++) {
+      if (!snaps[i].exists) continue;
+      const { monthId, key, ref } = slice[i];
+      const found = present.get(monthId) ?? [];
+      found.push(key);
+      present.set(monthId, found);
+      refs.set(`${monthId}/${key}`, ref);
+    }
   }
   const plan = tallyRowsToRemove(present, names);
   for (let start = 0; start < plan.removed.length; start += 400) {

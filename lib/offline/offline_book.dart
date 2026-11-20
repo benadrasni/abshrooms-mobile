@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -122,17 +123,22 @@ class OfflineBook {
       ..clear()
       ..addAll(missed);
     final directory = root;
-    if (directory != null) {
-      saved.removeWhere(
-        (path) => !File('$directory/$_folder/$path').existsSync(),
+    if (directory != null && files.isNotEmpty) {
+      final folder = '$directory/$_folder';
+      final existing = await Isolate.run(
+        () => _existingOfflineFiles(folder, files),
       );
-      if (stored && saved.isEmpty && files.isNotEmpty) stored = false;
+      saved
+        ..clear()
+        ..addAll(existing);
+      if (stored && saved.isEmpty) stored = false;
     }
     revision.value++;
   }
 
   static Future<void> clear() async {
     pause();
+    await idle.catchError((_) {});
     stored = false;
     speciesSaved = 0;
     saved.clear();
@@ -278,40 +284,54 @@ Future<void> _run({
     }
     var done = request.alreadyDone;
     final total = request.totalFiles;
+    var dirtyFiles = 0;
+    Future<void> flushFiles() async {
+      if (dirtyFiles == 0) return;
+      dirtyFiles = 0;
+      await _persistFiles();
+      OfflineBook.revision.value++;
+    }
+
     onProgress(done, total);
-    for (final relative in request.pending) {
-      if (!OfflineBook.owns(generation)) return;
-      if (OfflineBook.saved.contains(relative) ||
-          OfflineBook.skipped.contains(relative)) {
-        done += 1;
-        onProgress(done, total);
-        continue;
-      }
-      final bytes = await read(relative);
-      if (!OfflineBook.owns(generation)) return;
-      if (bytes == null) {
-        if (offlineOptional(relative)) {
-          OfflineBook.skipped.add(relative);
-          await _persistSkipped();
+    try {
+      for (final relative in request.pending) {
+        if (!OfflineBook.owns(generation)) return;
+        if (OfflineBook.saved.contains(relative) ||
+            OfflineBook.skipped.contains(relative)) {
           done += 1;
           onProgress(done, total);
           continue;
         }
-        recordGuideError(
-          StateError('missing $relative'),
-          StackTrace.current,
-          reason: 'offline download $relative',
-        );
-        onFailed();
-        return;
+        final bytes = await read(relative);
+        if (!OfflineBook.owns(generation)) return;
+        if (bytes == null) {
+          if (offlineOptional(relative)) {
+            OfflineBook.skipped.add(relative);
+            await _persistSkipped();
+            done += 1;
+            onProgress(done, total);
+            continue;
+          }
+          recordGuideError(
+            StateError('missing $relative'),
+            StackTrace.current,
+            reason: 'offline download $relative',
+          );
+          onFailed();
+          return;
+        }
+        await _write(directory, relative, bytes);
+        if (!OfflineBook.owns(generation)) return;
+        OfflineBook.saved.add(relative);
+        dirtyFiles += 1;
+        if (dirtyFiles >= _persistBatchSize) await flushFiles();
+        done += 1;
+        onProgress(done, total);
       }
-      await _write(directory, relative, bytes);
-      if (!OfflineBook.owns(generation)) return;
-      OfflineBook.saved.add(relative);
-      await _persistFiles();
-      OfflineBook.revision.value++;
-      done += 1;
-      onProgress(done, total);
+    } finally {
+      if (dirtyFiles > 0) {
+        await flushFiles();
+      }
     }
     if (!OfflineBook.owns(generation)) return;
     if (request.markStored) await _markStored(request.species);
@@ -425,6 +445,15 @@ Future<void> _deleteStaging(String directory) async {
   if (staging.existsSync()) staging.deleteSync(recursive: true);
 }
 
+const _persistBatchSize = 25;
+
+List<String> _existingOfflineFiles(String folder, List<String> files) {
+  return [
+    for (final path in files)
+      if (File('$folder/$path').existsSync()) path,
+  ];
+}
+
 Future<List<int>?> _http(HttpClient client, String relative) async {
   final uri = Uri.parse(storageRoot).resolve(relative);
   final request = await client.getUrl(uri);
@@ -438,7 +467,7 @@ Future<List<int>?> _http(HttpClient client, String relative) async {
     throw HttpException('HTTP ${response.statusCode} for $relative');
   }
   final builder = BytesBuilder(copy: false);
-  await for (final chunk in response) {
+  await for (final chunk in response.timeout(const Duration(minutes: 2))) {
     builder.add(chunk);
   }
   return builder.takeBytes();

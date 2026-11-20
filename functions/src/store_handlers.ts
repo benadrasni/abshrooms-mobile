@@ -112,9 +112,6 @@ export async function grantPurchase(
     const proofValue = proofWrite.value;
     const committed = await db.transaction(proofPath, (current) => {
       if (sameStoredProof(current, existing)) return proofValue;
-      // get() does not keep the row cached, so this often runs once with null
-      // and then again with the stored row. A different stored row aborts.
-      if (current == null) return proofValue;
       return undefined;
     });
     if (!committed) continue;

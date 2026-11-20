@@ -60,4 +60,33 @@ void main() {
       isNotEmpty,
     );
   });
+
+  test('valid zero latitude or longitude stays, and 0, 0 is dropped', () {
+    final greenwich = FindRecord.fromJson({
+      'id': 'g',
+      'millis': 1,
+      'latitude': 51.4779,
+      'longitude': 0.0,
+    });
+    expect(greenwich.latitude, 51.4779);
+    expect(greenwich.longitude, 0.0);
+
+    final equator = FindRecord.fromJson({
+      'id': 'e',
+      'millis': 2,
+      'latitude': 0.0,
+      'longitude': -78.4678,
+    });
+    expect(equator.latitude, 0.0);
+    expect(equator.longitude, -78.4678);
+
+    final nowhere = FindRecord.fromJson({
+      'id': 'n',
+      'millis': 3,
+      'latitude': 0.0,
+      'longitude': 0.0,
+    });
+    expect(nowhere.latitude, isNull);
+    expect(nowhere.longitude, isNull);
+  });
 }

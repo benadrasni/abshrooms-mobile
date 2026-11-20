@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -69,7 +70,7 @@ Future<String?> _imagePickerPath(double maxWidth) async {
 /// EXIF date.
 Future<SeenPhoto?> seenPhotoFromPath(String path) async {
   final bytes = await File(path).readAsBytes();
-  return seenPhotoFromBytes(bytes, name: path);
+  return Isolate.run(() => seenPhotoFromBytes(bytes, name: path));
 }
 
 /// Picks a gallery photo and returns the notebook JPEG. Cancel returns null.
@@ -129,7 +130,8 @@ Future<DateTime?> photoTakenAt(String path) async {
   try {
     final file = File(path);
     if (!await file.exists()) return null;
-    return photoDateFromBytes(await file.readAsBytes()) ?? photoDateFromName(path);
+    return photoDateFromBytes(await file.readAsBytes()) ??
+        photoDateFromName(path);
   } catch (error) {
     debugPrint('photo date: $error');
     return null;
@@ -153,7 +155,6 @@ Future<PhotoPlace?> photoPosition(String path) async {
 }
 
 /// EXIF position in [bytes]. Null when the picture has no place.
-@visibleForTesting
 PhotoPlace? photoPositionFromBytes(Uint8List bytes) {
   final exif = img.decodeJpgExif(bytes);
   if (exif != null) return _placeFromExif(exif);
@@ -184,7 +185,6 @@ PhotoPlace? _placeFromExif(img.ExifData exif) {
 /// Camera clock in [name]. `IMG_20110806_081932` is 6 August 2011 at
 /// 08:19:32. A Pixel name may carry extra digits after the seconds.
 /// The EXIF date wins over this. Anything else is no date.
-@visibleForTesting
 DateTime? photoDateFromName(String? name) {
   if (name == null || name.isEmpty) return null;
   final base = name.replaceAll('\\', '/').split('/').last;
@@ -227,7 +227,6 @@ DateTime? _cameraClock(
 }
 
 /// EXIF date in [bytes]. Null when the picture has no date.
-@visibleForTesting
 DateTime? photoDateFromBytes(Uint8List bytes) {
   final exif = img.decodeJpgExif(bytes);
   if (exif != null) return _dateFromExif(exif);

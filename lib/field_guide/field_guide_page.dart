@@ -181,21 +181,46 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
   }
 
   Future<void> _restore() async {
+    if (_busy) return;
     final custom = widget.restore;
     if (custom != null) {
-      await custom();
+      setState(() {
+        _busy = true;
+        _error = null;
+      });
+      try {
+        await custom();
+      } catch (error) {
+        debugPrint('restore: $error');
+        if (mounted) {
+          setState(() => _error = GuideScope.of(context).copy.restoreFailed);
+        }
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
       return;
     }
     final copy = GuideScope.of(context).copy;
-    final started = await restoreFieldGuidePurchases();
-    if (!mounted) return;
-    if (!started) {
-      setState(() => _error = copy.restoreFailed);
-      return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final started = await restoreFieldGuidePurchases();
+      if (!mounted) return;
+      if (!started) {
+        setState(() => _error = copy.restoreFailed);
+        return;
+      }
+      setState(() => _error = null);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(copy.restoring)));
+    } catch (error) {
+      debugPrint('restore: $error');
+      if (mounted) setState(() => _error = copy.restoreFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    setState(() => _error = null);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(copy.restoring)));
   }
 
   void _choose(FieldGuidePlan plan) {

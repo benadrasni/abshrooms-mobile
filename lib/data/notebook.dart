@@ -180,8 +180,8 @@ class FindRecord {
           : null,
       photoPath: json['photoPath']?.toString(),
       confirmed: json['confirmed'] == true,
-      latitude: _coord(json['latitude']),
-      longitude: _coord(json['longitude']),
+      latitude: _placeFromJson(json['latitude'], json['longitude'])?.latitude,
+      longitude: _placeFromJson(json['latitude'], json['longitude'])?.longitude,
       country: _isoCountry(json['country']),
       others: _findNames(json['others']),
       share: findShareFrom(json['share']),
@@ -209,11 +209,17 @@ String? _isoCountry(Object? value) {
   return code;
 }
 
-double? _coord(Object? value) {
-  if (value is! num) return null;
-  final number = value.toDouble();
-  if (number == 0) return null;
-  return number;
+({double latitude, double longitude})? _placeFromJson(
+  Object? rawLat,
+  Object? rawLng,
+) {
+  if (rawLat is! num || rawLng is! num) return null;
+  final lat = rawLat.toDouble();
+  final lng = rawLng.toDouble();
+  if (!lat.isFinite || !lng.isFinite) return null;
+  if (lat == 0 && lng == 0) return null;
+  if (lat.abs() > 90 || lng.abs() > 180) return null;
+  return (latitude: lat, longitude: lng);
 }
 
 List<FindName> _findNames(Object? raw) {

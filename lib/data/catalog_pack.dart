@@ -185,7 +185,7 @@ Future<List<int>?> _get(HttpClient client, String relative) async {
     throw HttpException('HTTP ${response.statusCode} for $relative');
   }
   final builder = BytesBuilder(copy: false);
-  await for (final chunk in response) {
+  await for (final chunk in response.timeout(const Duration(minutes: 1))) {
     builder.add(chunk);
   }
   return builder.takeBytes();

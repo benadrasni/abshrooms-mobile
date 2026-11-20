@@ -53,11 +53,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("release")
-            }
-        }
         release {
             // key.properties is local and gitignored. Without it, release still
             // signs with the debug key so a phone install can be built.

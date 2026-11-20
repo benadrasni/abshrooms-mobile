@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -29,7 +30,8 @@ Future<bool> publishSighting(
     }
     final file = File(path);
     if (!await file.exists()) return false;
-    final photo = seenPhotoFromBytes(await file.readAsBytes());
+    final rawBytes = await file.readAsBytes();
+    final photo = await Isolate.run(() => seenPhotoFromBytes(rawBytes));
     if (photo == null) return false;
     final object = _objectPath(user.uid, find.id);
     await sightingStorage()

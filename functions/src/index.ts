@@ -31,14 +31,13 @@ import {
   freeNotMushroomPerMonth,
   meterCounts,
   photoHash,
+  refundFreeNotMushroom,
   releaseAnonymousFree,
   releaseName,
   rememberPhoto,
   repeatWindowMs,
   reserveIdentify,
   storedQuota,
-  takeAnonymousFree,
-  takeFreeNotMushroom,
   utcMonth,
 } from './quota';
 import {
@@ -131,6 +130,7 @@ export const identifyMushroom = onCall(
           lifetimeCeiling: guest ? anonymousLifetimeCalls : undefined,
         },
         chargeName,
+        guest,
       );
       if ('refusal' in result) return { state: current ?? {}, value: { refusal: result.refusal } };
       return { state: result.state, value: { charged: result.charged } };
@@ -142,16 +142,6 @@ export const identifyMushroom = onCall(
 
     const releaseFree = () =>
       updateQuota(uid, (current) => ({ state: releaseAnonymousFree(current), value: true }));
-    if (guest) {
-      const free = await updateQuota<boolean>(uid, (current) => {
-        const taken = takeAnonymousFree(current);
-        return { state: taken.state, value: taken.free };
-      });
-      if (!free) {
-        const state = (await quotaRef(uid).get()).data() as QuotaState | undefined;
-        throw refusalError('sign-in', state ?? null, now);
-      }
-    }
 
     const held = reserved.charged;
 
@@ -184,14 +174,11 @@ export const identifyMushroom = onCall(
     const suggestions = suggestionsForMushrooms(plantIdSuggestions(body));
     let charged = held;
     if (suggestions.length === 0 && held) {
-      const free = await updateQuota<boolean>(uid, (current) => {
-        const taken = takeFreeNotMushroom(current, now, freeNotMushroomPerMonth);
-        return { state: taken.state, value: taken.free };
+      const refunded = await updateQuota<boolean>(uid, (current) => {
+        const result = refundFreeNotMushroom(current, now, freeNotMushroomPerMonth);
+        return { state: result.state, value: result.refunded };
       });
-      if (free) {
-        await updateQuota(uid, (current) => ({ state: releaseName(current), value: true }));
-        charged = false;
-      }
+      if (refunded) charged = false;
     }
     if (guest && suggestions.length === 0) await releaseFree();
 

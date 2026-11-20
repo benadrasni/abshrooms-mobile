@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -102,7 +103,7 @@ Future<Uint8List?> jpegForIdentify(
   if (edge < 1 || maxChars < 1) return null;
   try {
     if (_isJpeg(bytes) && _jpegFitsIdentify(bytes, edge, maxChars)) {
-      final fitted = jpegMaxEdge(bytes, edge: edge);
+      final fitted = await Isolate.run(() => jpegMaxEdge(bytes, edge: edge));
       if (fitted != null && _base64Chars(fitted) <= maxChars) return fitted;
     }
     final coded = await _jpegFromCodec(bytes, edge: edge);
@@ -186,18 +187,14 @@ Future<Uint8List?> _jpegFromCodec(Uint8List bytes, {required int edge}) async {
         format: ui.ImageByteFormat.rawStraightRgba,
       );
       if (raw == null) return null;
-      final pixels = raw.buffer.asUint8List(
-        raw.offsetInBytes,
-        raw.lengthInBytes,
+      final pixels = Uint8List.fromList(
+        raw.buffer.asUint8List(raw.offsetInBytes, raw.lengthInBytes),
       );
-      final picture = img.Image.fromBytes(
-        width: image.width,
-        height: image.height,
-        bytes: pixels.buffer,
-        bytesOffset: pixels.offsetInBytes,
-        numChannels: 4,
+      final width = image.width;
+      final height = image.height;
+      final encoded = await Isolate.run(
+        () => _encodeRgbaJpg(width, height, pixels),
       );
-      final encoded = img.encodeJpg(picture, quality: 85);
       if (encoded.length < 4 || encoded[0] != 0xFF || encoded[1] != 0xD8) {
         return null;
       }
@@ -208,6 +205,17 @@ Future<Uint8List?> _jpegFromCodec(Uint8List bytes, {required int edge}) async {
   } finally {
     codec.dispose();
   }
+}
+
+Uint8List _encodeRgbaJpg(int width, int height, Uint8List pixels) {
+  final picture = img.Image.fromBytes(
+    width: width,
+    height: height,
+    bytes: pixels.buffer,
+    bytesOffset: pixels.offsetInBytes,
+    numChannels: 4,
+  );
+  return Uint8List.fromList(img.encodeJpg(picture, quality: 85));
 }
 
 /// Drops APPn (0xE1-0xEF) and COM segments up to the first end of image.
