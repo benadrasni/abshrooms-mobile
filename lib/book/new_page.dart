@@ -16,7 +16,9 @@ import 'package:whats_that_mushroom/species/species_page.dart';
 /// is used only when that read fails. The list already on screen stays
 /// until the read finishes, then shows what was added.
 class NewPage extends StatefulWidget {
-  const NewPage({super.key});
+  final String? backLabel;
+
+  const NewPage({super.key, this.backLabel});
 
   @override
   State<NewPage> createState() => _NewPageState();
@@ -63,7 +65,7 @@ class _NewPageState extends State<NewPage> {
         ? '$countLine · ${copy.youHaveSeen(seenCount)}'
         : countLine;
     return ListPageChrome(
-      backLabel: copy.find,
+      backLabel: widget.backLabel ?? copy.find,
       eyebrow: copy.listsTitle.toUpperCase(),
       title: copy.newInBook,
       meta: meta,

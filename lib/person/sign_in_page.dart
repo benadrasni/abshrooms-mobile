@@ -334,7 +334,15 @@ class _SignInPageState extends State<SignInPage> {
             TextButton(
               onPressed: () {
                 if (widget.onEmail == null) {
-                  Auth.firebaseAuth.currentUser?.sendEmailVerification();
+                  final send = Auth.firebaseAuth.currentUser
+                      ?.sendEmailVerification();
+                  if (send != null) {
+                    unawaited(
+                      send.catchError((Object error) {
+                        debugPrint('verify email: $error');
+                      }),
+                    );
+                  }
                 }
                 Navigator.of(dialogContext).pop();
               },

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
@@ -101,8 +100,8 @@ FindRecord findFromPrivate(
     if (data['share'] != null) 'share': data['share'],
     if (data['others'] is List) 'others': data['others'],
     if (data['updated'] is num) 'updated': (data['updated'] as num).toInt(),
-    if (photoPath != null) 'photoPath': photoPath,
-    if (syncedUid != null) 'syncedUid': syncedUid,
+    'photoPath': ?photoPath,
+    'syncedUid': ?syncedUid,
   });
 }
 
@@ -446,7 +445,7 @@ class PrivateNotebookSync {
   }
 
   String? _accountUid() {
-    if (notebook.favoriteAccount != null) return null;
+    if (notebook.hasFavoriteAccountOverride) return null;
     final user = Auth.appUser;
     if (user == null || user.isAnonymous) return null;
     return user.uid;

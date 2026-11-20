@@ -185,31 +185,34 @@ Future<DeleteAccountResult> reauthenticateCurrentUser(
 Future<String?> _askPassword(BuildContext context) async {
   final copy = GuideScope.of(context).copy;
   final controller = TextEditingController();
-  final result = await showDialog<String>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(copy.deleteAccountReauth),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          decoration: InputDecoration(labelText: copy.passwordHint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(copy.cancel),
+  try {
+    return await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(copy.deleteAccountReauth),
+          content: TextField(
+            controller: controller,
+            obscureText: true,
+            autofocus: true,
+            decoration: InputDecoration(labelText: copy.passwordHint),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: Text(copy.signInContinue),
-          ),
-        ],
-      );
-    },
-  );
-  return result;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(copy.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+              child: Text(copy.signInContinue),
+            ),
+          ],
+        );
+      },
+    );
+  } finally {
+    controller.dispose();
+  }
 }
 
 Future<bool> _reauthenticatePhone(
@@ -234,40 +237,44 @@ Future<bool> _reauthenticatePhone(
   return true;
 }
 
-Future<String?> _askCode(BuildContext context, Copy copy, String phone) {
+Future<String?> _askCode(BuildContext context, Copy copy, String phone) async {
   final controller = TextEditingController();
-  return showDialog<String>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(copy.signInCode),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              copy.signInCodeNote(phone),
-              style: GuideType.muted(GuideColors.of(dialogContext)),
+  try {
+    return await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(copy.signInCode),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                copy.signInCodeNote(phone),
+                style: GuideType.muted(GuideColors.of(dialogContext)),
+              ),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: InputDecoration(labelText: copy.codeHint),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(copy.cancel),
             ),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: InputDecoration(labelText: copy.codeHint),
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
+              child: Text(copy.signInContinue),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(copy.cancel),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: Text(copy.signInContinue),
-          ),
-        ],
-      );
-    },
-  );
+        );
+      },
+    );
+  } finally {
+    controller.dispose();
+  }
 }

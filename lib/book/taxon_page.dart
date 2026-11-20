@@ -4,7 +4,6 @@ import 'package:whats_that_mushroom/camera/open_camera.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
-import 'package:whats_that_mushroom/shell/guide_window.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/shell/widgets.dart';

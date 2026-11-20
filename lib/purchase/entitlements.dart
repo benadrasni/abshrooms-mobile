@@ -207,8 +207,9 @@ class Entitlements {
         settled ? entitlementExpiryWait : entitlementRecheckDelay,
         () {
           if (_uid == null) return;
-          if (_settledExpiry != dueAt && _recheck == null)
+          if (_settledExpiry != dueAt && _recheck == null) {
             _recheckedExpiry = null;
+          }
           _apply(watch);
         },
       );

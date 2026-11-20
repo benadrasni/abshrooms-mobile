@@ -12,15 +12,27 @@ final Set<String> _remoteStored = {};
 final Set<String> _placeWritten = {};
 Future<void> _fillChain = Future<void>.value();
 
+const _maxCountryCache = 500;
+
 /// ISO country of a find. 0, 0 is no place and does not ask. One lookup is
-/// shared by every photo at the same thousandth of a degree.
+/// shared by every photo at the same thousandth of a degree. Transient
+/// failures are not kept so a later retry can succeed.
 Future<String?> sightingCountryCode(double latitude, double longitude) {
   if (photoPlace(latitude, longitude) == null) return Future<String?>.value();
   final key = '${latitude.toStringAsFixed(3)},${longitude.toStringAsFixed(3)}';
-  return _countryLookups.putIfAbsent(
-    key,
-    () => _readCountry(latitude, longitude),
-  );
+  final existing = _countryLookups[key];
+  if (existing != null) return existing;
+  if (_countryLookups.length >= _maxCountryCache) {
+    _countryLookups.remove(_countryLookups.keys.first);
+  }
+  final future = _readCountry(latitude, longitude);
+  _countryLookups[key] = future;
+  future.then((code) {
+    if (code == null && identical(_countryLookups[key], future)) {
+      _countryLookups.remove(key);
+    }
+  });
+  return future;
 }
 
 Future<String?> _readCountry(double latitude, double longitude) async {

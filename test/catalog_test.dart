@@ -204,7 +204,7 @@ void main() {
           Doc('Serpula lacrymans', {
             'name': 'Serpula lacrymans',
             'id': 80,
-            if (added != null) 'added': added,
+            'added': ?added,
           }),
         ],
         local: const {},
@@ -230,9 +230,9 @@ void main() {
         speciesDocs: [
           Doc('Serpula lacrymans', {
             'name': 'Serpula lacrymans',
-            if (hymenium != null) 'hymenium': hymenium,
-            if (where != null) 'where': where,
-            if (color != null) 'color': color,
+            'hymenium': ?hymenium,
+            'where': ?where,
+            'color': ?color,
           }),
         ],
         local: const {},

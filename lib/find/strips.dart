@@ -429,8 +429,9 @@ String _curatedSubtitle(Copy copy, CuratedListView list) {
 String _when(BuildContext context, int millis) {
   final when = DateTime.fromMillisecondsSinceEpoch(millis);
   final localizations = MaterialLocalizations.of(context);
-  if (when.year != DateTime.now().year)
+  if (when.year != DateTime.now().year) {
     return localizations.formatShortDate(when);
+  }
   final date = localizations.formatMediumDate(when);
   final time = localizations.formatTimeOfDay(TimeOfDay.fromDateTime(when));
   return '$date, $time';

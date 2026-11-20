@@ -8,7 +8,6 @@ import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/key_filter.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/find/key_glyph.dart';
-import 'package:whats_that_mushroom/purchase/purchases.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 import 'package:whats_that_mushroom/shell/review_prompt.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -68,7 +67,7 @@ class WherePage extends StatelessWidget {
     return guideChromeFrame(
       context,
       index: null,
-      showAd: Purchases.showsAds(),
+      showAd: true,
       onSelect: (index) => _leaveForTab(context, index),
       child: ListView(
         padding: const EdgeInsets.only(bottom: 20),
@@ -423,7 +422,7 @@ class ColorPage extends StatelessWidget {
     return guideChromeFrame(
       context,
       index: null,
-      showAd: Purchases.showsAds(),
+      showAd: true,
       onSelect: (index) => _leaveForTab(context, index),
       child: ListView(
         padding: const EdgeInsets.only(bottom: 20),
@@ -713,8 +712,12 @@ class _ResultsPageState extends State<ResultsPage> {
       for (final item in catalog.species)
         if (matchesSelection(item, _selection)) item,
     ];
-    _noteFilter(matches.length);
-    _noteKeySuccess(matches.length);
+    final matchCount = matches.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _noteFilter(matchCount);
+      _noteKeySuccess(matchCount);
+    });
     int byName(Species a, Species b) =>
         catalog.compareTitles(catalog.heading(a), catalog.heading(b));
     final now = [
@@ -849,7 +852,7 @@ class _ResultsPageState extends State<ResultsPage> {
                       ..._grid(catalog, later, seen),
                     ],
                   ],
-                  if (Purchases.showsAds()) const AppBannerAd(),
+                  const AppBannerAd(),
                 ]),
               ),
             ),
@@ -1200,24 +1203,28 @@ class _ResultSwitch extends StatelessWidget {
     VoidCallback onPressed,
     GuideColors colors,
   ) {
-    return Material(
-      color: on ? colors.ink : Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11),
-          child: SizedBox(
-            height: 28,
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: GuideType.sans,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: on ? colors.paper : colors.ink2,
+    return Semantics(
+      button: true,
+      selected: on,
+      child: Material(
+        color: on ? colors.ink : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11),
+            child: SizedBox(
+              height: 28,
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: on ? colors.paper : colors.ink2,
+                  ),
                 ),
               ),
             ),

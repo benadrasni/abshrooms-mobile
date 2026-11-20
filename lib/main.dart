@@ -452,6 +452,7 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
     final context = _navigatorKey.currentContext;
     if (!mounted || context == null) {
       _pendingSharedMushroom = name;
+      _sharedLinkFrames = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _openPendingSharedMushroom();
@@ -466,7 +467,11 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
     final context = _navigatorKey.currentContext;
     if (name == null) return;
     if (context == null) {
-      if (_sharedLinkFrames >= 8) return;
+      if (_sharedLinkFrames >= 8) {
+        _pendingSharedMushroom = null;
+        _sharedLinkFrames = 0;
+        return;
+      }
       _sharedLinkFrames++;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

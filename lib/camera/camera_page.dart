@@ -803,173 +803,179 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     final scope = GuideScope.of(context);
     final copy = scope.copy;
     final catalogMissing = scope.catalog.data == null;
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: _well,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
-      child: Scaffold(
-        backgroundColor: _well,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            _View(
-              path: _shotPath,
-              camera: _camera,
-              livePreview: widget.livePreview,
-              unavailable: _previewUnavailable,
-              rollLabel: copy.cameraRoll,
-              onRoll: () => _capture(ImageSource.gallery),
-            ),
-            const IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x88000000),
-                      Color(0x00000000),
-                      Color(0x00000000),
-                      Color(0xBB000000),
-                    ],
-                    stops: [0, 0.22, 0.64, 1],
+    return PopScope(
+      canPop: !_notMushroom && !_limit,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && (_notMushroom || _limit)) _clearSheet();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: _well,
+          systemNavigationBarIconBrightness: Brightness.light,
+        ),
+        child: Scaffold(
+          backgroundColor: _well,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              _View(
+                path: _shotPath,
+                camera: _camera,
+                livePreview: widget.livePreview,
+                unavailable: _previewUnavailable,
+                rollLabel: copy.cameraRoll,
+                onRoll: () => _capture(ImageSource.gallery),
+              ),
+              const IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x88000000),
+                        Color(0x00000000),
+                        Color(0x00000000),
+                        Color(0xBB000000),
+                      ],
+                      stops: [0, 0.22, 0.64, 1],
+                    ),
                   ),
                 ),
               ),
-            ),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final size = MediaQuery.sizeOf(context);
-                  final wide = _wide(size);
-                  final frameLeft = wide ? constraints.maxWidth * 0.10 : 44.0;
-                  final frameRight = wide ? 150.0 : 44.0;
-                  final frameTop = wide
-                      ? constraints.maxHeight * 0.12
-                      : (constraints.maxHeight * 0.22).clamp(72.0, 230.0);
-                  final frameHeight = wide
-                      ? constraints.maxHeight * 0.72
-                      : math.min(300.0, constraints.maxHeight * 0.36);
-                  final controls = _Controls(
-                    column: wide,
-                    shutterLabel: copy.cameraShutter,
-                    rollLabel: copy.cameraRoll,
-                    keyLabel: copy.cameraKey,
-                    onShutter: () => _capture(ImageSource.camera),
-                    onRoll: () => _capture(ImageSource.gallery),
-                    onKey: _key,
-                  );
-                  return Stack(
-                    children: [
-                      Positioned(
-                        left: frameLeft,
-                        right: frameRight,
-                        top: frameTop,
-                        height: frameHeight,
-                        child: const IgnorePointer(
-                          child: CustomPaint(
-                            painter: _CornerPainter(),
-                            child: SizedBox.expand(),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: wide ? frameLeft : 24,
-                        right: wide ? frameRight : 24,
-                        top: wide ? null : frameTop + frameHeight + 16,
-                        bottom: wide ? 12 : null,
-                        child: Text(
-                          catalogMissing ? copy.catalogError : copy.cameraTip,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        left: 16,
-                        right: wide ? 130 : 16,
-                        child: ListenableBuilder(
-                          listenable: Listenable.merge([
-                            Purchases.revision,
-                            Names.revision,
-                          ]),
-                          builder: (context, _) {
-                            final allowance = _allowance;
-                            return _TopBar(
-                              label: allowance.unlimited
-                                  ? copy.cameraFieldGuide
-                                  : copy.namesLeft(allowance.namesLeft),
-                              dots: allowance.dotCount,
-                              filled: allowance.filledDots,
-                              closeLabel: copy.cameraClose,
-                              onClose: _close,
-                            );
-                          },
-                        ),
-                      ),
-                      if (wide)
+              SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size = MediaQuery.sizeOf(context);
+                    final wide = _wide(size);
+                    final frameLeft = wide ? constraints.maxWidth * 0.10 : 44.0;
+                    final frameRight = wide ? 150.0 : 44.0;
+                    final frameTop = wide
+                        ? constraints.maxHeight * 0.12
+                        : (constraints.maxHeight * 0.22).clamp(72.0, 230.0);
+                    final frameHeight = wide
+                        ? constraints.maxHeight * 0.72
+                        : math.min(300.0, constraints.maxHeight * 0.36);
+                    final controls = _Controls(
+                      column: wide,
+                      shutterLabel: copy.cameraShutter,
+                      rollLabel: copy.cameraRoll,
+                      keyLabel: copy.cameraKey,
+                      onShutter: () => _capture(ImageSource.camera),
+                      onRoll: () => _capture(ImageSource.gallery),
+                      onKey: _key,
+                    );
+                    return Stack(
+                      children: [
                         Positioned(
-                          top: 64,
-                          bottom: 18,
-                          right: 18,
-                          width: 112,
-                          child: controls,
+                          left: frameLeft,
+                          right: frameRight,
+                          top: frameTop,
+                          height: frameHeight,
+                          child: const IgnorePointer(
+                            child: CustomPaint(
+                              painter: _CornerPainter(),
+                              child: SizedBox.expand(),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: wide ? frameLeft : 24,
+                          right: wide ? frameRight : 24,
+                          top: wide ? null : frameTop + frameHeight + 16,
+                          bottom: wide ? 12 : null,
+                          child: Text(
+                            catalogMissing ? copy.catalogError : copy.cameraTip,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 8,
+                          left: 16,
+                          right: wide ? 130 : 16,
+                          child: ListenableBuilder(
+                            listenable: Listenable.merge([
+                              Purchases.revision,
+                              Names.revision,
+                            ]),
+                            builder: (context, _) {
+                              final allowance = _allowance;
+                              return _TopBar(
+                                label: allowance.unlimited
+                                    ? copy.cameraFieldGuide
+                                    : copy.namesLeft(allowance.namesLeft),
+                                dots: allowance.dotCount,
+                                filled: allowance.filledDots,
+                                closeLabel: copy.cameraClose,
+                                onClose: _close,
+                              );
+                            },
+                          ),
+                        ),
+                        if (wide)
+                          Positioned(
+                            top: 64,
+                            bottom: 18,
+                            right: 18,
+                            width: 112,
+                            child: controls,
+                          )
+                        else
+                          Positioned(
+                            left: 28,
+                            right: 28,
+                            bottom: 18,
+                            child: controls,
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              if (_naming) _Naming(label: copy.naming),
+              if (_notMushroom || _limit)
+                _SheetLayer(
+                  onDismiss: _clearSheet,
+                  child: _limit
+                      ? _LimitSheet(
+                          allowance: _allowance,
+                          offerAd: _offerAd,
+                          onWatchAd: _offerAd
+                              ? () => unawaited(_watchAd())
+                              : null,
+                          onSignIn: nameNeedsSignIn(_allowance)
+                              ? () => unawaited(_openSignIn())
+                              : null,
+                          onFieldGuide: () => unawaited(_openFieldGuide()),
+                          onKey: _key,
                         )
-                      else
-                        Positioned(
-                          left: 28,
-                          right: 28,
-                          bottom: 18,
-                          child: controls,
+                      : _NotMushroomSheet(
+                          title: copy.cameraNotTitle,
+                          body: copy.cameraNotBody,
+                          kept: _countedEmpty
+                              ? copy.cameraNotCounted(
+                                  _allowance.unlimited
+                                      ? null
+                                      : _allowance.namesLeft,
+                                )
+                              : copy.cameraNotKept(
+                                  _allowance.unlimited
+                                      ? null
+                                      : _allowance.namesLeft,
+                                ),
+                          again: copy.cameraTryAgain,
+                          keyLabel: copy.cameraKey,
+                          onTryAgain: _clearSheet,
+                          onKey: _key,
                         ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            if (_naming) _Naming(label: copy.naming),
-            if (_notMushroom || _limit)
-              _SheetLayer(
-                onDismiss: _clearSheet,
-                child: _limit
-                    ? _LimitSheet(
-                        allowance: _allowance,
-                        offerAd: _offerAd,
-                        onWatchAd: _offerAd
-                            ? () => unawaited(_watchAd())
-                            : null,
-                        onSignIn: nameNeedsSignIn(_allowance)
-                            ? () => unawaited(_openSignIn())
-                            : null,
-                        onFieldGuide: () => unawaited(_openFieldGuide()),
-                        onKey: _key,
-                      )
-                    : _NotMushroomSheet(
-                        title: copy.cameraNotTitle,
-                        body: copy.cameraNotBody,
-                        kept: _countedEmpty
-                            ? copy.cameraNotCounted(
-                                _allowance.unlimited
-                                    ? null
-                                    : _allowance.namesLeft,
-                              )
-                            : copy.cameraNotKept(
-                                _allowance.unlimited
-                                    ? null
-                                    : _allowance.namesLeft,
-                              ),
-                        again: copy.cameraTryAgain,
-                        keyLabel: copy.cameraKey,
-                        onTryAgain: _clearSheet,
-                        onKey: _key,
-                      ),
-              ),
-          ],
+                ),
+            ],
+          ),
         ),
       ),
     );

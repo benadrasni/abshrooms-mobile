@@ -252,9 +252,9 @@ class _BookPageState extends State<BookPage> {
           favorite: false,
           gold: true,
           padding: cardPadding,
-          onTap: () =>
-              Navigator.of(context)
-                  .push(guideRoute(guideScreenNew, (_) => const NewPage())),
+          onTap: () => Navigator.of(context).push(
+            guideRoute(guideScreenNew, (_) => NewPage(backLabel: copy.book)),
+          ),
         ),
       );
     }

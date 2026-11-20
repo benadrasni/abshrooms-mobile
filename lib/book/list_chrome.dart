@@ -368,24 +368,28 @@ class _ViewSwitch extends StatelessWidget {
     VoidCallback onPressed,
     GuideColors colors,
   ) {
-    return Material(
-      color: on ? colors.ink : Colors.transparent,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11),
-          child: SizedBox(
-            height: 28,
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: GuideType.sans,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: on ? colors.paper : colors.ink2,
+    return Semantics(
+      button: true,
+      selected: on,
+      child: Material(
+        color: on ? colors.ink : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11),
+            child: SizedBox(
+              height: 28,
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: GuideType.sans,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: on ? colors.paper : colors.ink2,
+                  ),
                 ),
               ),
             ),

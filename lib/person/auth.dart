@@ -26,6 +26,31 @@ class Auth {
 
   static final revision = ValueNotifier<int>(0);
   static User? appUser;
+  static StreamSubscription<User?>? _authSub;
+
+  static void _watchAuth() {
+    if (_authSub != null) return;
+    try {
+      if (Firebase.apps.isEmpty) return;
+      _authSub = firebaseAuth.userChanges().listen(
+        (user) {
+          final next = _signedIn(user);
+          if (next?.uid == appUser?.uid &&
+              next?.emailVerified == appUser?.emailVerified) {
+            return;
+          }
+          appUser = next;
+          revision.value++;
+          syncAnalytics();
+        },
+        onError: (Object error) {
+          debugPrint('account watch: $error');
+        },
+      );
+    } catch (error) {
+      debugPrint('account watch: $error');
+    }
+  }
 
   static User? _signedIn(User? user) {
     if (user == null ||
@@ -118,6 +143,7 @@ class Auth {
   }) async {
     final ready = firebaseReady ?? Firebase.apps.isNotEmpty;
     if (!ready) return;
+    if (firebaseReady == null) _watchAuth();
     final tell = notify ?? publish;
     var signedIn = hasCurrentUser;
     var dropUnverified = unverifiedPassword;

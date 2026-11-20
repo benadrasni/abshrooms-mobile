@@ -256,6 +256,9 @@ class Notebook extends ChangeNotifier {
   @visibleForTesting
   String? favoriteAccount;
 
+  /// True when a test has pinned [favoriteAccount] directly.
+  bool get hasFavoriteAccountOverride => favoriteAccount != null;
+
   /// Replaces the Firestore write in tests.
   @visibleForTesting
   Future<void> Function(String uid, String latin, bool on)? favoriteWrite;
@@ -386,24 +389,30 @@ class Notebook extends ChangeNotifier {
   /// Documents directory after [load] or [useStorage].
   Directory? get storageDirectory => _dir;
 
+  bool _safePhotoId(String clean) {
+    return clean.isNotEmpty &&
+        !clean.contains('/') &&
+        !clean.contains('\\') &&
+        !clean.contains('..');
+  }
+
   /// JPEG path for [id] once the documents directory is known.
   String? photoFile(String id) {
     final dir = _dir;
     final clean = id.trim();
-    if (dir == null || clean.isEmpty || clean.contains('/')) return null;
+    if (dir == null || !_safePhotoId(clean)) return null;
     return '${dir.path}/finds/$clean.jpg';
   }
 
   int _stamp() => DateTime.now().millisecondsSinceEpoch;
 
   Future<String?> savePhoto(Uint8List bytes, String id) async {
-    final dir = _dir;
-    if (dir == null) return null;
-    final folder = Directory('${dir.path}/finds');
+    final path = photoFile(id);
+    if (path == null) return null;
+    final folder = Directory('${_dir!.path}/finds');
     // Sync: these files are small, and the caller waits before the next step.
     // An async write never finishes inside a widget test's fake clock.
     folder.createSync(recursive: true);
-    final path = '${folder.path}/$id.jpg';
     File(path).writeAsBytesSync(bytes, flush: true);
     return path;
   }
