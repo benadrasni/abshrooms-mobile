@@ -65,6 +65,9 @@ Future<void> _boot() async {
   runApp(_Startup(plate: plate));
 }
 
+/// Firestore accepts persistence settings once. A retry must not set them again.
+bool firestorePersistencePending(bool applied) => !applied;
+
 /// Android 12 shows the launcher icon first. This plate is the next frame.
 /// The landing is drawn underneath, and the plate fades only after it loads.
 class _Startup extends StatefulWidget {
@@ -87,6 +90,7 @@ class _StartupState extends State<_Startup>
   var _coverOn = true;
   var _failed = false;
   var _opening = false;
+  var _firestorePersistence = false;
 
   @override
   void initState() {
@@ -119,9 +123,12 @@ class _StartupState extends State<_Startup>
       }
       await startCrashReporting();
       await GuideAnalytics.start();
-      FirebaseFirestore.instance.settings = const Settings(
-        persistenceEnabled: true,
-      );
+      if (firestorePersistencePending(_firestorePersistence)) {
+        FirebaseFirestore.instance.settings = const Settings(
+          persistenceEnabled: true,
+        );
+        _firestorePersistence = true;
+      }
       await applyRememberedVersionBlock();
       await Auth.startGuest();
       Entitlements.start();

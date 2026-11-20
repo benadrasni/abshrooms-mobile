@@ -17,6 +17,20 @@ export function deletedAccountUidOk(uid: string): boolean {
 
 export type DeletedSighting = { id: string; photo: string | null };
 
+/** Storage deletes per round. A full account must not open every object at once. */
+export const storageDeleteBatch = 40;
+
+export async function deleteStorageObjects(
+  paths: string[],
+  remove: (path: string) => Promise<void>,
+  batchSize = storageDeleteBatch,
+): Promise<void> {
+  const size = Math.max(1, Math.floor(batchSize));
+  for (let start = 0; start < paths.length; start += size) {
+    await Promise.all(paths.slice(start, start + size).map((path) => remove(path)));
+  }
+}
+
 /// Object paths for one account's Sightings. A stored photo outside that
 /// account is left out. The public copy is `sightings/public/{id}.jpg`.
 export function deletedSightingObjects(uid: string, rows: DeletedSighting[]): string[] {
@@ -80,9 +94,10 @@ function firestoreAccountCleanup(): AccountCleanupStore {
       });
     },
     async deleteObjects(paths) {
-      if (paths.length === 0) return;
       const bucket = getStorage().bucket(sightingStorageBucket);
-      await Promise.all(paths.map((path) => bucket.file(path).delete({ ignoreNotFound: true })));
+      await deleteStorageObjects(paths, async (path) => {
+        await bucket.file(path).delete({ ignoreNotFound: true });
+      });
     },
     async deletePrefixes(prefixes) {
       const bucket = getStorage().bucket(sightingStorageBucket);

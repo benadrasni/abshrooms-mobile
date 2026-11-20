@@ -26,6 +26,11 @@ void main() {
     expect(raw.image, same(image));
   });
 
+  test('a startup retry does not set Firestore persistence again', () {
+    expect(firestorePersistencePending(false), isTrue);
+    expect(firestorePersistencePending(true), isFalse);
+  });
+
   testWidgets('a failed startup can be tried again', (tester) async {
     var tries = 0;
     await tester.pumpWidget(
