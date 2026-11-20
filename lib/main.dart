@@ -513,7 +513,9 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
     } catch (error) {
       debugPrint('analytics consent: $error');
     }
+    Ads.markConsentChecked();
     try {
+      if (!await ConsentInformation.instance.canRequestAds()) return;
       await MobileAds.instance.initialize();
       Ads.markReady();
       if (mounted) setState(() {});

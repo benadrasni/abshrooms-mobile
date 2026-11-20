@@ -60,8 +60,8 @@ class _PersonPageState extends State<PersonPage> {
     Names.revision.addListener(_onPlan);
     Auth.revision.addListener(_onPlan);
     OfflineBook.revision.addListener(_onPlan);
-    Ads.ready.addListener(_onAdsReady);
-    if (Ads.enabled) unawaited(_loadAdPrivacy());
+    Ads.consentChecked.addListener(_onConsentChecked);
+    if (Ads.consentChecked.value > 0) unawaited(_loadAdPrivacy());
     if (widget.versionName == null && widget.buildNumber == null) {
       unawaited(_loadVersion());
     }
@@ -73,12 +73,12 @@ class _PersonPageState extends State<PersonPage> {
     Names.revision.removeListener(_onPlan);
     Auth.revision.removeListener(_onPlan);
     OfflineBook.revision.removeListener(_onPlan);
-    Ads.ready.removeListener(_onAdsReady);
+    Ads.consentChecked.removeListener(_onConsentChecked);
     super.dispose();
   }
 
-  void _onAdsReady() {
-    if (Ads.enabled) unawaited(_loadAdPrivacy());
+  void _onConsentChecked() {
+    unawaited(_loadAdPrivacy());
   }
 
   Future<void> _loadAdPrivacy() async {

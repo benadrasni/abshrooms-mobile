@@ -8,34 +8,57 @@ import 'package:whats_that_mushroom/shell/guide_analytics.dart';
 /// Collects consent before the first ad request.
 ///
 /// The published AdMob message is Google's consent form. Outside the EEA,
-/// the UK, and Switzerland this completes without a form. A failure still
-/// lets the SDK start.
+/// the UK, and Switzerland this completes without a form.
 ///
-/// Returns true when the request failed. Analytics still runs unless a
-/// required choice is already missing. A shown form returns false and
-/// [applyAnalyticsConsent] reads the choice.
-Future<bool> gatherAdConsent() async {
+/// Returns true when the request or the form failed. Analytics still runs
+/// unless a required choice is already missing. The caller starts the Mobile
+/// Ads SDK only when [ConsentInformation.canRequestAds] is true. A stored
+/// choice can still allow that after a failed form.
+///
+/// [requestUpdate] and [showForm] replace the UMP calls in tests.
+Future<bool> gatherAdConsent({
+  Future<void> Function()? requestUpdate,
+  Future<void> Function(void Function(FormError? error))? showForm,
+}) async {
   final updated = Completer<void>();
   var failed = false;
   try {
-    ConsentInformation.instance.requestConsentInfoUpdate(
-      ConsentRequestParameters(),
-      () {
-        if (!updated.isCompleted) updated.complete();
-      },
-      (_) {
-        failed = true;
-        if (!updated.isCompleted) updated.complete();
-      },
-    );
-    await updated.future.timeout(
-      const Duration(seconds: 15),
-      onTimeout: () {
-        failed = true;
-      },
-    );
+    if (requestUpdate != null) {
+      await requestUpdate().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          failed = true;
+        },
+      );
+    } else {
+      ConsentInformation.instance.requestConsentInfoUpdate(
+        ConsentRequestParameters(),
+        () {
+          if (!updated.isCompleted) updated.complete();
+        },
+        (error) {
+          debugPrint('ads consent: ${error.errorCode}: ${error.message}');
+          failed = true;
+          if (!updated.isCompleted) updated.complete();
+        },
+      );
+      await updated.future.timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          failed = true;
+        },
+      );
+    }
     if (failed) return true;
-    await ConsentForm.loadAndShowConsentFormIfRequired((_) {});
+    FormError? formError;
+    await (showForm ?? ConsentForm.loadAndShowConsentFormIfRequired)((error) {
+      formError = error;
+    });
+    final error = formError;
+    if (error != null) {
+      debugPrint('ads consent: ${error.errorCode}: ${error.message}');
+      return true;
+    }
     return false;
   } catch (error) {
     debugPrint('ads consent: $error');
@@ -71,8 +94,9 @@ Future<void> applyAnalyticsConsent({
 }
 
 /// True when the published message requires a way to change the choice.
+///
+/// This stays available when ads are refused, so the choice can be changed.
 Future<bool> adPrivacyOptionsRequired() async {
-  if (!Ads.enabled) return false;
   try {
     final status = await ConsentInformation.instance
         .getPrivacyOptionsRequirementStatus();
@@ -84,14 +108,20 @@ Future<bool> adPrivacyOptionsRequired() async {
 }
 
 Future<void> showAdPrivacyOptions() async {
-  if (!Ads.enabled) return;
-  final done = Completer<void>();
   try {
-    ConsentForm.showPrivacyOptionsForm((_) {
-      if (!done.isCompleted) done.complete();
+    FormError? formError;
+    await ConsentForm.showPrivacyOptionsForm((error) {
+      formError = error;
     });
-    await done.future;
+    final error = formError;
+    if (error != null) {
+      debugPrint('ads privacy: ${error.errorCode}: ${error.message}');
+    }
     await applyAnalyticsConsent();
+    if (Ads.enabled) return;
+    if (!await ConsentInformation.instance.canRequestAds()) return;
+    await MobileAds.instance.initialize();
+    Ads.markReady();
   } catch (error) {
     debugPrint('ads privacy: $error');
   }
