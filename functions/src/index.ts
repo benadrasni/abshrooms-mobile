@@ -395,3 +395,4 @@ export {
   releaseStorePurchases,
   submitPurchase,
 } from './store_callables';
+export { cleanupDeletedAccount } from './account_cleanup';

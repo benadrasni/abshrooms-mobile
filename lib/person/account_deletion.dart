@@ -3,13 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/copy.dart';
-import 'package:whats_that_mushroom/data/favorites.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
 import 'package:whats_that_mushroom/person/phone_verify.dart';
 import 'package:whats_that_mushroom/purchase/store_proof.dart';
-import 'package:whats_that_mushroom/seen/private_sync.dart';
-import 'package:whats_that_mushroom/seen/publish.dart';
-import 'package:whats_that_mushroom/shell/push.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
@@ -109,12 +105,15 @@ Future<void> _deleteUser() async {
   if (user == null || user.isAnonymous) {
     throw StateError('not signed in');
   }
-  await deleteOwnedSightings(user.uid);
-  await deleteAccountFavorites(user.uid);
-  await deletePrivateFinds(user.uid);
-  await releaseStorePurchases();
-  await clearPushToken(user.uid);
+  final uid = user.uid;
+  // Cloud rows are removed only after Auth deletes this user. A refused
+  // or canceled sign-in leaves sightings, favorites, and receipts in place.
   await user.delete();
+  try {
+    await clearPendingStoreProofs(uid);
+  } catch (error) {
+    debugPrint('pending proofs: $error');
+  }
   await Auth.signOut();
 }
 

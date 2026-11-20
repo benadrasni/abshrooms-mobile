@@ -321,6 +321,19 @@ Future<void> flushPendingStoreProofs() async {
   }
 }
 
+/// Drops queued receipts for [uid]. Another account's queue stays.
+/// An empty [uid] is the signed-out queue and is left for the next sign-in.
+Future<void> clearPendingStoreProofs(String uid) async {
+  if (uid.isEmpty) return;
+  final pending = await _readPending();
+  final next = [
+    for (final item in pending)
+      if (item.uid != uid) item,
+  ];
+  if (next.length == pending.length) return;
+  await _writePending(next);
+}
+
 Future<void> releaseStorePurchases() async {
   final uid = currentStoreUid();
   if (uid == null || uid.isEmpty) return;

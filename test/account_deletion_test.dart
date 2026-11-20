@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:whats_that_mushroom/person/account_deletion.dart';
 import 'package:whats_that_mushroom/person/auth.dart';
+import 'package:whats_that_mushroom/purchase/store_proof.dart';
 import 'package:whats_that_mushroom/seen/sighting_storage.dart';
 
 void main() {
@@ -286,12 +288,67 @@ void main() {
     expect(signedInAnalyticsId('  ', anonymous: false), isNull);
   });
 
-  test('account deletion removes the private notebook before the user', () {
+  test('account deletion asks again before it removes the auth user', () {
     final source = File('lib/person/account_deletion.dart').readAsStringSync();
-    final finds = source.indexOf('await deletePrivateFinds(user.uid);');
-    final user = source.indexOf('await user.delete();');
-    expect(finds, greaterThan(0));
-    expect(user, greaterThan(finds));
+    final confirm = source
+        .split('Future<DeleteAccountResult> confirmAndDeleteAccount')
+        .last
+        .split('Future<void> _deleteUser')
+        .first;
+    expect(
+      confirm.indexOf('reauthenticateCurrentUser'),
+      lessThan(confirm.indexOf('_deleteUser()')),
+    );
+    final body = source
+        .split('Future<void> _deleteUser()')
+        .last
+        .split('void showDeleteAccountResult')
+        .first;
+    expect(body.contains('await user.delete();'), isTrue);
+    expect(
+      body.indexOf('await user.delete();'),
+      lessThan(body.indexOf('clearPendingStoreProofs')),
+    );
+    expect(body.contains('deleteOwnedSightings'), isFalse);
+    expect(body.contains('deleteAccountFavorites'), isFalse);
+    expect(body.contains('deletePrivateFinds'), isFalse);
+    expect(body.contains('releaseStorePurchases'), isFalse);
+    expect(body.contains('clearPushToken'), isFalse);
+  });
+
+  test('account deletion drops this account’s queued receipts', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({
+      'pending_store_proofs': jsonEncode([
+        {
+          'uid': 'ada',
+          'store': 'google_play',
+          'productId': 'yearly',
+          'proof': 'token-a',
+        },
+        {
+          'uid': 'bee',
+          'store': 'google_play',
+          'productId': 'monthly',
+          'proof': 'token-b',
+        },
+        {
+          'uid': '',
+          'store': 'google_play',
+          'productId': 'yearly',
+          'proof': 'token-0',
+        },
+      ]),
+    });
+    await clearPendingStoreProofs('ada');
+    final prefs = await SharedPreferences.getInstance();
+    final left = decodePendingProofs(prefs.getString('pending_store_proofs')!);
+    expect(left.proofs.map((item) => item.uid), ['bee', '']);
+    await clearPendingStoreProofs('');
+    expect(
+      decodePendingProofs(prefs.getString('pending_store_proofs')!).proofs,
+      hasLength(2),
+    );
   });
 
   test('account deletion removes that uid’s sighting objects', () {
