@@ -377,6 +377,9 @@ class Notebook extends ChangeNotifier {
     _dir = dir;
   }
 
+  /// Documents directory after [load] or [useStorage].
+  Directory? get storageDirectory => _dir;
+
   /// JPEG path for [id] once the documents directory is known.
   String? photoFile(String id) {
     final dir = _dir;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -329,11 +330,68 @@ void _queueDownload(
   downloads.add((id: find.id, object: object));
 }
 
+/// Runs snapshot handlers one at a time, in arrival order.
+class PrivateSnapQueue {
+  Future<void> _tail = Future<void>.value();
+
+  Future<void> run(Future<void> Function() body) {
+    final done = _tail.then((_) => body());
+    _tail = done.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {
+        debugPrint('private finds: $error');
+      },
+    );
+    return done;
+  }
+}
+
+/// A uid that can be one path segment under the documents directory.
+bool privateAccountIdOk(String uid) {
+  return uid.isNotEmpty &&
+      uid.length <= 128 &&
+      !uid.contains('/') &&
+      !uid.contains('\\') &&
+      !uid.contains('..');
+}
+
+/// Pending remote deletes for [uid]. A bad file reads as none.
+Set<String> readPrivateTombstones(Directory dir, String uid) {
+  if (!privateAccountIdOk(uid)) return {};
+  final file = File('${dir.path}/private-gone/$uid.json');
+  if (!file.existsSync()) return {};
+  try {
+    final decoded = json.decode(file.readAsStringSync());
+    if (decoded is! List) return {};
+    return {
+      for (final item in decoded)
+        if (item is String && item.isNotEmpty && !item.contains('/')) item,
+    };
+  } catch (error) {
+    debugPrint('private tombstones: $error');
+    return {};
+  }
+}
+
+/// Stores [ids] for [uid]. An unsafe uid is left untouched.
+void writePrivateTombstones(Directory dir, String uid, Set<String> ids) {
+  if (!privateAccountIdOk(uid)) return;
+  final folder = Directory('${dir.path}/private-gone');
+  folder.createSync(recursive: true);
+  final file = File('${folder.path}/$uid.json');
+  final temp = File('${folder.path}/$uid.json.tmp');
+  final names = ids.toList()..sort();
+  temp.writeAsStringSync(json.encode(names), flush: true);
+  temp.renameSync(file.path);
+}
+
 /// Watches `users/{uid}/finds` while Field Guide is on and copies photos
 /// to `private/{uid}/{id}.jpg`. Signing out or losing the plan stops the
-/// watch. Rows already on the phone stay.
+/// watch. Rows already on the phone stay. A delete that has not reached
+/// the account yet is kept on disk, so a restart does not put that row back.
 class PrivateNotebookSync {
   final Notebook notebook;
+  final PrivateSnapQueue _snaps = PrivateSnapQueue();
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
   String? _uid;
   Map<String, Map<String, dynamic>> _remote = {};
@@ -358,14 +416,15 @@ class PrivateNotebookSync {
     _stopWatch();
     _uid = uid;
     _remote = {};
-    _gone.clear();
+    _gone.addAll(_storedGone(uid));
+    _dropTombstonesStillOnPhone(uid);
     _sub = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection(privateFindsCollection)
         .snapshots()
         .listen(
-          (snap) => unawaited(_onSnap(uid, snap)),
+          (snap) => unawaited(_snaps.run(() => _onSnap(uid, snap))),
           onError: (Object error) {
             debugPrint('private finds: $error');
           },
@@ -398,10 +457,33 @@ class PrivateNotebookSync {
     final uid = _uid;
     if (uid == null) return;
     final ids = {for (final find in notebook.finds) find.id};
+    var marked = false;
     for (final id in _remote.keys) {
-      if (!ids.contains(id)) _gone.add(id);
+      if (id.isEmpty || ids.contains(id)) continue;
+      if (_gone.add(id)) marked = true;
     }
+    if (marked) _rememberGone(uid);
     unawaited(_push());
+  }
+
+  Set<String> _storedGone(String uid) {
+    final dir = notebook.storageDirectory;
+    if (dir == null) return {};
+    return readPrivateTombstones(dir, uid);
+  }
+
+  void _rememberGone(String uid) {
+    final dir = notebook.storageDirectory;
+    if (dir == null) return;
+    writePrivateTombstones(dir, uid, _gone);
+  }
+
+  /// A row that is on the phone again is no longer a pending delete.
+  void _dropTombstonesStillOnPhone(String uid) {
+    final ids = {for (final find in notebook.finds) find.id};
+    final before = _gone.length;
+    _gone.removeAll(ids);
+    if (_gone.length != before) _rememberGone(uid);
   }
 
   Future<void> _onSnap(
@@ -469,11 +551,16 @@ class PrivateNotebookSync {
     final uid = _uid;
     if (uid == null || _stopped || !Purchases.hasFieldGuide()) return;
     final plan = _plan(uid, false);
+    var forgot = false;
     for (final id in plan.deleteRemote) {
-      await _deleteRemote(uid, id);
+      if (_uid != uid || _stopped) return;
+      final deleted = await _deleteRemote(uid, id);
+      if (_uid != uid || _stopped) return;
+      if (!deleted) continue;
       _remote.remove(id);
-      _gone.remove(id);
+      if (_gone.remove(id)) forgot = true;
     }
+    if (forgot) _rememberGone(uid);
     if (plan.upload.isEmpty) return;
     final done = <FindRecord>[];
     for (final find in plan.upload) {
@@ -570,7 +657,9 @@ class PrivateNotebookSync {
     }
   }
 
-  Future<void> _deleteRemote(String uid, String id) async {
+  /// False when the row is still on the account. The photo delete is
+  /// best-effort once the row is gone.
+  Future<bool> _deleteRemote(String uid, String id) async {
     try {
       await FirebaseFirestore.instance
           .collection('users')
@@ -580,9 +669,10 @@ class PrivateNotebookSync {
           .delete();
     } catch (error) {
       debugPrint('private find delete $id: $error');
+      return false;
     }
     final object = privatePhotoObject(uid, id);
-    if (object.isEmpty) return;
+    if (object.isEmpty) return true;
     try {
       await sightingStorage().ref(object).delete();
     } on FirebaseException catch (error) {
@@ -590,6 +680,7 @@ class PrivateNotebookSync {
         debugPrint('private photo delete $id: $error');
       }
     }
+    return true;
   }
 }
 

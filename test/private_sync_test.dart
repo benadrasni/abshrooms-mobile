@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whats_that_mushroom/data/notebook.dart';
 import 'package:whats_that_mushroom/seen/private_sync.dart';
@@ -439,4 +442,46 @@ void main() {
     expect(plan.changed, isFalse);
     expect(plan.finds.map((find) => find.id), ['1', '']);
   });
+
+  test('snapshot work runs one at a time', () async {
+    final queue = PrivateSnapQueue();
+    final order = <String>[];
+    final release = Completer<void>();
+    final started = Completer<void>();
+    final first = queue.run(() async {
+      order.add('a');
+      started.complete();
+      await release.future;
+      order.add('a-done');
+    });
+    await started.future;
+    final second = queue.run(() async {
+      order.add('b');
+    });
+    expect(order, ['a']);
+    release.complete();
+    await Future.wait([first, second]);
+    expect(order, ['a', 'a-done', 'b']);
+  });
+
+  test(
+    'a pending delete is stored for that account and survives a bad read',
+    () {
+      final dir = Directory.systemTemp.createTempSync('private-gone');
+      addTearDown(() {
+        if (dir.existsSync()) dir.deleteSync(recursive: true);
+      });
+      writePrivateTombstones(dir, 'ada', {'b', 'a'});
+      expect(readPrivateTombstones(dir, 'ada'), {'a', 'b'});
+      expect(readPrivateTombstones(dir, 'bob'), isEmpty);
+      expect(
+        File('${dir.path}/private-gone/ada.json.tmp').existsSync(),
+        isFalse,
+      );
+      writePrivateTombstones(dir, 'a/b', {'1'});
+      expect(File('${dir.path}/private-gone/a/b.json').existsSync(), isFalse);
+      File('${dir.path}/private-gone/ada.json').writeAsStringSync('{');
+      expect(readPrivateTombstones(dir, 'ada'), isEmpty);
+    },
+  );
 }
