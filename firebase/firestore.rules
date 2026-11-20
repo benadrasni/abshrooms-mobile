@@ -229,18 +229,23 @@ service cloud.firestore {
     }
 
     // A Sighting sent from Seen. The owner creates it as review and may
-    // delete it. Publishing or rejecting is an admin write. The document
-    // keeps the account, the country, and the coordinates. Guests cannot
-    // read it. The public card is sightings_public.
+    // delete it. A guest account cannot read or write it. Publishing or
+    // rejecting is an admin write. The document keeps the account, the
+    // country, and the coordinates. The public card is sightings_public.
     match /sightings/{id} {
-      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow read: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && resource.data.uid == request.auth.uid;
       allow create: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && id.matches('^[A-Za-z0-9_-]{1,80}$')
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'review'
         && request.resource.data.latin is string
         && request.resource.data.latin.size() > 0
         && request.resource.data.latin.size() < 200
         && request.resource.data.millis is int
+        && request.resource.data.millis > 0
         && request.resource.data.photo == 'sightings/' + request.auth.uid + '/' + id + '.jpg'
         && request.resource.data.keys().hasAll(['uid', 'latin', 'millis', 'status', 'photo'])
         && request.resource.data.keys().hasOnly(['uid', 'latin', 'millis', 'status', 'photo', 'country', 'latitude', 'longitude'])
@@ -249,12 +254,16 @@ service cloud.firestore {
       // The owner may add the country and the coordinates after the share.
       // Status stays an admin write.
       allow update: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && id.matches('^[A-Za-z0-9_-]{1,80}$')
         && resource.data.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['country', 'latitude', 'longitude'])
         && request.resource.data.diff(resource.data).affectedKeys().size() > 0
         && sightingCountryOk(request.resource.data)
         && sightingPlaceOk(request.resource.data);
       allow delete: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && id.matches('^[A-Za-z0-9_-]{1,80}$')
         && resource.data.uid == request.auth.uid;
     }
 
@@ -265,14 +274,20 @@ service cloud.firestore {
       allow read: if true;
       allow create: if false;
       allow update: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && id.matches('^[A-Za-z0-9_-]{1,80}$')
         && exists(/databases/$(database)/documents/sightings/$(id))
         && get(/databases/$(database)/documents/sightings/$(id)).data.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['country'])
         && sightingCountryOk(request.resource.data)
         && request.resource.data.keys().hasOnly(['latin', 'millis', 'photo', 'country'])
+        && request.resource.data.millis is int
+        && request.resource.data.millis > 0
         && !request.resource.data.keys().hasAny(['uid', 'latitude', 'longitude', 'status'])
         && request.resource.data.photo == 'sightings/public/' + id + '.jpg';
       allow delete: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && id.matches('^[A-Za-z0-9_-]{1,80}$')
         && exists(/databases/$(database)/documents/sightings/$(id))
         && get(/databases/$(database)/documents/sightings/$(id)).data.uid == request.auth.uid;
     }

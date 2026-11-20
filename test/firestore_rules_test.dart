@@ -26,12 +26,25 @@ void main() {
     expect(rules, contains("data.country.matches('^[a-z]{2}\$')"));
     expect(rules, contains('function sightingPlaceOk(data)'));
     expect(rules, contains('!(data.latitude == 0 && data.longitude == 0)'));
+    expect(block, contains('request.resource.data.millis > 0'));
+    expect(block, contains("id.matches('^[A-Za-z0-9_-]{1,80}\$')"));
+    expect(block, contains("sign_in_provider != 'anonymous'"));
     expect(
       rules,
       contains(
-        "allow read: if request.auth != null && resource.data.uid == request.auth.uid;",
+        'allow read: if request.auth != null\n'
+        '        && request.auth.token.firebase.sign_in_provider != \'anonymous\'\n'
+        '        && resource.data.uid == request.auth.uid;',
       ),
     );
+    final publicStart = rules.indexOf('match /sightings_public/{id}');
+    final publicBlock = rules.substring(
+      publicStart,
+      rules.indexOf('match /sightings_stats/{id}'),
+    );
+    expect(publicBlock, contains("sign_in_provider != 'anonymous'"));
+    expect(publicBlock, contains("id.matches('^[A-Za-z0-9_-]{1,80}\$')"));
+    expect(publicBlock, contains('request.resource.data.millis > 0'));
     expect(rules, contains('match /sightings_public/{id}'));
     expect(
       rules,
