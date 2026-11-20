@@ -81,6 +81,31 @@ void main() {
       isA<PushNowhere>(),
     );
     expect(
+      pushDestination(
+        PushNotice.fromData({
+          'action': 'browse',
+          'uri': 'http://whatsthatmushroom.com/mushroom',
+        }),
+      ),
+      isA<PushLink>(),
+    );
+    for (final uri in [
+      'tel:+421900000000',
+      'sms:+421900000000',
+      'file:///tmp/note',
+      'intent://scan/#Intent;scheme=https;end',
+      'javascript:alert(1)',
+      'https://',
+      'https:///mushroom',
+      'whatsthatmushroom.com',
+    ]) {
+      expect(
+        pushDestination(PushNotice.fromData({'action': 'browse', 'uri': uri})),
+        isA<PushNowhere>(),
+        reason: uri,
+      );
+    }
+    expect(
       pushDestination(PushNotice.fromData({'action': 1})),
       isA<PushNowhere>(),
     );

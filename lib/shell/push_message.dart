@@ -112,6 +112,19 @@ class PushLink extends PushDestination {
   const PushLink(this.uri);
 }
 
+/// A browse notification may open only an http or https page.
+bool pushBrowseUriAllowed(Uri uri) {
+  final scheme = uri.scheme.toLowerCase();
+  return (scheme == 'https' || scheme == 'http') && uri.host.isNotEmpty;
+}
+
+/// The page a browse notification may open. Anything else is refused.
+Uri? pushBrowseUri(String raw) {
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null || !pushBrowseUriAllowed(uri)) return null;
+  return uri;
+}
+
 PushDestination pushDestination(PushNotice notice) {
   switch (notice.action) {
     case pushActionList:
@@ -126,8 +139,8 @@ PushDestination pushDestination(PushNotice notice) {
       if (name.isEmpty) return const PushNowhere();
       return PushSpecies(name);
     case pushActionBrowse:
-      final uri = Uri.tryParse(notice.uri.trim());
-      if (uri == null || !uri.hasScheme) return const PushNowhere();
+      final uri = pushBrowseUri(notice.uri);
+      if (uri == null) return const PushNowhere();
       return PushLink(uri);
     default:
       return const PushNowhere();

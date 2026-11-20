@@ -334,6 +334,7 @@ class GuidePush {
   }
 
   Future<void> _openLink(Uri uri) async {
+    if (!pushBrowseUriAllowed(uri)) return;
     try {
       final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!opened) debugPrint('push link: $uri');
