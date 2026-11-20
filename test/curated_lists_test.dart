@@ -97,37 +97,46 @@ void main() {
       expect(selectCuratedLists(lists, 'de').map((list) => list.id).toList(), [
         'mushroom-of-the-year-de',
         'mushroom-of-the-year-at',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'nl').map((list) => list.id).toList(), [
         'mushroom-of-the-year-nl',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'lv').map((list) => list.id).toList(), [
         'mushroom-of-the-year-lv',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'hu').map((list) => list.id).toList(), [
         'mushroom-of-the-year-hu',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'en').map((list) => list.id).toList(), [
         'us-state-mushrooms',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'en_US').map((list) => list.id).toList(), [
         'us-state-mushrooms',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'en_GB').map((list) => list.id).toList(), [
         'us-state-mushrooms',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'sk').map((list) => list.id).toList(), [
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(selectCuratedLists(lists, 'et').map((list) => list.id).toList(), [
         'mushroom-of-the-year-et',
+        'choice-edible',
         'deadly-poisonous',
       ]);
       expect(

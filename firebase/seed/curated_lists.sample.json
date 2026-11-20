@@ -650,6 +650,185 @@
       "coverSpeciesId": 7
     },
     {
+      "id": "choice-edible",
+      "type": "species",
+      "sort": 65,
+      "locales": [
+        "*"
+      ],
+      "titles": {
+        "ar": "ممتازة للأكل",
+        "bg": "Отлични ядливи",
+        "zh": "極佳食用蕈",
+        "hr": "Izvrsne jestive",
+        "cs": "Výborné",
+        "da": "Velsmagende spisesvampe",
+        "nl": "Uitstekend eetbaar",
+        "en": "Choice edibles",
+        "et": "Väga head söögiseened",
+        "fi": "Erinomaiset ruokasienet",
+        "fr": "Excellents comestibles",
+        "de": "Hervorragende Speisepilze",
+        "he": "מובחרות למאכל",
+        "hi": "उत्कृष्ट खाद्य",
+        "hu": "Kiváló csemegegombák",
+        "id": "Pilihan utama",
+        "it": "Ottimi commestibili",
+        "ja": "優秀な食用キノコ",
+        "ko": "최고의 식용",
+        "lv": "Teicamas ēdamās sēnes",
+        "lt": "Vertingi valgomi grybai",
+        "no": "Gode matsopper",
+        "fa": "عالی برای خوردن",
+        "pl": "Wyborne",
+        "pt": "Excelentes comestíveis",
+        "ro": "Comestibile excelente",
+        "ru": "Деликатесные съедобные",
+        "sr": "Одличне јестиве",
+        "sk": "Výborné",
+        "sl": "Odlične užitne",
+        "es": "Excelentes comestibles",
+        "sv": "Läckra matsvampar",
+        "tr": "Seçkin yemeklik",
+        "uk": "Чудові їстівні"
+      },
+      "descriptions": {
+        "ar": "أنواع يصنفها هذا الدليل على أنها ممتازة للأكل. لا تأكل فطرًا بريًا لم تحدده بيقين.",
+        "bg": "Видове, които този определител класифицира като отлични ядливи. Никога не яжте диворастяща гъба, която не сте определили със сигурност.",
+        "zh": "本圖鑑列為極佳食用的種類。尚未確定鑑定的野生蕈，切勿食用。",
+        "hr": "Vrste koje ovaj vodič svrstava među izvrsne jestive. Nikada ne jedite samoniklu gljivu koju niste pouzdano odredili.",
+        "cs": "Druhy, které tento průvodce řadí mezi výborné. Nikdy nejezte divoce rostoucí houbu, kterou jste s jistotou neurčili.",
+        "da": "Arter, som denne guide klassificerer som velsmagende spisesvampe. Spis aldrig en vildsvamp, du ikke har bestemt med sikkerhed.",
+        "nl": "Soorten die deze gids als uitstekend eetbaar indeelt. Eet nooit een wilde paddenstoel die u niet zeker hebt gedetermineerd.",
+        "en": "Species this guide classifies as choice. Never eat a wild mushroom you have not identified with certainty.",
+        "et": "Liigid, mille see määraja liigitab väga headeks söögiseenteks. Ärge kunagi sööge metsaseent, mida te ei ole kindlalt määranud.",
+        "fi": "Lajit, jotka tämä opas luokittelee erinomaisiksi ruokasieniksi. Älä koskaan syö luonnonsientä, jota et ole varmasti tunnistanut.",
+        "fr": "Espèces que ce guide classe parmi les excellents comestibles. Ne mangez jamais un champignon sauvage que vous n'avez pas identifié avec certitude.",
+        "de": "Arten, die dieser Leitfaden als hervorragend einstuft. Essen Sie nie einen Wildpilz, den Sie nicht sicher bestimmt haben.",
+        "he": "מינים שמדריך זה מסווג כמובחרים למאכל. לעולם אל תאכלו פטריית בר שלא זיהיתם בוודאות.",
+        "hi": "वे प्रजातियाँ जिन्हें यह मार्गदर्शिका उत्कृष्ट खाद्य मानती है। जिस जंगली मशरूम की आपने निश्चित पहचान न की हो, उसे कभी न खाएँ।",
+        "hu": "Fajok, amelyeket ez az útmutató a kiváló csemegegombák közé sorol. Soha ne egyen meg vadon termő gombát, amelyet nem azonosított biztosan.",
+        "id": "Jenis yang panduan ini menggolongkan sebagai pilihan utama. Jangan pernah makan jamur liar yang belum Anda kenali dengan pasti.",
+        "it": "Specie che questa guida classifica come ottimi commestibili. Non mangiate mai un fungo selvatico che non avete identificato con certezza.",
+        "ja": "この図鑑が優秀な食用キノコとする種。確実に同定していない野生のキノコは決して食べないでください。",
+        "ko": "이 도감이 최고의 식용으로 분류하는 종. 확실하게 동정하지 않은 야생 버섯은 절대 먹지 마십시오.",
+        "lv": "Sugas, ko šī rokasgrāmata ierindo kā teicamas ēdamās sēnes. Nekad neēdiet savvaļas sēni, kuru neesat droši noteicis.",
+        "lt": "Rūšys, kurias šis vadovas priskiria vertingiems valgomiems grybams. Niekada nevalgykite laukinio grybo, kurio nesate patikimai nustatę.",
+        "no": "Arter denne guiden regner som god matsopp. Spis aldri en vill sopp du ikke har bestemt med sikkerhet.",
+        "fa": "گونه‌هایی که این راهنما آن‌ها را عالی برای خوردن می‌داند. هرگز قارچ وحشی‌ای را که با اطمینان شناسایی نکرده‌اید، نخورید.",
+        "pl": "Gatunki, które ten przewodnik zalicza do wybornych. Nigdy nie jedzcie dzikiego grzyba, którego nie oznaczyliście z pewnością.",
+        "pt": "Espécies que este guia classifica como excelentes comestíveis. Nunca coma um cogumelo silvestre que não tenha identificado com certeza.",
+        "ro": "Specii pe care acest ghid le clasifică drept comestibile excelente. Nu mâncați niciodată o ciupercă sălbatică pe care nu ați identificat-o cu certitudine.",
+        "ru": "Виды, которые этот определитель относит к деликатесным съедобным. Никогда не ешьте дикорастущий гриб, который вы не определили с уверенностью.",
+        "sr": "Врсте које овај водич сврстава међу одличне јестиве. Никада не једите самониклу гљиву коју нисте поуздано одредили.",
+        "sk": "Druhy, ktoré tento sprievodca zaraďuje medzi výborné. Nikdy nejedzte divo rastúcu hubu, ktorú ste s istotou neurčili.",
+        "sl": "Vrste, ki jih ta vodnik uvršča med odlične užitne. Nikoli ne jejte samonikle gobe, ki je niste zanesljivo določili.",
+        "es": "Especies que esta guía clasifica como excelentes comestibles. Nunca coma una seta silvestre que no haya identificado con certeza.",
+        "sv": "Arter som den här guiden klassar som läckra matsvampar. Ät aldrig en vildsvamp som du inte har bestämt med säkerhet.",
+        "tr": "Bu rehberin seçkin yemeklik saydığı türler. Kesin olarak tanımlamadığınız yabani bir mantarı asla yemeyin.",
+        "uk": "Види, які цей визначник відносить до чудових їстівних. Ніколи не їжте дикорослого гриба, якого ви не визначили напевно."
+      },
+      "entries": [
+        {
+          "name": "Agaricus arvensis"
+        },
+        {
+          "name": "Agaricus campestris"
+        },
+        {
+          "name": "Amanita caesarea"
+        },
+        {
+          "name": "Boletus aereus"
+        },
+        {
+          "name": "Boletus edulis"
+        },
+        {
+          "name": "Boletus pinophilus"
+        },
+        {
+          "name": "Boletus reticulatus"
+        },
+        {
+          "name": "Calocybe gambosa"
+        },
+        {
+          "name": "Cantharellus californicus"
+        },
+        {
+          "name": "Cantharellus cibarius"
+        },
+        {
+          "name": "Cantharellus formosus"
+        },
+        {
+          "name": "Collybia personata"
+        },
+        {
+          "name": "Coprinus comatus"
+        },
+        {
+          "name": "Craterellus cornucopioides"
+        },
+        {
+          "name": "Craterellus tubaeformis"
+        },
+        {
+          "name": "Gomphus clavatus"
+        },
+        {
+          "name": "Grifola frondosa"
+        },
+        {
+          "name": "Hericium erinaceus"
+        },
+        {
+          "name": "Hydnum repandum"
+        },
+        {
+          "name": "Imleria badia"
+        },
+        {
+          "name": "Lactarius deliciosus"
+        },
+        {
+          "name": "Lactifluus volemus"
+        },
+        {
+          "name": "Leccinum duriusculum"
+        },
+        {
+          "name": "Lepista nuda"
+        },
+        {
+          "name": "Macrolepiota procera"
+        },
+        {
+          "name": "Marasmius oreades"
+        },
+        {
+          "name": "Morchella esculenta"
+        },
+        {
+          "name": "Pleurotus ostreatus"
+        },
+        {
+          "name": "Polyporus umbellatus"
+        },
+        {
+          "name": "Russula cyanoxantha"
+        },
+        {
+          "name": "Russula virescens"
+        },
+        {
+          "name": "Sparassis crispa"
+        }
+      ],
+      "coverSpecies": "Boletus edulis"
+    },
+    {
       "id": "deadly-poisonous",
       "type": "species",
       "sort": 70,

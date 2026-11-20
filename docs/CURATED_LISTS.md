@@ -44,7 +44,7 @@ A list is shown only when `locales` contains the guide language, or `*`. Another
 
 Adding a translation string does not change which lists appear. Adding the language code to `locales` does.
 
-The sample tags each mushroom-of-the-year list with one language: `de` for Germany and Austria, `nl` for the Netherlands, `lv` for Latvia, `hu` for Hungary, and `et` for Estonia. US state mushrooms are `en` only. Deadly poisonous is `*`, so every guide language sees it, including English and Slovak.
+The sample tags each mushroom-of-the-year list with one language: `de` for Germany and Austria, `nl` for the Netherlands, `lv` for Latvia, `hu` for Hungary, and `et` for Estonia. US state mushrooms are `en` only. Deadly poisonous and Choice edibles are `*`, so every guide language sees them, including English and Slovak.
 
 Estonia 2017 is the genus *Cantharellus*, not *Cantharellus cibarius*. The picture is that species, because it is the only *Cantharellus* in the book. The row’s name is the genus.
 
@@ -52,10 +52,11 @@ The app’s language setting is English or Slovak today. The selector accepts an
 
 ## Sample lists
 
-The seed file has eight documents:
+The seed file has nine documents:
 
 - Mushroom of the year for Germany (1994–2027), Austria, the Netherlands, Latvia, Hungary, and Estonia. Each row has a year. Estonia 2017 is the genus *Cantharellus*. Estonia 2025 is the genus *Heterobasidion*, which the book does not list, so that row has no picture and does not open. Sources are the DGfM list, Naturschutzbund Österreich, the Dutch Mycological Society, the Latvian Mycological Society, the Hungarian Év gombája pages, and the Estonian Aasta seen page linked in `sourceUrl`.
 - US state mushrooms. Each row has a region. Minnesota and Utah are in the current catalog; Oregon and Texas are in the seed and are skipped until those species exist.
+- Choice edibles, every species the catalog marks `choice`, in Latin-name order. Titles and descriptions are stored for every guide language.
 - Deadly poisonous species, in stored order. `Amanita ocreata` and `Conocybe filaris` are in the seed and skipped until the catalog has them.
 
 Austria’s names are not in the current catalog, so that list opens on the empty state. That is intentional.
