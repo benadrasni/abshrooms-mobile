@@ -648,6 +648,7 @@ void main() {
     expect(find.text('bolete family'), findsWidgets);
     expect(find.text('Photos'), findsOneWidget);
     expect(find.text('Plates'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Boletus edulis'), findsNWidgets(2));
   });
 
   testWidgets('Slovak taxonomy uses the rank labels', (tester) async {

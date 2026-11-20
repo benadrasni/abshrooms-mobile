@@ -702,34 +702,29 @@ class _KeptCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
                       copy.offlineOnPhone,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      detail,
-                      style: TextStyle(fontSize: 13, color: colors.ink3),
+                  ),
+                  TextButton(
+                    key: offlineRemoveKey,
+                    onPressed: onRemove,
+                    style: TextButton.styleFrom(foregroundColor: colors.madder),
+                    child: Text(
+                      copy.offlineRemove,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              TextButton(
-                key: offlineRemoveKey,
-                onPressed: onRemove,
-                style: TextButton.styleFrom(foregroundColor: colors.madder),
-                child: Text(
-                  copy.offlineRemove,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
+              Text(detail, style: TextStyle(fontSize: 13, color: colors.ink3)),
             ],
           ),
         ),
@@ -763,41 +758,36 @@ class _UpdateCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
                       copy.offlineUpdate,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      detail,
-                      style: TextStyle(fontSize: 13, color: colors.ink3),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                key: offlineUpdateKey,
-                onPressed: onPressed,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: colors.mossFill,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
                   ),
-                ),
-                child: Text(
-                  label,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                  TextButton(
+                    key: offlineUpdateKey,
+                    onPressed: onPressed,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: colors.mossFill,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
+              Text(detail, style: TextStyle(fontSize: 13, color: colors.ink3)),
             ],
           ),
         ),

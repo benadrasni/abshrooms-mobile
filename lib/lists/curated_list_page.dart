@@ -163,7 +163,11 @@ class _CuratedListPageState extends State<CuratedListPage> {
         Navigator.of(context).push(
           guideRoute(
             guideTaxonScreen('genus'),
-            (_) => TaxonPage(kind: 'genus', name: genus),
+            (_) => TaxonPage(
+              kind: 'genus',
+              name: genus,
+              backLabel: widget.list.title,
+            ),
           ),
         );
       };

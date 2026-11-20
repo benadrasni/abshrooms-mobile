@@ -346,6 +346,7 @@ class _SpeciesPageState extends State<SpeciesPage> {
             title: copy.classification,
             system: copy.taxonomySystem,
             lines: ranks,
+            backLabel: title,
           ),
         ),
       SliverToBoxAdapter(
@@ -1927,11 +1928,15 @@ class _Taxonomy extends StatelessWidget {
   final String system;
   final List<_TaxonLine> lines;
 
+  /// The species heading, shown on the family or genus page opened from here.
+  final String backLabel;
+
   const _Taxonomy({
     super.key,
     required this.title,
     required this.system,
     required this.lines,
+    required this.backLabel,
   });
 
   @override
@@ -1965,7 +1970,7 @@ class _Taxonomy extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          for (final line in lines) _TaxonRow(line: line),
+          for (final line in lines) _TaxonRow(line: line, backLabel: backLabel),
         ],
       ),
     );
@@ -1974,8 +1979,9 @@ class _Taxonomy extends StatelessWidget {
 
 class _TaxonRow extends StatelessWidget {
   final _TaxonLine line;
+  final String backLabel;
 
-  const _TaxonRow({required this.line});
+  const _TaxonRow({required this.line, required this.backLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -2003,7 +2009,11 @@ class _TaxonRow extends StatelessWidget {
       onTap: () => Navigator.of(context).push(
         guideRoute(
           guideTaxonScreen(line.rank),
-          (_) => TaxonPage(kind: line.rank, name: line.latin),
+          (_) => TaxonPage(
+            kind: line.rank,
+            name: line.latin,
+            backLabel: backLabel,
+          ),
         ),
       ),
       child: text,
@@ -2450,12 +2460,27 @@ class _SourceButton extends StatelessWidget {
                 color: look.plain ? colors.ink : null,
                 colorBlendMode: look.plain ? BlendMode.srcIn : null,
               ),
-              Text(
-                look.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, height: 1.15, color: colors.ink),
+              SizedBox(
+                width: double.infinity,
+                height: 14,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.topCenter,
+                    child: Text(
+                      look.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.15,
+                        color: colors.ink,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
