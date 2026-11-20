@@ -103,6 +103,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   var _previewEpoch = 0;
   var _previewStarting = false;
   RewardedAd? _rewarded;
+  var _showingAd = false;
   var _adLoading = false;
   var _adAttempts = 0;
 
@@ -310,6 +311,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
   /// True when the rewarded view was earned.
   Future<bool> _showRewardedAd() async {
+    if (_showingAd) return false;
     final ad = _rewarded;
     if (ad == null) {
       _adAttempts = 0;
@@ -318,41 +320,62 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       _snack(GuideScope.of(context).copy.adLoading);
       return false;
     }
+    if (!mounted || rewardedAdAccountId() == null) return false;
+    _showingAd = true;
+    _rewarded = null;
     try {
-      await tieRewardedAd(ad);
-    } catch (error) {
-      debugPrint('camera ad: $error');
-      if (mounted) _snack(GuideScope.of(context).copy.adLoading);
-      return false;
-    }
-    final done = Completer<void>();
-    var earned = false;
-    var dismissed = false;
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        dismissed = true;
-        if (_rewarded == ad) _rewarded = null;
-        _ensureAd();
-        if (!done.isCompleted) done.complete();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
+      var tied = false;
+      try {
+        tied = await tieRewardedAd(ad);
+      } catch (error) {
         debugPrint('camera ad: $error');
         ad.dispose();
-        if (_rewarded == ad) _rewarded = null;
-        _ensureAd();
+        if (mounted) {
+          _snack(GuideScope.of(context).copy.adLoading);
+          _ensureAd();
+        }
+        return false;
+      }
+      if (!tied || !mounted || rewardedAdAccountId() == null) {
+        ad.dispose();
+        return false;
+      }
+      final done = Completer<void>();
+      var earned = false;
+      var dismissed = false;
+      ad.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (shown) {
+          shown.dispose();
+          dismissed = true;
+          _ensureAd();
+          if (!done.isCompleted) done.complete();
+        },
+        onAdFailedToShowFullScreenContent: (shown, error) {
+          debugPrint('camera ad: $error');
+          shown.dispose();
+          _ensureAd();
+          if (!done.isCompleted) done.complete();
+        },
+      );
+      try {
+        await ad.show(
+          onUserEarnedReward: (shown, reward) {
+            earned = true;
+          },
+        );
+      } catch (error) {
+        debugPrint('camera ad: $error');
+        ad.dispose();
         if (!done.isCompleted) done.complete();
-      },
-    );
-    _rewarded = null;
-    await ad.show(
-      onUserEarnedReward: (ad, reward) {
-        earned = true;
-      },
-    );
-    await done.future;
-    if (dismissed) unawaited(GuideAnalytics.adReward(earned: earned));
-    return earned;
+        _ensureAd();
+        return false;
+      }
+      await done.future;
+      if (dismissed) unawaited(GuideAnalytics.adReward(earned: earned));
+      return earned;
+    } finally {
+      _showingAd = false;
+    }
   }
 
   /// The earned view is on the meter. A slow `admobReward` stays quiet.
