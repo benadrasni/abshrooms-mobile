@@ -607,6 +607,163 @@ void main() {
     expect(copy.count(3), '3 huby');
     expect(copy.count(5), '5 húb');
   });
+
+  test('catalog indexes preserve speciesFor accepted-name and ambiguity rules', () {
+    final catalog = buildCatalog(
+      language: 'en',
+      speciesDocs: [
+        Doc('Alpha one', {
+          'name': 'Alpha one',
+          'taxonomy': {'family': 'Fungiaceae', 'genus': 'Alpha'},
+        }),
+        Doc('Beta two', {
+          'name': 'Beta two',
+          'taxonomy': {'family': 'Fungiaceae', 'genus': 'Beta'},
+        }),
+      ],
+      local: const {},
+      english: const {},
+      synonyms: {
+        'Alpha one': {
+          'homotypic': [
+            {'name': 'Unique syn', 'author': 'A.'},
+            {'name': 'Unique syn', 'author': 'B.'},
+            {'name': 'Shared syn', 'author': 'A.'},
+            {'name': 'Beta two', 'author': 'A.'},
+          ],
+        },
+        'Beta two': {
+          'heterotypic': [
+            {'name': 'Shared syn', 'author': 'B.'},
+          ],
+        },
+      },
+      taxa: const {},
+    );
+
+    expect(catalog.speciesFor('  unique syn  ')?.name, 'Alpha one');
+    expect(catalog.speciesFor('Shared syn'), isNull);
+    // Accepted name wins over a synonym on another species.
+    expect(catalog.speciesFor('Beta two')?.name, 'Beta two');
+    expect(catalog.speciesFor('   '), isNull);
+  });
+
+  test('catalog taxon indexes sort unsorted input and return unmodifiable lists', () {
+    const species = [
+      Species(
+        id: 1,
+        name: 'Boletus reticulatus',
+        author: '',
+        family: 'Boletaceae',
+        genus: 'Boletus',
+        order: '',
+        taxonomy: {},
+        edibility: '',
+        hymenium: '',
+        where: [],
+        colors: [],
+        fruitingFrom: null,
+        fruitingTo: null,
+        capFrom: null,
+        capTo: null,
+        stipeHeightFrom: null,
+        stipeHeightTo: null,
+        stipeThickFrom: null,
+        stipeThickTo: null,
+        illustrationUrl: '',
+        photoUrls: [],
+        synonyms: [],
+      ),
+      Species(
+        id: 2,
+        name: 'Boletus edulis',
+        author: '',
+        family: 'Boletaceae',
+        genus: 'Boletus',
+        order: '',
+        taxonomy: {},
+        edibility: '',
+        hymenium: '',
+        where: [],
+        colors: [],
+        fruitingFrom: null,
+        fruitingTo: null,
+        capFrom: null,
+        capTo: null,
+        stipeHeightFrom: null,
+        stipeHeightTo: null,
+        stipeThickFrom: null,
+        stipeThickTo: null,
+        illustrationUrl: '',
+        photoUrls: [],
+        synonyms: [],
+      ),
+      Species(
+        id: 3,
+        name: 'Chroogomphus rutilus',
+        author: '',
+        family: 'Gomphidiaceae',
+        genus: 'Chroogomphus',
+        order: '',
+        taxonomy: {},
+        edibility: '',
+        hymenium: '',
+        where: [],
+        colors: [],
+        fruitingFrom: null,
+        fruitingTo: null,
+        capFrom: null,
+        capTo: null,
+        stipeHeightFrom: null,
+        stipeHeightTo: null,
+        stipeThickFrom: null,
+        stipeThickTo: null,
+        illustrationUrl: '',
+        photoUrls: [],
+        synonyms: [],
+      ),
+    ];
+    final catalog = Catalog(
+      language: 'sk',
+      species: species,
+      local: const {},
+      english: const {},
+      taxa: const {'Boletus': 'Hríb', 'Chroogomphus': 'Chroogomphus'},
+    );
+
+    expect(
+      catalog.speciesIn('genus', 'Boletus').map((s) => s.name).toList(),
+      ['Boletus edulis', 'Boletus reticulatus'],
+    );
+    expect(catalog.countOf('genus', 'Boletus'), 2);
+    expect(catalog.familyForGenus('Boletus'), 'Boletaceae');
+    expect(catalog.familyForGenus('Missing'), '');
+    // In Slovak collation, 'ch' sorts after 'h' ('hríb' < 'chroogomphus').
+    expect(catalog.namesOf('genus'), ['Boletus', 'Chroogomphus']);
+    expect(() => catalog.namesOf('genus').add('X'), throwsUnsupportedError);
+    expect(
+      () => catalog.speciesIn('genus', 'Boletus').add(species.first),
+      throwsUnsupportedError,
+    );
+  });
+
+  test('cached search index returns stable results across repeated queries', () {
+    final catalog = _catalog();
+    final first = searchSections(catalog, 'hrib');
+    final second = searchSections(catalog, 'hríb');
+    expect(
+      first.mushrooms.map((h) => '${h.name}:${h.score}').toList(),
+      second.mushrooms.map((h) => '${h.name}:${h.score}').toList(),
+    );
+    expect(
+      first.genera.map((h) => '${h.name}:${h.score}').toList(),
+      second.genera.map((h) => '${h.name}:${h.score}').toList(),
+    );
+    expect(
+      searchSections(catalog, 'leccinum').mushrooms.map((h) => h.name).toList(),
+      ['Boletus edulis'],
+    );
+  });
 }
 
 List<int> _jpegSegment(int marker, List<int> payload) {

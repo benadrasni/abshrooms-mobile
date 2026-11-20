@@ -54,8 +54,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     }
     final month = DateTime.now().month;
     final rows = [
-      for (final latin in scope.notebook.favorites)
-        if (catalog.byName(latin) != null) catalog.byName(latin)!,
+      for (final latin in scope.notebook.favorites) ?catalog.byName(latin),
     ];
     int byName(Species a, Species b) =>
         catalog.compareTitles(catalog.heading(a), catalog.heading(b));

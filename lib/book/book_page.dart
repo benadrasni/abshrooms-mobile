@@ -159,7 +159,7 @@ class _BookPageState extends State<BookPage> {
         title: title,
         latin: name,
         count: catalog.countOf(kind, name),
-        plate: familyIcon(_plateFamily(catalog, name, family: family)),
+        plate: familyIcon(family ? name : catalog.familyForGenus(name)),
         note: family ? null : _genusNote(catalog, name, seen),
         padding: padding,
         onTap: () => Navigator.of(context).push(
@@ -207,8 +207,7 @@ class _BookPageState extends State<BookPage> {
   ) {
     final favorites =
         [
-          for (final latin in scopeFavorites())
-            if (catalog.byName(latin) != null) catalog.byName(latin)!,
+          for (final latin in scopeFavorites()) ?catalog.byName(latin),
         ]..sort(
           (a, b) =>
               catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
@@ -356,14 +355,6 @@ class _BookPageState extends State<BookPage> {
     if (parts.isEmpty) return null;
     return parts.join(' · ');
   }
-}
-
-String _plateFamily(Catalog catalog, String name, {required bool family}) {
-  if (family) return name;
-  for (final item in catalog.species) {
-    if (item.genus == name && item.family.isNotEmpty) return item.family;
-  }
-  return '';
 }
 
 class _TitleBar extends StatelessWidget {

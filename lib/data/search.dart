@@ -65,15 +65,106 @@ int _compareHits(SearchHit a, SearchHit b) {
   return a.name.compareTo(b.name);
 }
 
+class _TaxonEntry {
+  final String name;
+  final String? label;
+  final String foldedName;
+  final String foldedLabel;
+
+  const _TaxonEntry({
+    required this.name,
+    required this.label,
+    required this.foldedName,
+    required this.foldedLabel,
+  });
+}
+
+class _SpeciesEntry {
+  final String name;
+  final String? label;
+  final String family;
+  final List<String> foldedNames;
+
+  const _SpeciesEntry({
+    required this.name,
+    required this.label,
+    required this.family,
+    required this.foldedNames,
+  });
+}
+
+class _SearchIndex {
+  final List<_TaxonEntry> families;
+  final List<_TaxonEntry> genera;
+  final List<_SpeciesEntry> mushrooms;
+
+  const _SearchIndex({
+    required this.families,
+    required this.genera,
+    required this.mushrooms,
+  });
+}
+
+final _searchIndexes = Expando<_SearchIndex>('catalog_search_index');
+
+_SearchIndex _indexFor(Catalog catalog) {
+  final existing = _searchIndexes[catalog];
+  if (existing != null) return existing;
+
+  _TaxonEntry taxonEntry(String name) {
+    final spoken = catalog.taxonVernacular(name);
+    return _TaxonEntry(
+      name: name,
+      label: spoken.isEmpty ? null : spoken,
+      foldedName: foldName(name),
+      foldedLabel: spoken.isEmpty ? '' : foldName(spoken),
+    );
+  }
+
+  final families = [
+    for (final name in catalog.namesOf('family')) taxonEntry(name),
+  ];
+  final genera = [
+    for (final name in catalog.namesOf('genus')) taxonEntry(name),
+  ];
+  final mushrooms = <_SpeciesEntry>[];
+  for (final species in catalog.species) {
+    final own = catalog.local[species.name];
+    final label = own?.label;
+    final foldedNames = <String>[
+      foldName(species.name),
+      if (label != null) foldName(label),
+      if (own != null)
+        for (final name in own.names) foldName(name),
+      for (final synonym in species.synonyms) foldName(synonym.line),
+    ];
+    mushrooms.add(
+      _SpeciesEntry(
+        name: species.name,
+        label: label,
+        family: species.family,
+        foldedNames: foldedNames,
+      ),
+    );
+  }
+  final built = _SearchIndex(
+    families: families,
+    genera: genera,
+    mushrooms: mushrooms,
+  );
+  _searchIndexes[catalog] = built;
+  return built;
+}
+
 List<SearchHit> _matches(Catalog catalog, String query) {
   final needle = foldName(query);
   if (needle.length < 2) return const [];
+  final index = _indexFor(catalog);
   final hits = <SearchHit>[];
 
-  void rankTaxon(String kind, String name) {
-    final spoken = catalog.taxonVernacular(name);
-    final folded = foldName(name);
-    final spokenFold = foldName(spoken);
+  void rankTaxon(String kind, _TaxonEntry entry) {
+    final folded = entry.foldedName;
+    final spokenFold = entry.foldedLabel;
     var score = 99;
     if (folded == needle || (spokenFold.isNotEmpty && spokenFold == needle)) {
       score = 0;
@@ -88,31 +179,23 @@ List<SearchHit> _matches(Catalog catalog, String query) {
       hits.add(
         SearchHit(
           kind: kind,
-          name: name,
-          label: spoken.isEmpty ? null : spoken,
+          name: entry.name,
+          label: entry.label,
           score: score,
         ),
       );
     }
   }
 
-  for (final name in catalog.namesOf('family')) {
-    rankTaxon('family', name);
+  for (final entry in index.families) {
+    rankTaxon('family', entry);
   }
-  for (final name in catalog.namesOf('genus')) {
-    rankTaxon('genus', name);
+  for (final entry in index.genera) {
+    rankTaxon('genus', entry);
   }
-  for (final species in catalog.species) {
-    final text = catalog.textFor(species);
-    final names = <String>[
-      species.name,
-      if (text.label != null) text.label!,
-      ...text.names,
-      ...species.synonymLines,
-    ];
+  for (final entry in index.mushrooms) {
     var mushroomScore = 99;
-    for (final name in names) {
-      final folded = foldName(name);
+    for (final folded in entry.foldedNames) {
       final score = folded == needle
           ? 0
           : folded.startsWith(needle)
@@ -120,15 +203,18 @@ List<SearchHit> _matches(Catalog catalog, String query) {
           : folded.contains(needle)
           ? 2
           : 99;
-      if (score < mushroomScore) mushroomScore = score;
+      if (score < mushroomScore) {
+        mushroomScore = score;
+        if (mushroomScore == 0) break;
+      }
     }
     if (mushroomScore < 99) {
       hits.add(
         SearchHit(
           kind: 'mushroom',
-          name: species.name,
-          label: text.label,
-          family: species.family,
+          name: entry.name,
+          label: entry.label,
+          family: entry.family,
           score: mushroomScore + 3,
         ),
       );

@@ -520,7 +520,7 @@ String foldName(String value) {
 
 /// Book order. Slovak keeps č, ľ, and the ch digraph in alphabet order.
 int compareTitle(String a, String b, String language) {
-  return _sortKey(a, language).compareTo(_sortKey(b, language));
+  return titleSortKey(a, language).compareTo(titleSortKey(b, language));
 }
 
 const _slovakOrder = {
@@ -569,7 +569,8 @@ const _slovakOrder = {
   'ž': 'z1',
 };
 
-String _sortKey(String value, String language) {
+/// Collation key used by [compareTitle]. Precompute when sorting a list.
+String titleSortKey(String value, String language) {
   final lower = value.toLowerCase();
   if (language != 'sk') return removeDiacritics(lower);
   final buffer = StringBuffer();

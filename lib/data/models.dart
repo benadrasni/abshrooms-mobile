@@ -199,6 +199,19 @@ class Catalog {
   final Map<String, Translation> english;
   final Map<String, String> taxa;
 
+  late final Map<String, Species> _byLowerName = _indexByLowerName();
+  late final Map<String, Species?> _bySynonym = _indexBySynonym();
+  late final Map<String, List<Species>> _byFamily = _groupBy(
+    (item) => item.family,
+  );
+  late final Map<String, List<Species>> _byGenus = _groupBy(
+    (item) => item.genus,
+  );
+  late final List<String> _families = _sortedNames(_byFamily.keys);
+  late final List<String> _genera = _sortedNames(_byGenus.keys);
+  late final Map<String, String> _genusFamily = _indexGenusFamily();
+  final Map<String, String> _headings = {};
+
   Catalog({
     required this.language,
     required this.species,
@@ -207,14 +220,65 @@ class Catalog {
     required this.taxa,
   });
 
+  Map<String, Species> _indexByLowerName() {
+    final map = <String, Species>{};
+    for (final item in species) {
+      map.putIfAbsent(item.name.toLowerCase(), () => item);
+    }
+    return map;
+  }
+
+  Map<String, Species?> _indexBySynonym() {
+    final map = <String, Species?>{};
+    for (final item in species) {
+      for (final synonym in item.synonyms) {
+        final key = synonym.name.trim().toLowerCase();
+        if (key.isEmpty) continue;
+        if (!map.containsKey(key)) {
+          map[key] = item;
+        } else if (map[key]?.name != item.name) {
+          map[key] = null;
+        }
+      }
+    }
+    return map;
+  }
+
+  Map<String, List<Species>> _groupBy(String Function(Species) pick) {
+    final buckets = <String, List<Species>>{};
+    for (final item in species) {
+      (buckets[pick(item)] ??= <Species>[]).add(item);
+    }
+    return {
+      for (final entry in buckets.entries)
+        entry.key: List<Species>.unmodifiable(
+          entry.value..sort((a, b) => a.name.compareTo(b.name)),
+        ),
+    };
+  }
+
+  List<String> _sortedNames(Iterable<String> keys) {
+    final keyed = <(String, String)>[
+      for (final name in keys)
+        if (name.isNotEmpty) (name, titleSortKey(taxonTitle(name), language)),
+    ];
+    keyed.sort((a, b) => a.$2.compareTo(b.$2));
+    return List<String>.unmodifiable([for (final entry in keyed) entry.$1]);
+  }
+
+  Map<String, String> _indexGenusFamily() {
+    final map = <String, String>{};
+    for (final item in species) {
+      if (item.genus.isNotEmpty && item.family.isNotEmpty) {
+        map.putIfAbsent(item.genus, () => item.family);
+      }
+    }
+    return map;
+  }
+
   int compareTitles(String a, String b) => compareTitle(a, b, language);
 
-  Species? byName(String name) {
-    for (final item in species) {
-      if (item.name.toLowerCase() == name.toLowerCase()) return item;
-    }
-    return null;
-  }
+  Species? byName(String name) => _byLowerName[name.toLowerCase()];
 
   /// The catalog species for this Latin name.
   ///
@@ -225,16 +289,7 @@ class Catalog {
     if (trimmed.isEmpty) return null;
     final exact = byName(trimmed);
     if (exact != null) return exact;
-    final key = trimmed.toLowerCase();
-    Species? found;
-    for (final item in species) {
-      for (final synonym in item.synonyms) {
-        if (synonym.name.trim().toLowerCase() != key) continue;
-        if (found != null && found.name != item.name) return null;
-        found = item;
-      }
-    }
-    return found;
+    return _bySynonym[trimmed.toLowerCase()];
   }
 
   SpeciesText textFor(Species species) {
@@ -282,36 +337,23 @@ class Catalog {
   }
 
   String heading(Species species) {
-    return titleFor(textFor(species).label, species.name, language);
+    return _headings.putIfAbsent(
+      species.name,
+      () => titleFor(local[species.name]?.label, species.name, language),
+    );
   }
 
-  List<String> namesOf(String kind) {
-    final names = <String>{};
-    for (final item in species) {
-      final name = kind == 'family' ? item.family : item.genus;
-      if (name.isNotEmpty) names.add(name);
-    }
-    final list = names.toList();
-    list.sort((a, b) => compareTitles(taxonTitle(a), taxonTitle(b)));
-    return list;
-  }
+  List<String> namesOf(String kind) =>
+      kind == 'family' ? _families : _genera;
 
-  int countOf(String kind, String name) {
-    var count = 0;
-    for (final item in species) {
-      final value = kind == 'family' ? item.family : item.genus;
-      if (value == name) count += 1;
-    }
-    return count;
-  }
+  int countOf(String kind, String name) => speciesIn(kind, name).length;
 
   List<Species> speciesIn(String kind, String name) {
-    final rows = species.where((item) {
-      return (kind == 'family' ? item.family : item.genus) == name;
-    }).toList();
-    rows.sort((a, b) => a.name.compareTo(b.name));
-    return rows;
+    return (kind == 'family' ? _byFamily[name] : _byGenus[name]) ?? const [];
   }
+
+  /// Family name for [genus], or empty when unknown.
+  String familyForGenus(String genus) => _genusFamily[genus] ?? '';
 }
 
 class Doc {

@@ -160,7 +160,9 @@ class _SearchPageState extends State<SearchPage> {
     return _ResultRow(
       title: title,
       latin: spoken ? hit.name : null,
-      url: familyIcon(_plateFamily(catalog, hit)),
+      url: familyIcon(
+        hit.kind == 'family' ? hit.name : catalog.familyForGenus(hit.name),
+      ),
       plate: true,
       count: catalog.countOf(hit.kind, hit.name),
       onTap: () {
@@ -178,14 +180,6 @@ class _SearchPageState extends State<SearchPage> {
       },
     );
   }
-}
-
-String _plateFamily(Catalog catalog, SearchHit hit) {
-  if (hit.kind == 'family') return hit.name;
-  for (final item in catalog.species) {
-    if (item.genus == hit.name && item.family.isNotEmpty) return item.family;
-  }
-  return '';
 }
 
 class _BackButton extends StatelessWidget {

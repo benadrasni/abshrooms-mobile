@@ -46,8 +46,7 @@ class FindPage extends StatelessWidget {
     final fresh = newInBook(catalog.species);
     final favorites =
         [
-          for (final latin in scope.notebook.favorites)
-            if (catalog.byName(latin) != null) catalog.byName(latin)!,
+          for (final latin in scope.notebook.favorites) ?catalog.byName(latin),
         ]..sort(
           (a, b) =>
               catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
