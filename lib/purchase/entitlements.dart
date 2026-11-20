@@ -63,11 +63,14 @@ class Entitlements {
   /// Applies [uid], or clears the account when it is null.
   ///
   /// An unverified password is null, the same check [Auth.appUser] uses.
-  /// Store reads wait until Firebase is up, so a test can adopt a uid.
+  /// [userChanges] runs before [Auth.publish], so the store calls read the
+  /// Firebase user directly. Store reads wait until Firebase is up, so a
+  /// test can adopt a uid.
   static void _adopt(String? uid) {
     if (uid == _uid) return;
     _stopDoc();
     _uid = uid;
+    Purchases.clearStoreReceipts();
     Purchases.setLifetimeSubscription(false);
     Purchases.clearAccountProducts();
     if (uid == null || Firebase.apps.isEmpty) return;

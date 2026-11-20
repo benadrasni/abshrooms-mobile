@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:whats_that_mushroom/field_guide/catalog.dart';
 import 'package:whats_that_mushroom/purchase/account_entitlements.dart';
 import 'package:whats_that_mushroom/purchase/entitlements.dart';
@@ -61,6 +62,32 @@ void main() {
     Purchases.replaceAccountProducts({fieldGuideMonthlyPlay});
     expect(Purchases.fieldGuideOnThisStore, isFalse);
     expect(Purchases.owned, {fieldGuideMonthlyPlay});
+  });
+
+  test('a store receipt does not follow the next account', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    Entitlements.debugOnAccount(
+      uid: 'ada',
+      emailVerified: true,
+      providerIds: const ['password'],
+    );
+    Purchases.purchases[fieldGuideMonthlyPlay] = PurchaseDetails(
+      productID: fieldGuideMonthlyPlay,
+      verificationData: PurchaseVerificationData(
+        localVerificationData: 'local',
+        serverVerificationData: 'server',
+        source: 'google_play',
+      ),
+      transactionDate: '1',
+      status: PurchaseStatus.purchased,
+    );
+    Purchases.noteStoreReceipt();
+    expect(Purchases.fieldGuideOnThisStore, isTrue);
+
+    Entitlements.debugOnAccount(uid: null);
+    expect(Purchases.purchases, isEmpty);
+    expect(Purchases.fieldGuideOnThisStore, isFalse);
   });
 
   test('an unverified password user is not an entitled account', () {

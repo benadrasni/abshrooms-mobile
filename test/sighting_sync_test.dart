@@ -6,6 +6,13 @@ import 'package:whats_that_mushroom/seen/publish.dart';
 import 'package:whats_that_mushroom/seen/share.dart';
 
 void main() {
+  test('a sighting sync stops when the account changes', () {
+    expect(sightingSyncStillAccount('ada', 'ada'), isTrue);
+    expect(sightingSyncStillAccount('ada', 'bee'), isFalse);
+    expect(sightingSyncStillAccount('ada', null), isFalse);
+    expect(sightingSyncStillAccount('', 'ada'), isFalse);
+  });
+
   test('an account sighting is added when the phone has no copy', () {
     const photo = 'sightings/uid/1792940884503884.jpg';
     final next = mergeAccountSightings(const [], [
@@ -24,7 +31,10 @@ void main() {
     expect(next.single.millis, 1687699986000);
     expect(next.single.confirmed, isTrue);
     expect(next.single.share, FindShare.shared);
-    expect(next.single.photoPath, contains('sightings%2Fpublic%2F1792940884503884.jpg'));
+    expect(
+      next.single.photoPath,
+      contains('sightings%2Fpublic%2F1792940884503884.jpg'),
+    );
     expect(next.single.photoPath, isNot(contains('uid')));
     expect(seenPhotoOnPhone(next.single.photoPath), isFalse);
   });

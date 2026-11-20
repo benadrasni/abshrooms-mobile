@@ -89,7 +89,8 @@ class Purchases {
   /// A Field Guide receipt from the store on this phone.
   static bool get fieldGuideOnThisStore {
     final ids = FieldGuideIds.forPlatform(defaultTargetPlatform);
-    return purchases.containsKey(ids.monthly) || purchases.containsKey(ids.yearly);
+    return purchases.containsKey(ids.monthly) ||
+        purchases.containsKey(ids.yearly);
   }
 
   /// The plan arrived from the account. This phone cannot change it.
@@ -98,7 +99,8 @@ class Purchases {
 
   static void replaceAccountProducts(Set<String> ids) {
     final next = ids.where(FieldGuideIds.isFieldGuide).toSet();
-    if (next.length == accountProducts.length && accountProducts.containsAll(next)) {
+    if (next.length == accountProducts.length &&
+        accountProducts.containsAll(next)) {
       return;
     }
     accountProducts
@@ -109,6 +111,13 @@ class Purchases {
 
   static void clearAccountProducts() {
     replaceAccountProducts(<String>{});
+  }
+
+  /// Drops this phone's store receipt. The next account must not keep it.
+  static void clearStoreReceipts() {
+    if (purchases.isEmpty) return;
+    purchases.clear();
+    revision.value++;
   }
 
   /// A purchase just made. The page can show it before the server answers.

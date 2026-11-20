@@ -95,7 +95,9 @@ class FieldGuideBilling {
           purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored;
       if (granted && FieldGuideIds.isFieldGuide(id)) {
+        // Finish only after the receipt is verified or saved for this account.
         unawaited(_confirm(purchase));
+        continue;
       } else if (purchase.status == PurchaseStatus.error &&
           !storePurchaseCanceled(purchase)) {
         Purchases.noteFailure();
@@ -112,30 +114,46 @@ class FieldGuideBilling {
   Future<void> _confirm(PurchaseDetails purchase) async {
     final id = purchase.productID;
     final bought = purchase.status == PurchaseStatus.purchased;
+    // Empty when the purchase arrived signed out. The proof stays queued
+    // for that case and is not applied to whoever signs in during the check.
+    final accountId = currentStoreUid() ?? '';
     // Plants flips the page when the store purchase arrives. The check still
     // runs, and a refusal takes the plan back off. A restore waits for it,
     // so a canceled plan does not flash on launch.
-    if (bought) Purchases.grantStorePurchase(id);
-    final outcome = await submitStorePurchase(purchase);
-    final confirmed =
-        outcome.result == StoreProofResult.accepted &&
-        outcome.products[id] == true;
-    if (confirmed) {
-      Purchases.purchases[id] = purchase;
-      Purchases.noteStoreReceipt();
-      if (bought) unawaited(GuideAnalytics.purchase(id));
-      return;
+    var outcome = const StoreProofOutcome(StoreProofResult.deferred);
+    try {
+      if (bought && accountId.isNotEmpty) Purchases.grantStorePurchase(id);
+      outcome = await submitStorePurchase(purchase, accountId: accountId);
+      if (!storePurchaseStillAccount(accountId, currentStoreUid())) return;
+      final confirmed =
+          outcome.result == StoreProofResult.accepted &&
+          outcome.products[id] == true;
+      if (confirmed) {
+        Purchases.purchases[id] = purchase;
+        Purchases.noteStoreReceipt();
+        if (bought) unawaited(GuideAnalytics.purchase(id));
+        return;
+      }
+      if (bought) Purchases.revokeStorePurchase(id);
+      if (outcome.responseLost) {
+        unawaited(Entitlements.recoverLostSubmit(id));
+        return;
+      }
+      if (storePurchaseNotesFailure(
+        bought: bought,
+        result: outcome.result,
+        responseLost: outcome.responseLost,
+      )) {
+        Purchases.noteFailure();
+        unawaited(
+          GuideAnalytics.purchaseFailed(productId: id, reason: 'rejected'),
+        );
+      }
+    } finally {
+      if (outcome.readyToFinish && purchase.pendingCompletePurchase) {
+        await _complete(purchase);
+      }
     }
-    if (bought) Purchases.revokeStorePurchase(id);
-    if (outcome.responseLost) {
-      unawaited(Entitlements.recoverLostSubmit(id));
-      return;
-    }
-    if (!bought || outcome.result == StoreProofResult.deferred) {
-      return;
-    }
-    Purchases.noteFailure();
-    unawaited(GuideAnalytics.purchaseFailed(productId: id, reason: 'rejected'));
   }
 
   Future<void> _complete(PurchaseDetails purchase) async {
@@ -145,6 +163,23 @@ class FieldGuideBilling {
       debugPrint('purchase finish: $error');
     }
   }
+}
+
+/// Local grant, receipt, and failure belong to the account that started the
+/// purchase. Empty [accountId] is a signed-out purchase.
+bool storePurchaseStillAccount(String accountId, String? current) {
+  if (accountId.isEmpty) return current == null;
+  return current == accountId;
+}
+
+/// A bought plan the server refused. A deferred or lost response is not one.
+bool storePurchaseNotesFailure({
+  required bool bought,
+  required StoreProofResult result,
+  required bool responseLost,
+}) {
+  if (!bought || responseLost) return false;
+  return result == StoreProofResult.rejected;
 }
 
 Future<bool> restoreFieldGuidePurchases() async {

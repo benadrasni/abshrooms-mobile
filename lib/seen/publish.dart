@@ -127,6 +127,11 @@ Future<bool> deleteSighting(FindRecord find) async {
 /// that copy, so Seen stays on In review after the sighting is accepted.
 const sightingGetOptions = GetOptions(source: Source.server);
 
+/// The notebook write belongs to [uid] only while that account is still signed in.
+bool sightingSyncStillAccount(String uid, String? current) {
+  return uid.isNotEmpty && current == uid;
+}
+
 /// Copies this account's Sightings onto the notebook.
 ///
 /// A document that is not already on the phone is added, with its photo
@@ -136,21 +141,26 @@ const sightingGetOptions = GetOptions(source: Source.server);
 /// that publishes the find under another catalog name replaces the name
 /// on the phone. The same list is not written again.
 /// The read asks the server. Offline, this keeps the notebook as it is.
+/// A sign-out or a different account during the read leaves the notebook.
 Future<void> syncSightings(Notebook notebook) async {
   try {
     final user = _account();
     if (user == null) return;
+    final uid = user.uid;
     final snap = await FirebaseFirestore.instance
         .collection('sightings')
-        .where('uid', isEqualTo: user.uid)
+        .where('uid', isEqualTo: uid)
         .get(sightingGetOptions);
+    if (!sightingSyncStillAccount(uid, _account()?.uid)) return;
     final remote = [
       for (final doc in snap.docs)
         (id: doc.id, data: Map<String, dynamic>.from(doc.data())),
     ];
     await _cacheOwnerDownloadUrls(remote);
+    if (!sightingSyncStillAccount(uid, _account()?.uid)) return;
     final next = mergeAccountSightings(notebook.finds, remote);
     if (identical(next, notebook.finds)) return;
+    if (!sightingSyncStillAccount(uid, _account()?.uid)) return;
     await notebook.replaceAll(next);
   } catch (error) {
     debugPrint('seen share sync: $error');
@@ -368,8 +378,9 @@ String _objectPath(String uid, String id) => 'sightings/$uid/$id.jpg';
 /// Puts [code] on the public card when that card exists and differs.
 /// A card that is not published yet is left alone.
 Future<void> _copyPublicCountry(String id, String code) async {
-  final card =
-      FirebaseFirestore.instance.collection('sightings_public').doc(id);
+  final card = FirebaseFirestore.instance
+      .collection('sightings_public')
+      .doc(id);
   final snap = await card.get(sightingGetOptions);
   if (!snap.exists) return;
   if (statCountry(snap.data()?['country']) == code) return;
@@ -461,10 +472,7 @@ Future<bool> _removeSighting(String id) async {
         .doc(id)
         .delete();
     final storage = sightingStorage();
-    for (final path in [
-      publicSightingObject(id),
-      _objectPath(user.uid, id),
-    ]) {
+    for (final path in [publicSightingObject(id), _objectPath(user.uid, id)]) {
       if (path.isEmpty) continue;
       try {
         await storage.ref(path).delete();
