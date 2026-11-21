@@ -24,6 +24,15 @@ const fieldGuideRestoreKey = Key('fieldGuideRestore');
 const fieldGuideYearlyKey = Key('fieldGuideYearly');
 const fieldGuideMonthlyKey = Key('fieldGuideMonthly');
 
+/// Extra asks after the first store answer has no price. Play can report the
+/// client as not ready, and the next query is what connects it again.
+const fieldGuidePriceRetries = 3;
+const fieldGuidePriceRetryDelay = Duration(milliseconds: 600);
+
+bool fieldGuidePricesMissing(FieldGuideCatalog catalog) {
+  return catalog.yearly.price == null || catalog.monthly.price == null;
+}
+
 /// Field Guide: yearly and monthly, with the store price on each row.
 /// A monthly plan bought on this phone can change to yearly.
 class FieldGuidePage extends StatefulWidget {
@@ -31,6 +40,7 @@ class FieldGuidePage extends StatefulWidget {
   final Future<bool> Function(FieldGuidePlan plan)? buy;
   final Future<void> Function()? restore;
   final WidgetBuilder? plate;
+  final Duration priceRetry;
 
   const FieldGuidePage({
     super.key,
@@ -38,13 +48,15 @@ class FieldGuidePage extends StatefulWidget {
     this.buy,
     this.restore,
     this.plate,
+    this.priceRetry = fieldGuidePriceRetryDelay,
   });
 
   @override
   State<FieldGuidePage> createState() => _FieldGuidePageState();
 }
 
-class _FieldGuidePageState extends State<FieldGuidePage> {
+class _FieldGuidePageState extends State<FieldGuidePage>
+    with WidgetsBindingObserver {
   FieldGuideLoaded? _loaded;
   FieldGuidePlan _plan = FieldGuidePlan.yearly;
   var _planChosen = false;
@@ -55,11 +67,13 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
   var _ticket = 0;
   var _failures = 0;
   var _viewed = false;
+  var _priceTries = 0;
 
   @override
   void initState() {
     super.initState();
     _failures = Purchases.failures.value;
+    WidgetsBinding.instance.addObserver(this);
     Purchases.revision.addListener(_onPlan);
     Purchases.failures.addListener(_onFailure);
     unawaited(_load());
@@ -67,9 +81,18 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     Purchases.revision.removeListener(_onPlan);
     Purchases.failures.removeListener(_onFailure);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted || _busy) return;
+    final loaded = _loaded;
+    if (loaded != null && !fieldGuidePricesMissing(loaded.catalog)) return;
+    unawaited(_load());
   }
 
   void _onPlan() {
@@ -89,11 +112,22 @@ class _FieldGuidePageState extends State<FieldGuidePage> {
     setState(() => _error = GuideScope.of(context).copy.purchaseFailed);
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool again = false}) async {
+    if (!again) _priceTries = 0;
     final ticket = ++_ticket;
     try {
       final loaded = await (widget.load ?? loadFieldGuide)();
       if (!mounted || ticket != _ticket) return;
+      // An empty answer is not the end. The client often connects on the
+      // next query, and publishing this one would lock Subscribe on
+      // "Store price" until the process is killed.
+      if (fieldGuidePricesMissing(loaded.catalog) &&
+          _priceTries < fieldGuidePriceRetries) {
+        _priceTries++;
+        await Future<void>.delayed(widget.priceRetry);
+        if (!mounted || ticket != _ticket) return;
+        return _load(again: true);
+      }
       setState(() {
         _loaded = loaded;
         _awaitingPrices = false;
@@ -545,23 +579,43 @@ extension on FieldGuideIds {
   }
 }
 
-Future<FieldGuideLoaded> loadFieldGuide() async {
+Future<FieldGuideLoaded> loadFieldGuide() {
   final ids = FieldGuideIds.forPlatform(defaultTargetPlatform);
   final store = InAppPurchase.instance;
-  final owned = Set<String>.of(Purchases.owned);
-  final available = await store.isAvailable();
-  if (!available) {
-    return fieldGuideFromStore(
-      ids: ids,
-      storeAvailable: false,
-      products: const [],
-      owned: owned,
+  return loadFieldGuideCatalog(
+    ids: ids,
+    owned: Set<String>.of(Purchases.owned),
+    storeAvailable: store.isAvailable,
+    query: store.queryProductDetails,
+  );
+}
+
+/// Asks the store for both plans. [storeAvailable] being false is not a
+/// reason to stop: after Play disconnects, `isReady` stays false until a
+/// product query reports that and the plugin connects again.
+Future<FieldGuideLoaded> loadFieldGuideCatalog({
+  required FieldGuideIds ids,
+  required Set<String> owned,
+  required Future<bool> Function() storeAvailable,
+  required Future<ProductDetailsResponse> Function(Set<String> productIds)
+  query,
+}) async {
+  var available = false;
+  try {
+    available = await storeAvailable();
+  } catch (error) {
+    debugPrint('field guide store: $error');
+  }
+  final response = await query({ids.monthly, ids.yearly});
+  if (response.notFoundIDs.isNotEmpty || response.error != null) {
+    debugPrint(
+      'field guide products: notFound=${response.notFoundIDs} '
+      'error=${response.error?.message}',
     );
   }
-  final response = await store.queryProductDetails({ids.monthly, ids.yearly});
   return fieldGuideFromStore(
     ids: ids,
-    storeAvailable: true,
+    storeAvailable: available || response.productDetails.isNotEmpty,
     products: response.productDetails,
     owned: owned,
     error: response.error?.message,
