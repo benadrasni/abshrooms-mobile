@@ -29,8 +29,14 @@ const fieldGuideMonthlyKey = Key('fieldGuideMonthly');
 const fieldGuidePriceRetries = 3;
 const fieldGuidePriceRetryDelay = Duration(milliseconds: 600);
 
-bool fieldGuidePricesMissing(FieldGuideCatalog catalog) {
-  return catalog.yearly.price == null || catalog.monthly.price == null;
+/// Both prices are missing and the person can still buy. One configured plan
+/// is enough to show, and an owned guide does not need another store query.
+bool fieldGuideShouldRetryPrices(
+  FieldGuideCatalog catalog, {
+  required bool locked,
+}) {
+  if (locked) return false;
+  return catalog.yearly.price == null && catalog.monthly.price == null;
 }
 
 /// Field Guide: yearly and monthly, with the store price on each row.
@@ -67,7 +73,7 @@ class _FieldGuidePageState extends State<FieldGuidePage>
   var _ticket = 0;
   var _failures = 0;
   var _viewed = false;
-  var _priceTries = 0;
+  var _loading = false;
 
   @override
   void initState() {
@@ -89,9 +95,17 @@ class _FieldGuidePageState extends State<FieldGuidePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted || _busy) return;
+    if (state != AppLifecycleState.resumed || !mounted || _busy || _loading) {
+      return;
+    }
     final loaded = _loaded;
-    if (loaded != null && !fieldGuidePricesMissing(loaded.catalog)) return;
+    if (loaded != null &&
+        !fieldGuideShouldRetryPrices(
+          loaded.catalog,
+          locked: _access(loaded.catalog).locked,
+        )) {
+      return;
+    }
     unawaited(_load());
   }
 
@@ -112,22 +126,35 @@ class _FieldGuidePageState extends State<FieldGuidePage>
     setState(() => _error = GuideScope.of(context).copy.purchaseFailed);
   }
 
-  Future<void> _load({bool again = false}) async {
-    if (!again) _priceTries = 0;
+  Future<void> _load() async {
+    if (_loading) return;
+    _loading = true;
     final ticket = ++_ticket;
+    if (mounted && _failed) {
+      setState(() {
+        _failed = false;
+        _awaitingPrices = true;
+      });
+    }
     try {
-      final loaded = await (widget.load ?? loadFieldGuide)();
-      if (!mounted || ticket != _ticket) return;
-      // An empty answer is not the end. The client often connects on the
-      // next query, and publishing this one would lock Subscribe on
-      // "Store price" until the process is killed.
-      if (fieldGuidePricesMissing(loaded.catalog) &&
-          _priceTries < fieldGuidePriceRetries) {
-        _priceTries++;
+      // One ticket covers every attempt. An empty answer stays unpublished
+      // so Subscribe is not left on "Store price" while Play reconnects.
+      FieldGuideLoaded? latest;
+      for (var attempt = 0; attempt <= fieldGuidePriceRetries; attempt++) {
+        latest = await (widget.load ?? loadFieldGuide)();
+        if (!mounted || ticket != _ticket) return;
+        final again =
+            attempt < fieldGuidePriceRetries &&
+            fieldGuideShouldRetryPrices(
+              latest.catalog,
+              locked: _access(latest.catalog).locked,
+            );
+        if (!again) break;
         await Future<void>.delayed(widget.priceRetry);
         if (!mounted || ticket != _ticket) return;
-        return _load(again: true);
       }
+      final loaded = latest!;
+      if (!mounted || ticket != _ticket) return;
       setState(() {
         _loaded = loaded;
         _awaitingPrices = false;
@@ -149,6 +176,8 @@ class _FieldGuidePageState extends State<FieldGuidePage>
         _failed = _loaded == null;
         _awaitingPrices = false;
       });
+    } finally {
+      if (ticket == _ticket) _loading = false;
     }
   }
 
@@ -606,7 +635,22 @@ Future<FieldGuideLoaded> loadFieldGuideCatalog({
   } catch (error) {
     debugPrint('field guide store: $error');
   }
-  final response = await query({ids.monthly, ids.yearly});
+  // A thrown query is an empty catalog. The page then retries, and a last
+  // failure stays on the plans with "Store price" instead of the full-screen
+  // load error.
+  final ProductDetailsResponse response;
+  try {
+    response = await query({ids.monthly, ids.yearly});
+  } catch (error) {
+    debugPrint('field guide products: $error');
+    return fieldGuideFromStore(
+      ids: ids,
+      storeAvailable: available,
+      products: const [],
+      owned: owned,
+      error: '$error',
+    );
+  }
   if (response.notFoundIDs.isNotEmpty || response.error != null) {
     debugPrint(
       'field guide products: notFound=${response.notFoundIDs} '

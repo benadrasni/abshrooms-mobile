@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,23 +20,20 @@ void main() {
   tearDown(Purchases.resetForTest);
 
   test('a yearly trial is chosen ahead of a monthly-billed plan', () {
-    final pick = fieldGuidePick(
-      [
-        const FieldGuideCandidate(
-          recurringPrice: r'$24.99',
-          recurringRaw: 24.99,
-          period: 'P1M',
-          trial: false,
-        ),
-        const FieldGuideCandidate(
-          recurringPrice: r'$24.99',
-          recurringRaw: 24.99,
-          period: 'P1Y',
-          trial: true,
-        ),
-      ],
-      yearly: true,
-    );
+    final pick = fieldGuidePick([
+      const FieldGuideCandidate(
+        recurringPrice: r'$24.99',
+        recurringRaw: 24.99,
+        period: 'P1M',
+        trial: false,
+      ),
+      const FieldGuideCandidate(
+        recurringPrice: r'$24.99',
+        recurringRaw: 24.99,
+        period: 'P1Y',
+        trial: true,
+      ),
+    ], yearly: true);
     expect(pick?.index, 1);
     expect(pick?.trial, isTrue);
     expect(pick?.period, 'P1Y');
@@ -84,6 +83,78 @@ void main() {
       );
     },
   );
+
+  test('a disconnected store is still asked for the prices', () async {
+    var queried = false;
+    final loaded = await loadFieldGuideCatalog(
+      ids: ids,
+      owned: const {},
+      storeAvailable: () async => false,
+      query: (productIds) async {
+        queried = true;
+        expect(productIds, {ids.monthly, ids.yearly});
+        return ProductDetailsResponse(
+          productDetails: [
+            ProductDetails(
+              id: ids.yearly,
+              title: 'Yearly',
+              description: '',
+              price: r'$24.99',
+              rawPrice: 24.99,
+              currencyCode: 'USD',
+            ),
+            ProductDetails(
+              id: ids.monthly,
+              title: 'Monthly',
+              description: '',
+              price: r'$2.99',
+              rawPrice: 2.99,
+              currencyCode: 'USD',
+            ),
+          ],
+          notFoundIDs: const [],
+        );
+      },
+    );
+    expect(queried, isTrue);
+    expect(loaded.catalog.storeAvailable, isTrue);
+    expect(loaded.catalog.yearly.price, r'$24.99');
+    expect(loaded.catalog.monthly.price, r'$2.99');
+  });
+
+  test('a store query that throws is an empty catalog', () async {
+    final loaded = await loadFieldGuideCatalog(
+      ids: ids,
+      owned: const {},
+      storeAvailable: () async => throw StateError('down'),
+      query: (productIds) async => throw StateError('disconnected'),
+    );
+    expect(loaded.catalog.storeAvailable, isFalse);
+    expect(loaded.catalog.yearly.price, isNull);
+    expect(loaded.catalog.monthly.price, isNull);
+    expect(loaded.catalog.error, contains('disconnected'));
+  });
+
+  test('missing prices are retried only when the plan can still be bought', () {
+    final empty = fieldGuideCatalog(
+      ids: ids,
+      storeAvailable: false,
+      yearlyPrice: null,
+      monthlyPrice: null,
+      owned: const {},
+    );
+    expect(fieldGuideShouldRetryPrices(empty, locked: false), isTrue);
+    expect(fieldGuideShouldRetryPrices(empty, locked: true), isFalse);
+
+    final yearlyOnly = fieldGuideCatalog(
+      ids: ids,
+      storeAvailable: true,
+      yearlyPrice: r'$24.99',
+      monthlyPrice: null,
+      owned: const {},
+    );
+    expect(fieldGuideShouldRetryPrices(yearlyOnly, locked: false), isFalse);
+  });
 
   test('the store row keeps the paid price and buys the free phase', () {
     final loaded = fieldGuideFromStore(
@@ -209,6 +280,265 @@ void main() {
     expect(bought, FieldGuidePlan.monthly);
   });
 
+  testWidgets('a second store answer shows the prices and enables Subscribe', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var calls = 0;
+    var bought = false;
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          priceRetry: Duration.zero,
+          load: () async {
+            calls++;
+            if (calls == 1) {
+              return FieldGuideLoaded(
+                catalog: fieldGuideCatalog(
+                  ids: ids,
+                  storeAvailable: false,
+                  yearlyPrice: null,
+                  monthlyPrice: null,
+                  owned: const {},
+                ),
+              );
+            }
+            return FieldGuideLoaded(
+              catalog: fieldGuideCatalog(
+                ids: ids,
+                storeAvailable: true,
+                yearlyPrice: r'$24.99',
+                monthlyPrice: r'$2.99',
+                owned: const {},
+              ),
+            );
+          },
+          buy: (plan) async {
+            bought = plan == FieldGuidePlan.yearly;
+            return true;
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Store price'), findsNothing);
+    expect(find.text('Subscribe'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    expect(find.text('Store price'), findsNothing);
+    expect(find.text(r'$24.99'), findsOneWidget);
+    expect(find.text(r'$2.99'), findsOneWidget);
+
+    await tester.tap(find.text('Subscribe'));
+    await tester.pump();
+    expect(bought, isTrue);
+  });
+
+  testWidgets('retries stop and the plans show Store price', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var calls = 0;
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          priceRetry: Duration.zero,
+          load: () async {
+            calls++;
+            return _unpriced();
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, fieldGuidePriceRetries + 1);
+    expect(find.text('Store price'), findsNWidgets(2));
+    expect(
+      find.text('The store doesn’t have these plans yet.'),
+      findsOneWidget,
+    );
+    expect(find.text('Subscribe'), findsOneWidget);
+  });
+
+  testWidgets('one priced plan is shown without another store query', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var calls = 0;
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          priceRetry: Duration.zero,
+          load: () async {
+            calls++;
+            return FieldGuideLoaded(
+              catalog: fieldGuideCatalog(
+                ids: ids,
+                storeAvailable: true,
+                yearlyPrice: r'$24.99',
+                monthlyPrice: null,
+                owned: const {},
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+    expect(find.text(r'$24.99'), findsOneWidget);
+    expect(find.text('Store price'), findsOneWidget);
+  });
+
+  testWidgets('an owned guide does not keep asking the store for prices', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var calls = 0;
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          priceRetry: Duration.zero,
+          load: () async {
+            calls++;
+            return FieldGuideLoaded(
+              catalog: fieldGuideCatalog(
+                ids: ids,
+                storeAvailable: false,
+                yearlyPrice: null,
+                monthlyPrice: null,
+                owned: {ids.yearly},
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+    expect(find.text('You already have Field Guide.'), findsOneWidget);
+    expect(find.text('Subscribed'), findsWidgets);
+  });
+
+  testWidgets('coming back reloads missing prices and leaves loaded ones', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var calls = 0;
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          priceRetry: Duration.zero,
+          load: () async {
+            calls++;
+            if (calls <= fieldGuidePriceRetries + 1) return _unpriced();
+            return _priced();
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, fieldGuidePriceRetries + 1);
+    expect(find.text('Store price'), findsNWidgets(2));
+
+    await _resume(tester);
+    await tester.pumpAndSettle();
+    expect(calls, fieldGuidePriceRetries + 2);
+    expect(find.text('Store price'), findsNothing);
+    expect(find.text(r'$24.99'), findsOneWidget);
+    expect(find.text(r'$2.99'), findsOneWidget);
+
+    await _resume(tester);
+    await tester.pumpAndSettle();
+    expect(calls, fieldGuidePriceRetries + 2);
+  });
+
+  testWidgets('coming back during the first load does not query again', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final gate = Completer<FieldGuideLoaded>();
+    var calls = 0;
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          load: () {
+            calls++;
+            return gate.future;
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(calls, 1);
+
+    await _resume(tester);
+    expect(calls, 1);
+
+    gate.complete(_priced());
+    await tester.pumpAndSettle();
+    expect(find.text(r'$24.99'), findsOneWidget);
+    expect(calls, 1);
+  });
+
+  testWidgets('Try again leaves the error and shows the plans loading', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final gate = Completer<FieldGuideLoaded>();
+    var calls = 0;
+    await tester.pumpWidget(
+      _host(
+        FieldGuidePage(
+          plate: (_) => const SizedBox.shrink(),
+          load: () async {
+            calls++;
+            if (calls == 1) throw StateError('down');
+            return gate.future;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Couldn’t load this.'), findsOneWidget);
+
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(find.text('Couldn’t load this.'), findsNothing);
+    expect(find.text('Field Guide'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsWidgets);
+
+    gate.complete(_priced());
+    await tester.pumpAndSettle();
+    expect(find.text(r'$24.99'), findsOneWidget);
+  });
+
   testWidgets('an owned plan says subscribed', (tester) async {
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1;
@@ -332,6 +662,37 @@ void main() {
     expect(_planBorderWidth(tester, fieldGuideMonthlyKey), 1);
     expect(find.text('Subscribed'), findsWidgets);
   });
+}
+
+FieldGuideLoaded _unpriced() {
+  return FieldGuideLoaded(
+    catalog: fieldGuideCatalog(
+      ids: FieldGuideIds.play,
+      storeAvailable: false,
+      yearlyPrice: null,
+      monthlyPrice: null,
+      owned: const {},
+    ),
+  );
+}
+
+FieldGuideLoaded _priced() {
+  return FieldGuideLoaded(
+    catalog: fieldGuideCatalog(
+      ids: FieldGuideIds.play,
+      storeAvailable: true,
+      yearlyPrice: r'$24.99',
+      monthlyPrice: r'$2.99',
+      owned: const {},
+    ),
+  );
+}
+
+Future<void> _resume(WidgetTester tester) async {
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+  await tester.pump();
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  await tester.pump();
 }
 
 double _planBorderWidth(WidgetTester tester, Key key) {
