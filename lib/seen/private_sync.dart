@@ -163,9 +163,13 @@ class PrivateSyncPlan {
 }
 
 /// Merges [remote] into [local]. A row already synced to [uid] and missing
-/// from a server snapshot is removed when [allowDrops] is set. A cache
-/// snapshot leaves those rows. [deletedLocal] was removed on this phone
-/// and must not come back from an older snapshot.
+/// from a server snapshot is removed when [allowDrops] is set, unless it is
+/// still in [awaitingServer] waiting for its first server snapshot after an
+/// upload on this phone. A cache or pending-write snapshot leaves those rows.
+/// [pendingRemote] holds docs whose local write has not reached the server yet,
+/// so they are never treated as synced or dropped on a rollback.
+/// [deletedLocal] was removed on this phone and must not come back from an
+/// older snapshot.
 PrivateSyncPlan planPrivateSync({
   required String uid,
   required List<FindRecord> local,
@@ -174,6 +178,8 @@ PrivateSyncPlan planPrivateSync({
   required Set<String> deletedLocal,
   required bool Function(String? path) onPhone,
   required int now,
+  Set<String> pendingRemote = const {},
+  Set<String> awaitingServer = const {},
 }) {
   final next = <FindRecord>[];
   final upload = <FindRecord>[];
@@ -192,9 +198,15 @@ PrivateSyncPlan planPrivateSync({
       next.add(find);
       continue;
     }
+    if (pendingRemote.contains(find.id)) {
+      next.add(find);
+      continue;
+    }
     final data = remote[find.id];
     if (data == null) {
-      if (find.syncedUid == uid && allowDrops) {
+      if (find.syncedUid == uid &&
+          allowDrops &&
+          !awaitingServer.contains(find.id)) {
         changed = true;
         if (onPhone(find.photoPath)) deleteFiles.add(find.photoPath!);
         continue;
@@ -394,6 +406,10 @@ class PrivateNotebookSync {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
   String? _uid;
   Map<String, Map<String, dynamic>> _remote = {};
+  Set<String> _pendingRemote = {};
+  Set<String> _confirmedRemoteIds = {};
+  final Set<String> _awaitingServer = {};
+  final Map<String, int> _failedUploads = {};
   final Set<String> _gone = {};
   var _applying = false;
   var _pushing = false;
@@ -441,6 +457,10 @@ class PrivateNotebookSync {
     _sub = null;
     _uid = null;
     _remote = {};
+    _pendingRemote = {};
+    _confirmedRemoteIds = {};
+    _awaitingServer.clear();
+    _failedUploads.clear();
     _gone.clear();
   }
 
@@ -457,7 +477,7 @@ class PrivateNotebookSync {
     if (uid == null) return;
     final ids = {for (final find in notebook.finds) find.id};
     var marked = false;
-    for (final id in _remote.keys) {
+    for (final id in {..._remote.keys, ..._awaitingServer}) {
       if (id.isEmpty || ids.contains(id)) continue;
       if (_gone.add(id)) marked = true;
     }
@@ -490,8 +510,23 @@ class PrivateNotebookSync {
     QuerySnapshot<Map<String, dynamic>> snap,
   ) async {
     if (_uid != uid || _stopped || !Purchases.hasFieldGuide()) return;
-    _remote = {for (final doc in snap.docs) doc.id: doc.data()};
-    final allowDrops = !snap.metadata.isFromCache;
+    final pending = <String>{};
+    final confirmed = <String, Map<String, dynamic>>{};
+    for (final doc in snap.docs) {
+      if (doc.metadata.hasPendingWrites) {
+        pending.add(doc.id);
+      } else {
+        confirmed[doc.id] = doc.data();
+      }
+    }
+    _remote = confirmed;
+    _pendingRemote = pending;
+    if (!snap.metadata.isFromCache) {
+      _confirmedRemoteIds = confirmed.keys.toSet();
+      _awaitingServer.removeAll(confirmed.keys);
+    }
+    final allowDrops =
+        !snap.metadata.isFromCache && !snap.metadata.hasPendingWrites;
     // File deletes wait. A find removed on this phone during that wait
     // must not be written back from the plan taken before the delete.
     final dropping = _plan(uid, allowDrops);
@@ -527,6 +562,8 @@ class PrivateNotebookSync {
       deletedLocal: _gone,
       onPhone: seenPhotoOnPhone,
       now: DateTime.now().millisecondsSinceEpoch,
+      pendingRemote: _pendingRemote,
+      awaitingServer: _awaitingServer,
     );
   }
 
@@ -557,6 +594,9 @@ class PrivateNotebookSync {
       if (_uid != uid || _stopped) return;
       if (!deleted) continue;
       _remote.remove(id);
+      _awaitingServer.remove(id);
+      _confirmedRemoteIds.remove(id);
+      _failedUploads.remove(id);
       if (_gone.remove(id)) forgot = true;
     }
     if (forgot) _rememberGone(uid);
@@ -564,10 +604,16 @@ class PrivateNotebookSync {
     final done = <FindRecord>[];
     for (final find in plan.upload) {
       if (_uid != uid) return;
+      if (_failedUploads[find.id] == find.updated) continue;
       try {
         await _upload(uid, find);
+        _failedUploads.remove(find.id);
+        if (!_confirmedRemoteIds.contains(find.id)) {
+          _awaitingServer.add(find.id);
+        }
         done.add(find);
       } catch (error) {
+        _failedUploads[find.id] = find.updated;
         debugPrint('private find ${find.id}: $error');
       }
     }

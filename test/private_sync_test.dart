@@ -484,4 +484,119 @@ void main() {
       expect(readPrivateTombstones(dir, 'ada'), isEmpty);
     },
   );
+
+  test(
+    'a pending local write does not mark a new find synced, so a rollback keeps it',
+    () {
+      const path = '/tmp/finds/new1.jpg';
+      final added = FindRecord(
+        id: 'new1',
+        millis: 100,
+        updated: 100,
+        latin: 'Boletus edulis',
+        photoPath: path,
+        confirmed: true,
+      );
+      // Optimistic local snapshot while set() is in flight: doc has
+      // hasPendingWrites == true, so it sits in pendingRemote, not remote.
+      final pending = planPrivateSync(
+        uid: 'ada',
+        local: [added],
+        remote: const {},
+        allowDrops: false,
+        deletedLocal: const {},
+        onPhone: (file) => file == path,
+        now: _now,
+        pendingRemote: {'new1'},
+      );
+      expect(pending.changed, isFalse);
+      expect(pending.upload, isEmpty);
+      expect(pending.deleteFiles, isEmpty);
+      expect(pending.finds.single.syncedUid, isNull);
+
+      // Server rejects set() and rolls back: server snapshot lacks new1.
+      final rollback = planPrivateSync(
+        uid: 'ada',
+        local: pending.finds,
+        remote: const {},
+        allowDrops: true,
+        deletedLocal: const {},
+        onPhone: (file) => file == path,
+        now: _now,
+      );
+      expect(rollback.deleteFiles, isEmpty);
+      expect(rollback.finds.map((find) => find.id), ['new1']);
+      expect(rollback.finds.single.syncedUid, isNull);
+    },
+  );
+
+  test(
+    'an uploaded find awaiting its first server snapshot is not dropped by an older snapshot',
+    () {
+      const path = '/tmp/finds/new2.jpg';
+      final uploaded = FindRecord(
+        id: 'new2',
+        millis: 100,
+        updated: 100,
+        latin: 'Boletus edulis',
+        photoPath: path,
+        confirmed: true,
+        syncedUid: 'ada',
+      );
+      final stale = planPrivateSync(
+        uid: 'ada',
+        local: [uploaded],
+        remote: const {},
+        allowDrops: true,
+        deletedLocal: const {},
+        onPhone: (file) => file == path,
+        now: _now,
+        awaitingServer: {'new2'},
+      );
+      expect(stale.changed, isFalse);
+      expect(stale.deleteFiles, isEmpty);
+      expect(stale.finds.map((find) => find.id), ['new2']);
+
+      // Once a server snapshot has confirmed new2, a later server delete drops it.
+      final deleted = planPrivateSync(
+        uid: 'ada',
+        local: [uploaded],
+        remote: const {},
+        allowDrops: true,
+        deletedLocal: const {},
+        onPhone: (file) => file == path,
+        now: _now,
+      );
+      expect(deleted.changed, isTrue);
+      expect(deleted.finds, isEmpty);
+      expect(deleted.deleteFiles, [path]);
+    },
+  );
+
+  test('a synced find with a pending local edit is not dropped', () {
+    const path = '/tmp/finds/edit1.jpg';
+    final edited = FindRecord(
+      id: 'edit1',
+      millis: 100,
+      updated: 200,
+      latin: 'Boletus edulis',
+      photoPath: path,
+      confirmed: true,
+      syncedUid: 'ada',
+    );
+    final plan = planPrivateSync(
+      uid: 'ada',
+      local: [edited],
+      remote: const {},
+      allowDrops: true,
+      deletedLocal: const {},
+      onPhone: (file) => file == path,
+      now: _now,
+      pendingRemote: {'edit1'},
+    );
+    expect(plan.changed, isFalse);
+    expect(plan.deleteFiles, isEmpty);
+    expect(plan.upload, isEmpty);
+    expect(plan.finds.map((find) => find.id), ['edit1']);
+  });
 }
