@@ -128,6 +128,11 @@ Future<bool> deleteSighting(FindRecord find) async {
 /// that copy, so Seen stays on In review after the sighting is accepted.
 const sightingGetOptions = GetOptions(source: Source.server);
 
+/// Bumped whenever a sighting is removed or withdrawn on this phone so an
+/// in-flight [syncSightings] read started before that delete cannot put the
+/// deleted row back into the notebook.
+var _sightingMutationEpoch = 0;
+
 /// The notebook write belongs to [uid] only while that account is still signed in.
 bool sightingSyncStillAccount(String uid, String? current) {
   return uid.isNotEmpty && current == uid;
@@ -148,20 +153,24 @@ Future<void> syncSightings(Notebook notebook) async {
     final user = _account();
     if (user == null) return;
     final uid = user.uid;
+    final epoch = _sightingMutationEpoch;
     final snap = await FirebaseFirestore.instance
         .collection('sightings')
         .where('uid', isEqualTo: uid)
         .get(sightingGetOptions);
     if (!sightingSyncStillAccount(uid, _account()?.uid)) return;
+    if (_sightingMutationEpoch != epoch) return;
     final remote = [
       for (final doc in snap.docs)
         (id: doc.id, data: Map<String, dynamic>.from(doc.data())),
     ];
     await _cacheOwnerDownloadUrls(remote);
     if (!sightingSyncStillAccount(uid, _account()?.uid)) return;
+    if (_sightingMutationEpoch != epoch) return;
     final next = mergeAccountSightings(notebook.finds, remote);
     if (identical(next, notebook.finds)) return;
     if (!sightingSyncStillAccount(uid, _account()?.uid)) return;
+    if (_sightingMutationEpoch != epoch) return;
     await notebook.replaceAll(next);
   } catch (error) {
     debugPrint('seen share sync: $error');
@@ -462,6 +471,7 @@ User? _account() {
 }
 
 Future<bool> _removeSighting(String id) async {
+  _sightingMutationEpoch++;
   try {
     final user = _account();
     if (user == null || id.isEmpty) return false;

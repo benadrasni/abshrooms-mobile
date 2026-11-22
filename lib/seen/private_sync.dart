@@ -409,6 +409,8 @@ class PrivateNotebookSync {
   Set<String> _pendingRemote = {};
   Set<String> _confirmedRemoteIds = {};
   final Set<String> _awaitingServer = {};
+  final Set<String> _uploading = {};
+  final Set<String> _remoteDeleted = {};
   final Map<String, int> _failedUploads = {};
   final Set<String> _gone = {};
   var _applying = false;
@@ -460,6 +462,8 @@ class PrivateNotebookSync {
     _pendingRemote = {};
     _confirmedRemoteIds = {};
     _awaitingServer.clear();
+    _uploading.clear();
+    _remoteDeleted.clear();
     _failedUploads.clear();
     _gone.clear();
   }
@@ -477,7 +481,12 @@ class PrivateNotebookSync {
     if (uid == null) return;
     final ids = {for (final find in notebook.finds) find.id};
     var marked = false;
-    for (final id in {..._remote.keys, ..._awaitingServer}) {
+    for (final id in {
+      ..._remote.keys,
+      ..._pendingRemote,
+      ..._awaitingServer,
+      ..._uploading,
+    }) {
       if (id.isEmpty || ids.contains(id)) continue;
       if (_gone.add(id)) marked = true;
     }
@@ -527,6 +536,20 @@ class PrivateNotebookSync {
     }
     final allowDrops =
         !snap.metadata.isFromCache && !snap.metadata.hasPendingWrites;
+    if (allowDrops) {
+      final cleared = [
+        for (final id in _gone)
+          if (!confirmed.containsKey(id) &&
+              !pending.contains(id) &&
+              !_uploading.contains(id))
+            id,
+      ];
+      if (cleared.isNotEmpty) {
+        _gone.removeAll(cleared);
+        _remoteDeleted.removeAll(cleared);
+        _rememberGone(uid);
+      }
+    }
     // File deletes wait. A find removed on this phone during that wait
     // must not be written back from the plan taken before the delete.
     final dropping = _plan(uid, allowDrops);
@@ -587,9 +610,9 @@ class PrivateNotebookSync {
     final uid = _uid;
     if (uid == null || _stopped || !Purchases.hasFieldGuide()) return;
     final plan = _plan(uid, false);
-    var forgot = false;
     for (final id in plan.deleteRemote) {
       if (_uid != uid || _stopped) return;
+      if (_remoteDeleted.contains(id)) continue;
       final deleted = await _deleteRemote(uid, id);
       if (_uid != uid || _stopped) return;
       if (!deleted) continue;
@@ -597,17 +620,22 @@ class PrivateNotebookSync {
       _awaitingServer.remove(id);
       _confirmedRemoteIds.remove(id);
       _failedUploads.remove(id);
-      if (_gone.remove(id)) forgot = true;
+      _remoteDeleted.add(id);
     }
-    if (forgot) _rememberGone(uid);
     if (plan.upload.isEmpty) return;
     final done = <FindRecord>[];
     for (final find in plan.upload) {
       if (_uid != uid) return;
+      if (_gone.contains(find.id)) continue;
       if (_failedUploads[find.id] == find.updated) continue;
+      _uploading.add(find.id);
       try {
-        await _upload(uid, find);
+        final kept = await _upload(uid, find);
         _failedUploads.remove(find.id);
+        if (!kept || _gone.contains(find.id)) {
+          _pushAgain = true;
+          continue;
+        }
         if (!_confirmedRemoteIds.contains(find.id)) {
           _awaitingServer.add(find.id);
         }
@@ -615,6 +643,8 @@ class PrivateNotebookSync {
       } catch (error) {
         _failedUploads[find.id] = find.updated;
         debugPrint('private find ${find.id}: $error');
+      } finally {
+        _uploading.remove(find.id);
       }
     }
     if (done.isEmpty || _uid != uid) return;
@@ -638,14 +668,28 @@ class PrivateNotebookSync {
     }
   }
 
-  Future<void> _upload(String uid, FindRecord find) async {
+  Future<bool> _upload(String uid, FindRecord find) async {
     final data = privateFindData(find);
     final object = privatePhotoObject(uid, find.id);
+    var uploadedPhoto = false;
     if (object.isNotEmpty && seenPhotoOnPhone(find.photoPath)) {
       await sightingStorage()
           .ref(object)
           .putFile(File(find.photoPath!), sightingJpegMetadata());
       data['photo'] = object;
+      uploadedPhoto = true;
+    }
+    if (_uid != uid || _stopped || _gone.contains(find.id)) {
+      if (uploadedPhoto) {
+        try {
+          await sightingStorage().ref(object).delete();
+        } on FirebaseException catch (error) {
+          if (error.code != 'object-not-found') {
+            debugPrint('private photo delete ${find.id}: $error');
+          }
+        }
+      }
+      return false;
     }
     await FirebaseFirestore.instance
         .collection('users')
@@ -654,6 +698,7 @@ class PrivateNotebookSync {
         .doc(find.id)
         .set(data);
     _remote[find.id] = data;
+    return !_gone.contains(find.id);
   }
 
   Future<void> _fetchPhotos(
