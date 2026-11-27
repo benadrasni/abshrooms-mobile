@@ -95,7 +95,10 @@ class _TaxonPageState extends State<TaxonPage> {
     final caption = seenCount > 0
         ? '${copy.countNoun(rows.length)} · ${copy.youHaveSeen(seenCount)}'
         : copy.countNoun(rows.length);
-    final columns = taxonGridColumns(MediaQuery.sizeOf(context));
+    final columns = GuideFold.across(
+      context,
+      taxonGridColumns(MediaQuery.sizeOf(context)),
+    );
     return Scaffold(
       backgroundColor: colors.paper,
       body: SafeArea(
@@ -108,31 +111,34 @@ class _TaxonPageState extends State<TaxonPage> {
                   _BackButton(label: backLabel),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontFamily: GuideType.display,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 28,
-                            height: 1.1,
-                            color: colors.ink,
-                          ),
-                        ),
-                        if (showLatin)
+                    child: GuideFoldLeading(
+                      originX: 20,
+                      child: (_) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            widget.name,
-                            style: GuideType.latin(colors).copyWith(
-                              fontSize: 15,
-                              height: 1.3,
-                              color: colors.ink3,
+                            title,
+                            style: TextStyle(
+                              fontFamily: GuideType.display,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 28,
+                              height: 1.1,
+                              color: colors.ink,
                             ),
                           ),
-                        const SizedBox(height: 10),
-                        _CountLine(count: rows.length, caption: caption),
-                      ],
+                          if (showLatin)
+                            Text(
+                              widget.name,
+                              style: GuideType.latin(colors).copyWith(
+                                fontSize: 15,
+                                height: 1.3,
+                                color: colors.ink3,
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                          _CountLine(count: rows.length, caption: caption),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -176,29 +182,27 @@ class _TaxonPageState extends State<TaxonPage> {
     final copy = GuideScope.of(context).copy;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontFamily: GuideType.sans,
-                fontSize: 12,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w600,
-                color: colors.ink3,
-              ),
-            ),
+      child: guideFoldEnds(
+        originX: 20,
+        leading: (context) => Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontFamily: GuideType.sans,
+            fontSize: 12,
+            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
           ),
-          if (controls)
-            _ViewSwitch(
-              photos: copy.photos,
-              plates: copy.plates,
-              platesOn: _plates,
-              onPhotos: () => setState(() => _plates = false),
-              onPlates: () => setState(() => _plates = true),
-            ),
-        ],
+        ),
+        trailing: controls
+            ? (context) => _ViewSwitch(
+                photos: copy.photos,
+                plates: copy.plates,
+                platesOn: _plates,
+                onPhotos: () => setState(() => _plates = false),
+                onPlates: () => setState(() => _plates = true),
+              )
+            : null,
       ),
     );
   }

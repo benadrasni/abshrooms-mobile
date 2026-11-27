@@ -5,7 +5,7 @@ import 'package:whats_that_mushroom/book/taxon_page.dart';
 import 'package:whats_that_mushroom/copy.dart';
 import 'package:whats_that_mushroom/data/curated_lists.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
-import 'package:whats_that_mushroom/shell/guide_window.dart';
+import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -42,8 +42,10 @@ class _CuratedListPageState extends State<CuratedListPage> {
         for (final find in scope.notebook.finds)
           if (find.latin != null) find.latin!,
     };
-    final columns = GuideWindow.of(context)
-        .columns(phone: 2, tablet: 3, wide: 4);
+    final columns = GuideFold.across(
+      context,
+      GuideWindow.of(context).columns(phone: 2, tablet: 3, wide: 4),
+    );
     final host = sourceHost(list.sourceUrl);
     return ListPageChrome(
       backLabel: widget.backLabel,

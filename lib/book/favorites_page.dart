@@ -75,7 +75,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
     final caption = seenCount > 0
         ? '${copy.countNoun(rows.length)} · ${copy.youHaveSeen(seenCount)}'
         : copy.countNoun(rows.length);
-    final columns = favoritesGridColumns(MediaQuery.sizeOf(context));
+    final columns = GuideFold.across(
+      context,
+      favoritesGridColumns(MediaQuery.sizeOf(context)),
+    );
     return Scaffold(
       backgroundColor: colors.paper,
       body: SafeArea(
@@ -88,22 +91,25 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   _BackButton(label: widget.backLabel),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          copy.favoriteMushrooms,
-                          style: TextStyle(
-                            fontFamily: GuideType.display,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 28,
-                            height: 1.1,
-                            color: colors.ink,
+                    child: GuideFoldLeading(
+                      originX: 20,
+                      child: (_) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            copy.favoriteMushrooms,
+                            style: TextStyle(
+                              fontFamily: GuideType.display,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 28,
+                              height: 1.1,
+                              color: colors.ink,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        _CountLine(count: rows.length, caption: caption),
-                      ],
+                          const SizedBox(height: 10),
+                          _CountLine(count: rows.length, caption: caption),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -160,29 +166,27 @@ class _FavoritesPageState extends State<FavoritesPage> {
     final copy = GuideScope.of(context).copy;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontFamily: GuideType.sans,
-                fontSize: 12,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w600,
-                color: colors.ink3,
-              ),
-            ),
+      child: guideFoldEnds(
+        originX: 20,
+        leading: (context) => Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontFamily: GuideType.sans,
+            fontSize: 12,
+            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
           ),
-          if (controls)
-            _ViewSwitch(
-              photos: copy.photos,
-              plates: copy.plates,
-              platesOn: _plates,
-              onPhotos: () => setState(() => _plates = false),
-              onPlates: () => setState(() => _plates = true),
-            ),
-        ],
+        ),
+        trailing: controls
+            ? (context) => _ViewSwitch(
+                photos: copy.photos,
+                plates: copy.plates,
+                platesOn: _plates,
+                onPhotos: () => setState(() => _plates = false),
+                onPlates: () => setState(() => _plates = true),
+              )
+            : null,
       ),
     );
   }

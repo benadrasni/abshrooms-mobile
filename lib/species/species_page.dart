@@ -171,8 +171,9 @@ class _SpeciesPageState extends State<SpeciesPage> {
     final seen = _seenSummary(scope.notebook, species.name);
     final window = GuideWindow.of(context);
     final size = MediaQuery.sizeOf(context);
-    // A landscape tablet, including one short of the wide bar, puts the
-    // photo and the article side by side. Portrait keeps one column.
+    // Open iPhone Duo landscape is a tablet at about 951 points, short of
+    // the 1000-point wide bar. The photo and the article still sit side by
+    // side, the same split a wide iPad uses. Portrait keeps one column.
     final sideBySide =
         window.wide || (window.tablet && size.width > size.height);
     final galleryHeight = sideBySide ? 440.0 : (window.tablet ? 460.0 : 420.0);
@@ -383,34 +384,70 @@ class _SpeciesPageState extends State<SpeciesPage> {
       child: _JumpBar(chips: chips, onJump: _jump),
     );
     final Widget body;
-    if (sideBySide) {
+    final crease = GuideFold.verticalCrease(context);
+    if (crease != null) {
+      // The crease is the gutter. The name stays on the photo's page, and
+      // the article starts on the other page.
+      body = GuideFoldSplit(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        unsplit: const SizedBox.shrink(),
+        leading: ListView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(context).bottom,
+          ),
+          children: head,
+        ),
+        trailing: CustomScrollView(
+          key: const Key('guide-species-scroll'),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+              sliver: jumps,
+            ),
+            ...tail,
+          ],
+        ),
+      );
+    } else if (sideBySide) {
       // The photo column still runs under the status bar. The article opens
       // with the jump pills, so they take the same top inset the phone cover uses.
+      // On iPhone Duo the clock stands in a side column. That column is the
+      // article's end, and the pills scroll to the end, so they take the
+      // side inset as well.
+      final chrome = GuideChrome.of(context);
+      final side = chrome.vertical ? chrome.side : 0.0;
+      final padding = MediaQuery.paddingOf(context);
       body = Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             flex: 42,
-            child: ListView(
+            child: Padding(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.paddingOf(context).bottom,
+                left: chrome.vertical && !chrome.onRight ? side : 0,
               ),
-              children: head,
+              child: ListView(
+                padding: EdgeInsets.only(bottom: padding.bottom),
+                children: head,
+              ),
             ),
           ),
           Expanded(
             flex: 58,
-            child: CustomScrollView(
-              key: const Key('guide-species-scroll'),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.paddingOf(context).top,
+            child: Padding(
+              padding: EdgeInsets.only(
+                right: chrome.vertical && chrome.onRight ? side : 0,
+              ),
+              child: CustomScrollView(
+                key: const Key('guide-species-scroll'),
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.only(top: padding.top),
+                    sliver: jumps,
                   ),
-                  sliver: jumps,
-                ),
-                ...tail,
-              ],
+                  ...tail,
+                ],
+              ),
             ),
           ),
         ],

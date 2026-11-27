@@ -854,6 +854,27 @@ void main() {
     expect(find.byTooltip('Mark as favorite'), findsOneWidget);
     handle.dispose();
   });
+
+  testWidgets('landscape jump chips stay clear of a side status column', (
+    tester,
+  ) async {
+    const side = 84.0;
+    tester.view.padding = const FakeViewPadding(right: side);
+    tester.view.viewPadding = const FakeViewPadding(right: side);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await _pump(
+      tester,
+      _notebook(),
+      size: const Size(951, 669),
+      text: const {'notes': 'A note about the woods.'},
+    );
+
+    final jumps = tester.getRect(find.byKey(const Key('guide-species-jumps')));
+    expect(jumps.right, lessThanOrEqualTo(951 - side));
+    expect(find.text('Notes'), findsOneWidget);
+    expect(tester.getRect(find.text('Notes')).right, lessThan(951 - side));
+  });
 }
 
 final _jpeg = Uint8List.fromList(img.encodeJpg(img.Image(width: 2, height: 2)));

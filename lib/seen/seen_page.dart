@@ -199,20 +199,15 @@ class _SeenPageState extends State<SeenPage> {
         final kind = line.first.kind;
         final paired = kind == _Kind.confirm || kind == _Kind.find;
         if (paired && _pairs(context)) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // One find in each column. A hinge still splits the two pages.
+          // A short last line keeps the empty column so the card stays half width.
+          return GuideFoldRow(
+            columns: 2,
+            gap: 0,
+            gutter: 0,
             children: [
-              for (var i = 0; i < 2; i++)
-                Expanded(
-                  child: i < line.length
-                      ? _tile(
-                          context,
-                          line[i],
-                          hiding: hiding,
-                          sharedCount: sharedCount,
-                        )
-                      : const SizedBox.shrink(),
-                ),
+              for (final tile in line)
+                _tile(context, tile, hiding: hiding, sharedCount: sharedCount),
             ],
           );
         }
@@ -316,8 +311,11 @@ class _SeenPageState extends State<SeenPage> {
     }
   }
 
-  /// Two finds share a line on a landscape tablet. A phone stays one column.
+  /// Find and confirm cards sit two across when the hinge is open, and in
+  /// landscape on a tablet. That is the open iPhone Duo and an iPad turned
+  /// sideways. Portrait, the closed cover, and a phone stay one column.
   bool _pairs(BuildContext context) {
+    if (GuideFold.verticalCrease(context) != null) return true;
     final size = MediaQuery.sizeOf(context);
     return GuideWindow.of(context).tablet && size.width > size.height;
   }

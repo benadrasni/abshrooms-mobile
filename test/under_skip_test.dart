@@ -88,4 +88,39 @@ void main() {
     expect(find.text('Not clear'), findsNothing);
     expect(find.text('Anywhere'), findsOneWidget);
   });
+
+  testWidgets('portrait inner display keeps underside labels on one line', (
+    tester,
+  ) async {
+    final repository = CatalogRepository()
+      ..data = _catalog()
+      ..loading = false;
+    tester.view.physicalSize = const Size(669, 951);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      GuideScope(
+        catalog: repository,
+        notebook: Notebook(),
+        settings: GuideSettings(),
+        reload: () async {},
+        selectTab: (_) {},
+        child: MaterialApp(
+          theme: guideTheme(Brightness.light),
+          home: const Scaffold(body: FindPage()),
+        ),
+      ),
+    );
+
+    final gills = tester.getTopLeft(find.text('Gills'));
+    final pores = tester.getTopLeft(find.text('Pores'));
+    final ridges = tester.getTopLeft(find.text('Ridges'));
+    expect((pores.dy - gills.dy).abs(), lessThan(8));
+    expect(ridges.dy, greaterThan(gills.dy + 20));
+    // One line. Four pills in this half broke "Enclosed" mid-word.
+    expect(tester.getSize(find.text('Enclosed')).height, lessThan(24));
+    // "a honeycomb" may wrap at the space. A third line is the mid-word break.
+    expect(tester.getSize(find.text('a honeycomb')).height, lessThan(40));
+  });
 }

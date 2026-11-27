@@ -149,8 +149,10 @@ class _BookPageState extends State<BookPage> {
     required bool family,
     required Set<String> seen,
   }) {
-    final columns = GuideWindow.of(context)
-        .columns(phone: 1, tablet: 2, wide: 3);
+    final columns = GuideFold.across(
+      context,
+      GuideWindow.of(context).columns(phone: 1, tablet: 2, wide: 3),
+    );
     Widget row(BuildContext context, int index, EdgeInsetsGeometry padding) {
       final name = names[index];
       final title = catalog.taxonTitle(name);
@@ -206,15 +208,15 @@ class _BookPageState extends State<BookPage> {
     Set<String> seen,
   ) {
     final favorites =
-        [
-          for (final latin in scopeFavorites()) ?catalog.byName(latin),
-        ]..sort(
+        [for (final latin in scopeFavorites()) ?catalog.byName(latin)]..sort(
           (a, b) =>
               catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
         );
     final fresh = newInBook(catalog.species);
-    final columns = GuideWindow.of(context)
-        .columns(phone: 1, tablet: 2, wide: 3);
+    final columns = GuideFold.across(
+      context,
+      GuideWindow.of(context).columns(phone: 1, tablet: 2, wide: 3),
+    );
     final cardPadding = columns == 1
         ? const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 12)
         : const EdgeInsetsDirectional.fromSTEB(10, 0, 10, 12);
@@ -320,15 +322,17 @@ class _BookPageState extends State<BookPage> {
       itemCount: rows,
       itemBuilder: (context, row) {
         final start = row * columns;
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // The sliver is inset by 10, so the crease is measured from there.
+        return GuideFoldRow(
+          columns: columns,
+          gap: 0,
+          gutter: 0,
+          originX: 10,
           children: [
             for (var column = 0; column < columns; column++)
-              Expanded(
-                child: start + column >= count
-                    ? const SizedBox.shrink()
-                    : item(context, start + column),
-              ),
+              start + column >= count
+                  ? const SizedBox.shrink()
+                  : item(context, start + column),
           ],
         );
       },
@@ -442,9 +446,8 @@ class _Segments extends StatelessWidget {
       (BookSegment.genera, copy.genera),
       (BookSegment.lists, copy.lists),
     ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      child: DecoratedBox(
+    Widget bar(List<int> slots) {
+      return DecoratedBox(
         decoration: BoxDecoration(
           color: colors.cream,
           borderRadius: BorderRadius.circular(12),
@@ -454,16 +457,35 @@ class _Segments extends StatelessWidget {
           borderRadius: BorderRadius.circular(11),
           child: Row(
             children: [
-              for (final item in items)
+              for (final slot in slots)
                 Expanded(
                   child: _Segment(
-                    label: item.$2,
-                    selected: segment == item.$1,
-                    onTap: () => onChanged(item.$1),
+                    label: items[slot].$2,
+                    selected: segment == items[slot].$1,
+                    onTap: () => onChanged(items[slot].$1),
                   ),
                 ),
             ],
           ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GuideFoldSplit(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        unsplit: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: bar(const [0, 1, 2]),
+        ),
+        leading: Padding(
+          padding: const EdgeInsetsDirectional.only(start: 20, end: 6),
+          child: bar(const [0, 1]),
+        ),
+        trailing: Padding(
+          padding: const EdgeInsetsDirectional.only(start: 6, end: 20),
+          child: bar(const [2]),
         ),
       ),
     );

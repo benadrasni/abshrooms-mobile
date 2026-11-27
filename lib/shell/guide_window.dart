@@ -1,10 +1,11 @@
 import 'package:flutter/widgets.dart';
 
 /// Field-guide window. A phone stays under a 650-point shortest side. That
-/// is every iPhone and the default widget-test surface when it is 800 by
-/// 600. An iPad in portrait, including the mini at 744 points, uses the
-/// [tablet] layout. A landscape window at least [wideWidth] points across
-/// is [wide] and takes the side rail.
+/// is every iPhone, the outer display of iPhone Duo (about 466 points), and
+/// the default widget-test surface when it is 800 by 600. The inner display
+/// is about 669 points on its short side, so it uses the [tablet] layout,
+/// as does an iPad in portrait, including the mini at 744 points. A landscape
+/// window at least [wideWidth] points across is [wide] and takes the side rail.
 class GuideWindow {
   static const double tabletShortestSide = 650;
   static const double wideWidth = 1000;
@@ -36,7 +37,8 @@ class GuideWindow {
   }
 
   /// Photo grids. A landscape tablet uses [wideCount] even when the window
-  /// is short of [wideWidth], so an iPad mini matches a wide iPad.
+  /// is short of [wideWidth], so an iPad mini and the open iPhone Duo inner
+  /// display match a wide iPad.
   static int photoColumns(
     Size size, {
     int phone = 2,

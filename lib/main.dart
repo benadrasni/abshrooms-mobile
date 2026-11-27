@@ -32,6 +32,7 @@ import 'package:whats_that_mushroom/shell/app_version.dart';
 import 'package:whats_that_mushroom/shell/app_version_check.dart';
 import 'package:whats_that_mushroom/shell/crash_reporting.dart';
 import 'package:whats_that_mushroom/shell/guide_analytics.dart';
+import 'package:whats_that_mushroom/shell/guide_fold.dart';
 import 'package:whats_that_mushroom/shell/guide_links.dart';
 import 'package:whats_that_mushroom/shell/push.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
@@ -618,35 +619,38 @@ class _GuideAppState extends State<GuideApp> with WidgetsBindingObserver {
         title: copy.app,
         debugShowCheckedModeBanner: false,
         builder: (context, child) {
-          return ListenableBuilder(
-            listenable: VersionGateController.instance,
-            builder: (context, navigator) {
-              final blocked =
-                  VersionGateController.instance.prompt == VersionPrompt.block;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  IgnorePointer(
-                    ignoring: blocked,
-                    child: ExcludeFocus(
-                      excluding: blocked,
-                      child: ExcludeSemantics(
+          return GuideFoldHost(
+            child: ListenableBuilder(
+              listenable: VersionGateController.instance,
+              builder: (context, navigator) {
+                final blocked =
+                    VersionGateController.instance.prompt ==
+                    VersionPrompt.block;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    IgnorePointer(
+                      ignoring: blocked,
+                      child: ExcludeFocus(
                         excluding: blocked,
-                        child: navigator ?? const SizedBox.shrink(),
+                        child: ExcludeSemantics(
+                          excluding: blocked,
+                          child: navigator ?? const SizedBox.shrink(),
+                        ),
                       ),
                     ),
-                  ),
-                  if (blocked)
-                    Positioned.fill(
-                      child: VersionRequiredPage(
-                        copy: GuideScope.of(context).copy,
-                        onUpdate: () => openAppUpdate(requiredUpdate: true),
+                    if (blocked)
+                      Positioned.fill(
+                        child: VersionRequiredPage(
+                          copy: GuideScope.of(context).copy,
+                          onUpdate: () => openAppUpdate(requiredUpdate: true),
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
-            child: child,
+                  ],
+                );
+              },
+              child: child,
+            ),
           );
         },
         theme: guideTheme(Brightness.light),

@@ -56,48 +56,51 @@ class ListPageChrome extends StatelessWidget {
                   _BackButton(label: backLabel),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(eyebrow, style: GuideType.eyebrow(colors)),
-                        const SizedBox(height: 4),
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontFamily: GuideType.display,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 30,
-                            height: 1.05,
-                            letterSpacing: -0.4,
-                            color: colors.ink,
-                          ),
-                        ),
-                        if (description.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                    child: GuideFoldLeading(
+                      originX: 20,
+                      child: (context) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(eyebrow, style: GuideType.eyebrow(colors)),
+                          const SizedBox(height: 4),
                           Text(
-                            description,
+                            title,
                             style: TextStyle(
-                              fontFamily: GuideType.sans,
-                              fontSize: 15,
-                              height: 1.4,
-                              color: colors.ink2,
+                              fontFamily: GuideType.display,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 30,
+                              height: 1.05,
+                              letterSpacing: -0.4,
+                              color: colors.ink,
                             ),
                           ),
-                        ],
-                        if (line != null || meta.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          line ??
-                              Text(
-                                meta,
-                                style: TextStyle(
-                                  fontFamily: GuideType.sans,
-                                  fontSize: 14,
-                                  height: 1.3,
-                                  color: colors.ink2,
-                                ),
+                          if (description.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              description,
+                              style: TextStyle(
+                                fontFamily: GuideType.sans,
+                                fontSize: 15,
+                                height: 1.4,
+                                color: colors.ink2,
                               ),
+                            ),
+                          ],
+                          if (line != null || meta.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            line ??
+                                Text(
+                                  meta,
+                                  style: TextStyle(
+                                    fontFamily: GuideType.sans,
+                                    fontSize: 14,
+                                    height: 1.3,
+                                    color: colors.ink2,
+                                  ),
+                                ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -107,14 +110,28 @@ class ListPageChrome extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: _ViewSwitch(
-                      photos: photosLabel,
-                      plates: platesLabel,
-                      platesOn: plates,
-                      onPhotos: onPhotos,
-                      onPlates: onPlates,
+                  child: GuideFoldSplit(
+                    originX: 20,
+                    unsplit: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: _ViewSwitch(
+                        photos: photosLabel,
+                        plates: platesLabel,
+                        platesOn: plates,
+                        onPhotos: onPhotos,
+                        onPlates: onPlates,
+                      ),
+                    ),
+                    leading: const SizedBox.shrink(),
+                    trailing: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: _ViewSwitch(
+                        photos: photosLabel,
+                        plates: platesLabel,
+                        platesOn: plates,
+                        onPhotos: onPhotos,
+                        onPlates: onPlates,
+                      ),
                     ),
                   ),
                 ),
@@ -131,20 +148,19 @@ class ListPageChrome extends StatelessWidget {
 }
 
 /// One row of a species grid. Empty slots keep the last cell from stretching.
-Widget speciesGridRow({required int columns, required List<Widget> cells}) {
-  return Padding(
+///
+/// [originX] is the window position of the row. List screens inset the grid
+/// by 20, and a vertical crease keeps each cell on one page.
+Widget speciesGridRow({
+  required int columns,
+  required List<Widget> cells,
+  double originX = 20,
+}) {
+  return GuideFoldRow(
+    columns: columns,
+    originX: originX,
     padding: const EdgeInsets.only(bottom: 14),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < columns; i++) ...[
-          if (i > 0) const SizedBox(width: 12),
-          Expanded(
-            child: i < cells.length ? cells[i] : const SizedBox.shrink(),
-          ),
-        ],
-      ],
-    ),
+    children: cells,
   );
 }
 

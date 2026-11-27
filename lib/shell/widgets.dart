@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:whats_that_mushroom/ads/app_banner_ad.dart';
@@ -6,11 +8,13 @@ import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/repository.dart';
 import 'package:whats_that_mushroom/data/text.dart';
 import 'package:whats_that_mushroom/offline/offline_book.dart';
+import 'package:whats_that_mushroom/shell/guide_fold.dart';
 import 'package:whats_that_mushroom/shell/guide_tabs.dart';
 import 'package:whats_that_mushroom/shell/guide_window.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 
+export 'package:whats_that_mushroom/shell/guide_fold.dart';
 export 'package:whats_that_mushroom/shell/guide_tabs.dart';
 export 'package:whats_that_mushroom/shell/guide_window.dart';
 
@@ -460,9 +464,11 @@ Widget guideWithRail(
 
 /// Phone tabs stay on the bottom. A wide window uses the leading rail.
 ///
-/// A side status column keeps Find, Book, and Seen in that column. The
-/// content column drops that side's inset so a nested [SafeArea] does not
-/// pad it a second time.
+/// iPhone Duo draws the status bar down one side, and Find, Book, and Seen
+/// sit in that column, under the clock. The content column drops that side's
+/// inset so a nested [SafeArea] does not pad it a second time. There is no
+/// leading rail on that path: the side column is the only tab control. A
+/// partly folded Duo keeps those tabs in equal thirds, with Book on the hinge.
 Widget guideChromeFrame(
   BuildContext context, {
   required Widget child,
@@ -474,6 +480,31 @@ Widget guideChromeFrame(
 }) {
   final wide = GuideWindow.of(context).wide;
   final chrome = GuideChrome.of(context);
+  final crease = GuideFold.verticalCrease(context);
+  if (crease != null && tabs && !wide) {
+    // The hinge crosses the middle of a full-width bar, so Find and Book
+    // stay on the left page and Seen stays on the right.
+    return Scaffold(
+      body: Column(
+        children: [
+          Expanded(
+            child: SafeArea(
+              bottom: false,
+              child: guideWithRail(
+                context,
+                personOn: personOn,
+                showAd: false,
+                onSelect: onSelect,
+                child: child,
+              ),
+            ),
+          ),
+          if (showAd) const AppBannerAd(pinned: true),
+          _GuideFoldTabs(index: index, personOn: personOn, onSelect: onSelect),
+        ],
+      ),
+    );
+  }
   if (chrome.vertical) {
     if (!tabs) {
       return Scaffold(body: SafeArea(child: child));
@@ -563,7 +594,229 @@ Widget guideSheetAlign(BuildContext context, Widget sheet) {
 bool _tabOn(int tab, int? index, bool personOn) =>
     !personOn && index != null && tab == index;
 
-/// Find, Book, and Seen in the side status column.
+/// Find, Book, and Seen in equal thirds. Book is the center of the bar.
+class _GuideFoldTabs extends StatelessWidget {
+  final int? index;
+  final bool personOn;
+  final ValueChanged<int> onSelect;
+
+  const _GuideFoldTabs({
+    required this.index,
+    required this.onSelect,
+    this.personOn = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GuideColors.of(context);
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final rule = BorderSide(color: colors.rule);
+    return ColoredBox(
+      color: colors.cream,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottom),
+        child: SizedBox(
+          height: 60,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final fold = GuideFold.verticalCrease(context, minPage: 80);
+              final placed = fold == null
+                  ? null
+                  : GuideFold.tabCenters(width: width);
+              if (fold == null || placed == null || !width.isFinite) {
+                final copy = GuideScope.of(context).copy;
+                final items = [
+                  (copy.find, Icons.center_focus_weak),
+                  (copy.book, Icons.menu_book_outlined),
+                  (copy.seen, Icons.article_outlined),
+                ];
+                return DecoratedBox(
+                  decoration: BoxDecoration(border: Border(top: rule)),
+                  child: Row(
+                    children: [
+                      for (var tab = 0; tab < items.length; tab++)
+                        Expanded(
+                          child: _foldTabButton(
+                            context,
+                            label: items[tab].$1,
+                            icon: items[tab].$2,
+                            tab: tab,
+                            selected: index,
+                            personOn: personOn,
+                            onSelect: onSelect,
+                            colors: colors,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }
+              final mirror = Directionality.of(context) != TextDirection.ltr;
+              final List<double> centers;
+              final List<int> indexes;
+              if (mirror) {
+                centers = [for (final center in placed) width - center]..sort();
+                indexes = const [2, 1, 0];
+              } else {
+                centers = placed;
+                indexes = const [0, 1, 2];
+              }
+              final creaseLeft = fold.leading;
+              final creaseRight = fold.leading + fold.span;
+              return Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: creaseLeft,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(border: Border(top: rule)),
+                    ),
+                  ),
+                  Positioned(
+                    left: creaseRight,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(border: Border(top: rule)),
+                    ),
+                  ),
+                  for (var slot = 0; slot < 3; slot++)
+                    _foldTabSlot(
+                      context,
+                      width: width,
+                      centers: centers,
+                      indexes: indexes,
+                      slot: slot,
+                      creaseLeft: creaseLeft,
+                      creaseRight: creaseRight,
+                      selected: index,
+                      personOn: personOn,
+                      onSelect: onSelect,
+                      colors: colors,
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One tab. The glyph stays on [centers]. A tab that is off the crease
+/// stops at the hinge. The middle tab is the center, so its target crosses it.
+Widget _foldTabSlot(
+  BuildContext context, {
+  required double width,
+  required List<double> centers,
+  required List<int> indexes,
+  required int slot,
+  required double creaseLeft,
+  required double creaseRight,
+  required int? selected,
+  required bool personOn,
+  required ValueChanged<int> onSelect,
+  required GuideColors colors,
+}) {
+  final center = centers[slot];
+  var left = slot == 0 ? 0.0 : (centers[slot - 1] + center) / 2;
+  var right = slot == 2 ? width : (center + centers[slot + 1]) / 2;
+  if (center <= creaseLeft) {
+    if (right > creaseLeft) right = creaseLeft;
+  } else if (center >= creaseRight && left < creaseRight) {
+    left = creaseRight;
+  }
+  final span = right - left;
+  if (span <= 0) return const SizedBox.shrink();
+  final room = math.min(center - left, right - center);
+  final visual = room <= 0 ? span : math.min(span, room * 2);
+  // Alignment moves the child by a fraction of the spare space, not of the
+  // slot. Dividing by the slot width leaves the glyph short of [center].
+  final spare = (span - visual) / 2;
+  final align = Alignment(
+    spare <= 0 ? 0 : ((center - (left + span / 2)) / spare).clamp(-1.0, 1.0),
+    0,
+  );
+  final tab = indexes[slot];
+  final copy = GuideScope.of(context).copy;
+  final items = [
+    (copy.find, Icons.center_focus_weak),
+    (copy.book, Icons.menu_book_outlined),
+    (copy.seen, Icons.article_outlined),
+  ];
+  return Positioned(
+    left: left,
+    width: span,
+    top: 0,
+    bottom: 0,
+    child: Align(
+      alignment: align,
+      child: SizedBox(
+        width: visual,
+        child: _foldTabButton(
+          context,
+          label: items[tab].$1,
+          icon: items[tab].$2,
+          tab: tab,
+          selected: selected,
+          personOn: personOn,
+          onSelect: onSelect,
+          colors: colors,
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _foldTabButton(
+  BuildContext context, {
+  required String label,
+  required IconData icon,
+  required int tab,
+  required int? selected,
+  required bool personOn,
+  required ValueChanged<int> onSelect,
+  required GuideColors colors,
+}) {
+  final on = _tabOn(tab, selected, personOn);
+  final ink = on ? colors.moss : colors.ink3;
+  return _TabSemantics(
+    label: label,
+    index: tab,
+    selected: on,
+    onPressed: () => onSelect(tab),
+    child: InkWell(
+      onTap: () => onSelect(tab),
+      excludeFromSemantics: true,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 24, color: ink),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+              color: ink,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Find, Book, and Seen in the Duo status column. Bottom-aligned so the
+/// clock and the Dynamic Island keep the top of that column.
 class _GuideSideTabs extends StatelessWidget {
   final int? index;
   final bool personOn;

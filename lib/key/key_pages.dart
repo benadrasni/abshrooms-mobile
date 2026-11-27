@@ -94,36 +94,44 @@ class WherePage extends StatelessWidget {
                 const SizedBox(height: 8),
                 const KeyStepper(filled: 2, steps: 3),
                 const SizedBox(height: 12),
-                Text(copy.whereQuestion, style: GuideType.question(colors)),
-                const SizedBox(height: 14),
-                _WideOption(
-                  label: copy.anyWhere,
-                  count: anywhereCount,
-                  enabled: anywhereCount > 0,
-                  onTap: () => _open(context, ''),
-                ),
-                const SizedBox(height: 8),
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                GuideFoldLeading(
+                  originX: 20,
+                  child: (_) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (var i = 0; i < whereChoices.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 8),
-                        Expanded(
-                          child: _WherePill(
-                            id: whereChoices[i],
-                            label: copy.whereLabel(whereChoices[i]),
-                            example: copy.whereExample(whereChoices[i]),
-                            count: counts[whereChoices[i]] ?? 0,
-                            colors: colors,
-                            onTap: (counts[whereChoices[i]] ?? 0) > 0
-                                ? () => _open(context, whereChoices[i])
-                                : null,
-                          ),
-                        ),
-                      ],
+                      Text(
+                        copy.whereQuestion,
+                        style: GuideType.question(colors),
+                      ),
+                      const SizedBox(height: 14),
+                      _WideOption(
+                        label: copy.anyWhere,
+                        count: anywhereCount,
+                        enabled: anywhereCount > 0,
+                        onTap: () => _open(context, ''),
+                      ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 8),
+                GuideFoldRow(
+                  columns: GuideFold.across(context, whereChoices.length),
+                  gap: 8,
+                  originX: 20,
+                  stretch: true,
+                  children: [
+                    for (final id in whereChoices)
+                      _WherePill(
+                        id: id,
+                        label: copy.whereLabel(id),
+                        example: copy.whereExample(id),
+                        count: counts[id] ?? 0,
+                        colors: colors,
+                        onTap: (counts[id] ?? 0) > 0
+                            ? () => _open(context, id)
+                            : null,
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -459,15 +467,26 @@ class ColorPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 const KeyStepper(filled: 3, steps: 3),
                 const SizedBox(height: 12),
-                Text(copy.colorQuestion, style: GuideType.question(colors)),
-                const SizedBox(height: 6),
-                Text(copy.colorNote, style: GuideType.muted(colors)),
-                const SizedBox(height: 14),
-                _WideOption(
-                  label: copy.anyColor,
-                  count: anyCount,
-                  enabled: anyCount > 0,
-                  onTap: () => _open(context, ''),
+                GuideFoldLeading(
+                  originX: 20,
+                  child: (_) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        copy.colorQuestion,
+                        style: GuideType.question(colors),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(copy.colorNote, style: GuideType.muted(colors)),
+                      const SizedBox(height: 14),
+                      _WideOption(
+                        label: copy.anyColor,
+                        count: anyCount,
+                        enabled: anyCount > 0,
+                        onTap: () => _open(context, ''),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 _ColorGrid(
@@ -505,22 +524,21 @@ class _ColorGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const columns = 4;
+    final columns = GuideFold.across(context, 4);
     final rows = (colorChoices.length + columns - 1) ~/ columns;
     return Column(
       children: [
         for (var row = 0; row < rows; row++) ...[
           if (row > 0) const SizedBox(height: 8),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var column = 0; column < columns; column++) ...[
-                  if (column > 0) const SizedBox(width: 8),
-                  Expanded(child: _cell(row * columns + column)),
-                ],
-              ],
-            ),
+          GuideFoldRow(
+            columns: columns,
+            gap: 8,
+            originX: 20,
+            stretch: true,
+            children: [
+              for (var column = 0; column < columns; column++)
+                _cell(row * columns + column),
+            ],
           ),
         ],
       ],
@@ -787,34 +805,37 @@ class _ResultsPageState extends State<ResultsPage> {
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _CountLine(count: matches.length, caption: caption),
-                        const SizedBox(height: 12),
-                        _SeasonToggle(
-                          label: seasonLabel,
-                          selected: _selection.season.isNotEmpty,
-                          open: _seasonOpen,
-                          onPressed: () =>
-                              setState(() => _seasonOpen = !_seasonOpen),
-                        ),
-                        if (_seasonOpen) ...[
-                          const SizedBox(height: 8),
-                          _SeasonPanel(
-                            copy: copy,
-                            selected: _selection.season,
-                            anyCount: anyCount,
-                            counts: seasonCounts,
-                            onSelect: (id) => setState(() {
-                              _selection = id.isEmpty
-                                  ? _selection.copyWith(season: '')
-                                  : _selection.toggle('season', id);
-                              _seasonOpen = false;
-                            }),
+                    child: GuideFoldLeading(
+                      originX: 20,
+                      child: (_) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _CountLine(count: matches.length, caption: caption),
+                          const SizedBox(height: 12),
+                          _SeasonToggle(
+                            label: seasonLabel,
+                            selected: _selection.season.isNotEmpty,
+                            open: _seasonOpen,
+                            onPressed: () =>
+                                setState(() => _seasonOpen = !_seasonOpen),
                           ),
+                          if (_seasonOpen) ...[
+                            const SizedBox(height: 8),
+                            _SeasonPanel(
+                              copy: copy,
+                              selected: _selection.season,
+                              anyCount: anyCount,
+                              counts: seasonCounts,
+                              onSelect: (id) => setState(() {
+                                _selection = id.isEmpty
+                                    ? _selection.copyWith(season: '')
+                                    : _selection.toggle('season', id);
+                                _seasonOpen = false;
+                              }),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -867,36 +888,40 @@ class _ResultsPageState extends State<ResultsPage> {
     final copy = GuideScope.of(context).copy;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontFamily: GuideType.sans,
-                fontSize: 12,
-                letterSpacing: 1,
-                fontWeight: FontWeight.w600,
-                color: colors.ink3,
-              ),
-            ),
+      child: guideFoldEnds(
+        originX: 20,
+        leading: (context) => Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontFamily: GuideType.sans,
+            fontSize: 12,
+            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            color: colors.ink3,
           ),
-          if (controls)
-            _ResultSwitch(
-              photos: copy.photos,
-              plates: copy.plates,
-              platesOn: _plates,
-              onPhotos: () => setState(() => _plates = false),
-              onPlates: () => setState(() => _plates = true),
-            ),
-        ],
+        ),
+        trailing: controls
+            ? (context) => _ResultSwitch(
+                photos: copy.photos,
+                plates: copy.plates,
+                platesOn: _plates,
+                onPhotos: () => setState(() => _plates = false),
+                onPlates: () => setState(() => _plates = true),
+              )
+            : null,
       ),
     );
   }
 
   List<Widget> _grid(Catalog catalog, List<Species> species, Set<String> seen) {
     final copy = GuideScope.of(context).copy;
-    final columns = GuideWindow.photoColumns(MediaQuery.sizeOf(context));
+    // Open iPhone Duo landscape is a tablet at about 951 points, short of
+    // the 1000-point wide bar. The grid still uses four columns. A crease
+    // turns an odd count even so no cell sits on the hinge.
+    final columns = GuideFold.across(
+      context,
+      GuideWindow.photoColumns(MediaQuery.sizeOf(context)),
+    );
     final rows = <Widget>[];
     for (var i = 0; i < species.length; i += columns) {
       final end = i + columns > species.length ? species.length : i + columns;

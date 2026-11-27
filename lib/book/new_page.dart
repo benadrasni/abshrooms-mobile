@@ -5,7 +5,7 @@ import 'package:whats_that_mushroom/book/list_chrome.dart';
 import 'package:whats_that_mushroom/data/models.dart';
 import 'package:whats_that_mushroom/data/new_book.dart';
 import 'package:whats_that_mushroom/data/text.dart';
-import 'package:whats_that_mushroom/shell/guide_window.dart';
+import 'package:whats_that_mushroom/shell/widgets.dart';
 import 'package:whats_that_mushroom/shell/scope.dart';
 import 'package:whats_that_mushroom/shell/theme.dart';
 import 'package:whats_that_mushroom/species/species_page.dart';
@@ -81,8 +81,10 @@ class _NewPageState extends State<NewPage> {
 
   List<Widget> _body(Catalog? catalog, List<NewDay> days, Set<String> seen) {
     if (catalog == null || days.isEmpty) return const [];
-    final columns = GuideWindow.of(context)
-        .columns(phone: 2, tablet: 3, wide: 4);
+    final columns = GuideFold.across(
+      context,
+      GuideWindow.of(context).columns(phone: 2, tablet: 3, wide: 4),
+    );
     final rows = <Widget>[];
     final pending = <Species>[];
     void flush() {
@@ -154,16 +156,19 @@ class _DateHeader extends StatelessWidget {
     );
     final label =
         word ?? MaterialLocalizations.of(context).formatMediumDate(day.date);
-    return Padding(
-      padding: EdgeInsets.only(top: first ? 4 : 10, bottom: 8),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontFamily: GuideType.sans,
-          fontSize: 12,
-          letterSpacing: 1,
-          fontWeight: FontWeight.w600,
-          color: colors.ink2,
+    return GuideFoldLeading(
+      originX: 20,
+      child: (_) => Padding(
+        padding: EdgeInsets.only(top: first ? 4 : 10, bottom: 8),
+        child: Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontFamily: GuideType.sans,
+            fontSize: 12,
+            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            color: colors.ink2,
+          ),
         ),
       ),
     );

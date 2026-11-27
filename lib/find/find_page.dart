@@ -45,18 +45,18 @@ class FindPage extends StatelessWidget {
     final recent = scope.notebook.finds.take(5).toList();
     final fresh = newInBook(catalog.species);
     final favorites =
-        [
-          for (final latin in scope.notebook.favorites) ?catalog.byName(latin),
-        ]..sort(
-          (a, b) =>
-              catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
-        );
+        [for (final latin in scope.notebook.favorites) ?catalog.byName(latin)]
+          ..sort(
+            (a, b) =>
+                catalog.compareTitles(catalog.heading(a), catalog.heading(b)),
+          );
     final curated = presentCuratedLists(
       scope.curatedLists,
       catalog,
       scope.language,
     );
     final window = GuideWindow.of(context);
+    final crease = GuideFold.verticalCrease(context);
     final search = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Material(
@@ -151,7 +151,14 @@ class FindPage extends StatelessWidget {
           onPerson: () => Navigator.of(context)
               .push(guideRoute(guideScreenPerson, (_) => const PersonPage())),
         ),
-        if (window.tablet)
+        if (crease != null)
+          GuideFoldSplit(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            unsplit: const SizedBox.shrink(),
+            leading: Column(children: [search, camera]),
+            trailing: key,
+          )
+        else if (window.tablet)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -470,38 +477,47 @@ class _KeyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = (_underTiles.length + 3) ~/ 4;
-    return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          KeyStepLine(step: copy.keyStep, free: copy.keyFree),
-          const SizedBox(height: 8),
-          const KeyStepper(filled: 1, steps: 3),
-          const SizedBox(height: 12),
-          Text(copy.underQuestion, style: GuideType.question(colors)),
-          const SizedBox(height: 6),
-          Text(copy.underNote, style: GuideType.muted(colors)),
-          const SizedBox(height: 14),
-          for (var row = 0; row < rows; row++) ...[
-            if (row > 0) const SizedBox(height: 8),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var column = 0; column < 4; column++) ...[
-                    if (column > 0) const SizedBox(width: 8),
-                    Expanded(child: _cell(row * 4 + column)),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _underColumns(constraints.maxWidth);
+        final rows = (_underTiles.length + columns - 1) ~/ columns;
+        return Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              KeyStepLine(step: copy.keyStep, free: copy.keyFree),
+              const SizedBox(height: 8),
+              const KeyStepper(filled: 1, steps: 3),
+              const SizedBox(height: 12),
+              Text(copy.underQuestion, style: GuideType.question(colors)),
+              const SizedBox(height: 6),
+              Text(copy.underNote, style: GuideType.muted(colors)),
+              const SizedBox(height: 14),
+              for (var row = 0; row < rows; row++) ...[
+                if (row > 0) const SizedBox(height: 8),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var column = 0; column < columns; column++) ...[
+                        if (column > 0) const SizedBox(width: 8),
+                        Expanded(child: _cell(row * columns + column)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
+
+  /// Four pills fit a phone. Below this, the portrait inner display has put
+  /// the key in half of about 669 points, and "Enclosed" breaks mid-word.
+  static int _underColumns(double width) => width >= 360 ? 4 : 2;
 
   List<String> get _underTiles => [...underChoices, underSkip];
 
